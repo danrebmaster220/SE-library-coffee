@@ -1,0 +1,733 @@
+import { useState, useEffect } from 'react';
+import api from '../api';
+import '../styles/reports.css';
+
+export default function Reports() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState('orders');
+  
+  // Common filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // Orders report state
+  const [ordersData, setOrdersData] = useState([]);
+  const [orderTypeFilter, setOrderTypeFilter] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  
+  // Sales report state
+  const [salesData, setSalesData] = useState(null);
+  const [salesDetails, setSalesDetails] = useState([]);
+  
+  // Library report state
+  const [libraryData, setLibraryData] = useState([]);
+  const [librarySummary, setLibrarySummary] = useState({ total_sessions: 0, total_revenue: 0, total_hours: 0 });
+  const [sessionStatusFilter, setSessionStatusFilter] = useState('');
+
+  // Pagination states
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [salesPage, setSalesPage] = useState(1);
+  const [libraryPage, setLibraryPage] = useState(1);
+  const rowsPerPage = 10;
+
+  // Set default dates to today
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setStartDate(weekAgo);
+    setEndDate(today);
+  }, []);
+
+  // Fetch data when tab or filters change
+  useEffect(() => {
+    if (startDate && endDate) {
+      fetchReportData();
+    }
+  }, [activeTab, startDate, endDate]);
+
+  const fetchReportData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'orders') {
+        await fetchOrdersReport();
+      } else if (activeTab === 'sales') {
+        await fetchSalesReport();
+      } else if (activeTab === 'library') {
+        await fetchLibraryReport();
+      }
+    } catch (error) {
+      console.error('Error fetching report:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOrdersReport = async () => {
+    try {
+      const response = await api.get('/reports/orders', {
+        params: { startDate, endDate, orderType: orderTypeFilter, status: orderStatusFilter }
+      });
+      setOrdersData(response.data.orders || []);
+    } catch (error) {
+      console.error('Error fetching orders report:', error);
+      setOrdersData([]);
+    }
+  };
+
+  const fetchSalesReport = async () => {
+    try {
+      console.log('Fetching sales report with params:', { startDate, endDate });
+      const [summaryRes, detailsRes] = await Promise.all([
+        api.get('/reports/sales-summary', { params: { startDate, endDate } }),
+        api.get('/reports/sales-details', { params: { startDate, endDate } })
+      ]);
+      console.log('Sales summary response:', summaryRes.data);
+      console.log('Sales details response:', detailsRes.data);
+      setSalesData(summaryRes.data);
+      setSalesDetails(detailsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching sales report:', error.response?.data || error.message);
+    }
+  };
+
+  const fetchLibraryReport = async () => {
+    try {
+      console.log('Fetching library report with params:', { startDate, endDate, status: sessionStatusFilter, search: searchTerm });
+      const response = await api.get('/reports/library', {
+        params: { startDate, endDate, status: sessionStatusFilter, search: searchTerm }
+      });
+      console.log('Library report response:', response.data);
+      setLibraryData(response.data.sessions || []);
+      setLibrarySummary(response.data.summary || { total_sessions: 0, total_revenue: 0, total_hours: 0 });
+    } catch (error) {
+      console.error('Error fetching library report:', error.response?.data || error.message);
+      setLibraryData([]);
+      setLibrarySummary({ total_sessions: 0, total_revenue: 0, total_hours: 0 });
+    }
+  };
+
+  const handleApplyFilters = () => {
+    fetchReportData();
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        type: activeTab
+      });
+      
+      if (activeTab === 'orders') {
+        if (orderTypeFilter) params.append('orderType', orderTypeFilter);
+        if (orderStatusFilter) params.append('status', orderStatusFilter);
+      } else if (activeTab === 'library') {
+        if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+      }
+
+      // Use fetch with auth header to download the file
+      const response = await fetch(`${api.defaults.baseURL}/reports/export?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `report_${activeTab}_${startDate}_to_${endDate}.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export report. Please try again.');
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return `₱${parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('en-PH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Filter data based on search term
+  const filteredOrders = ordersData.filter(order => {
+    const searchLower = searchTerm.toLowerCase();
+    const orderId = String(order.transaction_id || order.order_id || '');
+    const orderFormatted = `ord-${orderId.padStart(6, '0')}`;
+    
+    return (
+      orderId.includes(searchLower) ||
+      orderFormatted.includes(searchLower) ||
+      String(order.beeper_number || '').includes(searchLower) ||
+      (order.customer_name || '').toLowerCase().includes(searchLower)
+    );
+  });
+
+  const filteredLibrary = libraryData.filter(session => {
+    const searchLower = searchTerm.toLowerCase();
+    const sessionId = String(session.session_id || '');
+    const sessionFormatted = `lib-${sessionId.padStart(6, '0')}`;
+    
+    return (
+      sessionId.includes(searchLower) ||
+      sessionFormatted.includes(searchLower) ||
+      (session.customer_name || '').toLowerCase().includes(searchLower) ||
+      String(session.table_number || '').includes(searchLower)
+    );
+  });
+
+  // Reset page when filter/search changes
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [searchTerm, ordersData, orderTypeFilter, orderStatusFilter]);
+
+  useEffect(() => {
+    setSalesPage(1);
+  }, [salesDetails]);
+
+  useEffect(() => {
+    setLibraryPage(1);
+  }, [searchTerm, libraryData, sessionStatusFilter]);
+
+  // Pagination calculations for Orders
+  const ordersTotalPages = Math.ceil(filteredOrders.length / rowsPerPage);
+  const ordersStartIndex = (ordersPage - 1) * rowsPerPage;
+  const ordersEndIndex = ordersStartIndex + rowsPerPage;
+  const paginatedOrders = filteredOrders.slice(ordersStartIndex, ordersEndIndex);
+
+  // Pagination calculations for Sales
+  const salesTotalPages = Math.ceil(salesDetails.length / rowsPerPage);
+  const salesStartIndex = (salesPage - 1) * rowsPerPage;
+  const salesEndIndex = salesStartIndex + rowsPerPage;
+  const paginatedSales = salesDetails.slice(salesStartIndex, salesEndIndex);
+
+  // Pagination calculations for Library
+  const libraryTotalPages = Math.ceil(filteredLibrary.length / rowsPerPage);
+  const libraryStartIndex = (libraryPage - 1) * rowsPerPage;
+  const libraryEndIndex = libraryStartIndex + rowsPerPage;
+  const paginatedLibrary = filteredLibrary.slice(libraryStartIndex, libraryEndIndex);
+
+  // Generate page numbers helper function
+  const getPageNumbers = (currentPage, totalPages) => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
+
+  return (
+    <div className="main-content">
+      <div className="page-header-section">
+        <div className="page-title-group">
+          <h1 className="page-title">Reports</h1>
+          <p className="page-subtitle">View and export your business reports</p>
+        </div>
+      </div>
+
+      {/* Report Header with Tabs and Export Button */}
+      <div className="report-header">
+        <div className="report-tabs">
+          <button 
+            className={`report-tab ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            Orders Reports
+          </button>
+          <button 
+            className={`report-tab ${activeTab === 'sales' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sales')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            Sales Reports
+          </button>
+          <button 
+            className={`report-tab ${activeTab === 'library' ? 'active' : ''}`}
+            onClick={() => setActiveTab('library')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            Library Reports
+          </button>
+        </div>
+
+        <button className="btn-export" onClick={handleExportExcel}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export Excel
+        </button>
+      </div>
+
+      {/* Toolbar Section */}
+      <div className="toolbar-section">
+        <div className="toolbar-left">
+          <div className="search-box">
+            <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              className="search-input"
+              placeholder={activeTab === 'orders' ? 'Search by order #...' : activeTab === 'library' ? 'Search by session or customer #...' : 'Search...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* Date Range */}
+          <div className="date-range-group">
+            <input
+              type="date"
+              className="date-input"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <span className="date-separator">to</span>
+            <input
+              type="date"
+              className="date-input"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+
+          {/* Conditional Filters based on active tab */}
+          {activeTab === 'orders' && (
+            <>
+              <select
+                className="filter-select"
+                value={orderTypeFilter}
+                onChange={(e) => setOrderTypeFilter(e.target.value)}
+              >
+                <option value="">All Types</option>
+                <option value="dine-in">Dine In</option>
+                <option value="take-out">Take Out</option>
+              </select>
+              <select
+                className="filter-select"
+                value={orderStatusFilter}
+                onChange={(e) => setOrderStatusFilter(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="completed">Completed</option>
+                <option value="preparing">Preparing</option>
+                <option value="ready">Ready</option>
+                <option value="voided">Voided</option>
+              </select>
+            </>
+          )}
+
+          {activeTab === 'library' && (
+            <select
+              className="filter-select"
+              value={sessionStatusFilter}
+              onChange={(e) => setSessionStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="completed">Completed</option>
+              <option value="active">Active</option>
+            </select>
+          )}
+
+          <button className="btn-apply" onClick={handleApplyFilters}>
+            Apply
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="summary-cards">
+        {activeTab === 'orders' && (
+          <>
+            <div className="summary-card">
+              <div className="summary-icon orders-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Orders</h4>
+                <p className="summary-value">{filteredOrders.length}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon sales-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Revenue</h4>
+                <p className="summary-value">{formatCurrency(filteredOrders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0))}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon avg-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Avg. Order Value</h4>
+                <p className="summary-value">
+                  {formatCurrency(filteredOrders.length > 0 ? filteredOrders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0) / filteredOrders.length : 0)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'sales' && (
+          <>
+            <div className="summary-card">
+              <div className="summary-icon sales-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Gross Sales</h4>
+                <p className="summary-value">{formatCurrency(salesData?.total_sales || 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon discount-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Discounts</h4>
+                <p className="summary-value">{formatCurrency(salesData?.total_discounts || 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon orders-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                  <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Transactions</h4>
+                <p className="summary-value">{salesData?.total_orders || 0}</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'library' && (
+          <>
+            <div className="summary-card">
+              <div className="summary-icon library-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Sessions</h4>
+                <p className="summary-value">{librarySummary.total_sessions}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon sales-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Revenue</h4>
+                <p className="summary-value">{formatCurrency(librarySummary.total_revenue)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon time-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Hours</h4>
+                <p className="summary-value">{librarySummary.total_hours} hrs</p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Data Table */}
+      <div className="table-card">
+        {loading ? (
+          <div className="loading-state">Loading report data...</div>
+        ) : (
+          <>
+            {/* Orders Report Table */}
+            {activeTab === 'orders' && (
+              filteredOrders.length === 0 ? (
+                <div className="empty-state">
+                  <p>No orders found for the selected date range.</p>
+                </div>
+              ) : (
+                <>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Order #</th>
+                        <th>Date/Time</th>
+                        <th>Beeper</th>
+                        <th>Order Type</th>
+                        <th>Items</th>
+                        <th>Subtotal</th>
+                        <th>Discount</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedOrders.map((order) => (
+                        <tr key={order.transaction_id || order.order_id}>
+                          <td className="order-id">ORD-{String(order.transaction_id || order.order_id).padStart(6, '0')}</td>
+                          <td>{formatDateTime(order.created_at)}</td>
+                          <td><span className="beeper-badge">{order.beeper_number || '-'}</span></td>
+                          <td><span className={`type-badge ${order.order_type}`}>{order.order_type || '-'}</span></td>
+                          <td>{order.item_count || order.items?.length || '-'}</td>
+                          <td>{formatCurrency(order.subtotal)}</td>
+                          <td className="discount-cell">{order.discount_amount > 0 ? `-${formatCurrency(order.discount_amount)}` : '-'}</td>
+                          <td className="total-cell">{formatCurrency(order.total_amount)}</td>
+                          <td>
+                            <span className={`status-badge ${order.status || 'completed'}`}>
+                              {order.status || 'Completed'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {ordersTotalPages > 1 && (
+                    <div className="pagination-container">
+                      <span className="pagination-info">
+                        Showing {ordersStartIndex + 1}-{Math.min(ordersEndIndex, filteredOrders.length)} of {filteredOrders.length}
+                      </span>
+                      <button className="pagination-btn" onClick={() => setOrdersPage(1)} disabled={ordersPage === 1}>«</button>
+                      <button className="pagination-btn" onClick={() => setOrdersPage(ordersPage - 1)} disabled={ordersPage === 1}>‹</button>
+                      {getPageNumbers(ordersPage, ordersTotalPages).map((page, idx) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                        ) : (
+                          <button key={page} className={ordersPage === page ? 'pagination-btn active' : 'pagination-btn'} onClick={() => setOrdersPage(page)}>{page}</button>
+                        )
+                      ))}
+                      <button className="pagination-btn" onClick={() => setOrdersPage(ordersPage + 1)} disabled={ordersPage === ordersTotalPages}>›</button>
+                      <button className="pagination-btn" onClick={() => setOrdersPage(ordersTotalPages)} disabled={ordersPage === ordersTotalPages}>»</button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {/* Sales Report Table */}
+            {activeTab === 'sales' && (
+              salesDetails.length === 0 ? (
+                <div className="empty-state">
+                  <p>No sales data found for the selected date range.</p>
+                </div>
+              ) : (
+                <>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Transactions</th>
+                        <th>Gross Sales</th>
+                        <th>Discounts</th>
+                        <th>Net Sales</th>
+                        <th>Avg Order</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedSales.map((row, idx) => (
+                        <tr key={idx}>
+                          <td>{formatDate(row.date)}</td>
+                          <td>{row.transaction_count || 0}</td>
+                          <td>{formatCurrency(row.gross_sales)}</td>
+                          <td className="discount-cell">{row.total_discounts > 0 ? `-${formatCurrency(row.total_discounts)}` : '-'}</td>
+                          <td className="total-cell">{formatCurrency(row.net_sales)}</td>
+                          <td>{formatCurrency(row.avg_order_value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {salesTotalPages > 1 && (
+                    <div className="pagination-container">
+                      <span className="pagination-info">
+                        Showing {salesStartIndex + 1}-{Math.min(salesEndIndex, salesDetails.length)} of {salesDetails.length}
+                      </span>
+                      <button className="pagination-btn" onClick={() => setSalesPage(1)} disabled={salesPage === 1}>«</button>
+                      <button className="pagination-btn" onClick={() => setSalesPage(salesPage - 1)} disabled={salesPage === 1}>‹</button>
+                      {getPageNumbers(salesPage, salesTotalPages).map((page, idx) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                        ) : (
+                          <button key={page} className={salesPage === page ? 'pagination-btn active' : 'pagination-btn'} onClick={() => setSalesPage(page)}>{page}</button>
+                        )
+                      ))}
+                      <button className="pagination-btn" onClick={() => setSalesPage(salesPage + 1)} disabled={salesPage === salesTotalPages}>›</button>
+                      <button className="pagination-btn" onClick={() => setSalesPage(salesTotalPages)} disabled={salesPage === salesTotalPages}>»</button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {/* Library Report Table */}
+            {activeTab === 'library' && (
+              filteredLibrary.length === 0 ? (
+                <div className="empty-state">
+                  <p>No library sessions found for the selected date range.</p>
+                </div>
+              ) : (
+                <>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Session #</th>
+                        <th>Date</th>
+                        <th>Table / Seat</th>
+                        <th>Customer</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Duration</th>
+                        <th>Amount Paid</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedLibrary.map((session) => (
+                        <tr key={session.session_id}>
+                          <td className="session-id">LIB-{String(session.session_id).padStart(6, '0')}</td>
+                          <td>{formatDate(session.start_time)}</td>
+                          <td><span className="table-badge">Table {session.table_number || '-'} - Seat {session.seat_number || session.seat_id}</span></td>
+                          <td>{session.customer_name || '-'}</td>
+                          <td>{new Date(session.start_time).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td>{session.end_time ? new Date(session.end_time).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                          <td>{session.total_minutes ? `${Math.floor(session.total_minutes / 60)}h ${session.total_minutes % 60}m` : '-'}</td>
+                          <td className="total-cell">{formatCurrency(session.amount_paid)}</td>
+                          <td>
+                            <span className={`status-badge ${session.status}`}>
+                              {session.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {libraryTotalPages > 1 && (
+                    <div className="pagination-container">
+                      <span className="pagination-info">
+                        Showing {libraryStartIndex + 1}-{Math.min(libraryEndIndex, filteredLibrary.length)} of {filteredLibrary.length}
+                      </span>
+                      <button className="pagination-btn" onClick={() => setLibraryPage(1)} disabled={libraryPage === 1}>«</button>
+                      <button className="pagination-btn" onClick={() => setLibraryPage(libraryPage - 1)} disabled={libraryPage === 1}>‹</button>
+                      {getPageNumbers(libraryPage, libraryTotalPages).map((page, idx) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                        ) : (
+                          <button key={page} className={libraryPage === page ? 'pagination-btn active' : 'pagination-btn'} onClick={() => setLibraryPage(page)}>{page}</button>
+                        )
+                      ))}
+                      <button className="pagination-btn" onClick={() => setLibraryPage(libraryPage + 1)} disabled={libraryPage === libraryTotalPages}>›</button>
+                      <button className="pagination-btn" onClick={() => setLibraryPage(libraryTotalPages)} disabled={libraryPage === libraryTotalPages}>»</button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

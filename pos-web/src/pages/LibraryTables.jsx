@@ -1,0 +1,342 @@
+import { useState, useEffect, useCallback } from 'react';
+import api from '../api';
+import '../styles/library.css';
+
+export default function LibraryTables() {
+  const [config, setConfig] = useState({ total_seats: 0, tables: [] });
+  const [loading, setLoading] = useState(true);
+  const [showAddTableModal, setShowAddTableModal] = useState(false);
+  const [showEditSeatsModal, setShowEditSeatsModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showConfigureModal, setShowConfigureModal] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [newTableSeats, setNewTableSeats] = useState('8');
+  const [editSeatsCount, setEditSeatsCount] = useState('8');
+  const [configTables, setConfigTables] = useState('3');
+  const [configSeatsPerTable, setConfigSeatsPerTable] = useState('8');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
+  }, []);
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/library/config');
+      setConfig(res.data);
+    } catch (err) {
+      console.error('Failed to fetch library config:', err);
+      showToast('Failed to load configuration', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  const handleAddTable = async () => {
+    const seats = parseInt(newTableSeats) || 1;
+    if (seats < 1 || seats > 20) {
+      showToast('Seats must be between 1 and 20', 'warning');
+      return;
+    }
+    try {
+      await api.post('/library/tables', { seats });
+      showToast(`Table added with ${seats} seats`, 'success');
+      setShowAddTableModal(false);
+      setNewTableSeats('8');
+      fetchConfig();
+    } catch (err) {
+      console.error('Failed to add table:', err);
+      showToast(err.response?.data?.error || 'Failed to add table', 'error');
+    }
+  };
+
+  const handleUpdateSeats = async () => {
+    if (!selectedTable) return;
+    const seats = parseInt(editSeatsCount) || 1;
+    if (seats < 1 || seats > 20) {
+      showToast('Seats must be between 1 and 20', 'warning');
+      return;
+    }
+    try {
+      await api.put(`/library/tables/${selectedTable.table_number}/seats`, { seats });
+      showToast(`Table ${selectedTable.table_number} updated to ${seats} seats`, 'success');
+      setShowEditSeatsModal(false);
+      setSelectedTable(null);
+      fetchConfig();
+    } catch (err) {
+      console.error('Failed to update seats:', err);
+      showToast(err.response?.data?.error || 'Failed to update seats', 'error');
+    }
+  };
+
+  const handleDeleteTable = async () => {
+    if (!selectedTable) return;
+    try {
+      await api.delete(`/library/tables/${selectedTable.table_number}`);
+      showToast(`Table ${selectedTable.table_number} removed`, 'success');
+      setShowDeleteModal(false);
+      setSelectedTable(null);
+      fetchConfig();
+    } catch (err) {
+      console.error('Failed to delete table:', err);
+      showToast(err.response?.data?.error || 'Failed to remove table', 'error');
+    }
+  };
+
+  const handleConfigureAll = async () => {
+    const tables = parseInt(configTables) || 1;
+    const seatsPerTable = parseInt(configSeatsPerTable) || 1;
+    if (tables < 1 || tables > 20 || seatsPerTable < 1 || seatsPerTable > 20) {
+      showToast('Values must be between 1 and 20', 'warning');
+      return;
+    }
+    try {
+      await api.post('/library/config', { 
+        tables, 
+        seats_per_table: seatsPerTable 
+      });
+      showToast(`Library configured: ${tables} tables × ${seatsPerTable} seats`, 'success');
+      setShowConfigureModal(false);
+      fetchConfig();
+    } catch (err) {
+      console.error('Failed to configure library:', err);
+      showToast(err.response?.data?.error || 'Failed to configure library', 'error');
+    }
+  };
+
+  const openEditSeats = (table) => {
+    setSelectedTable(table);
+    setEditSeatsCount(String(table.seats));
+    setShowEditSeatsModal(true);
+  };
+
+  const openDeleteTable = (table) => {
+    setSelectedTable(table);
+    setShowDeleteModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="main-content">
+        <div className="page-header">
+          <h2 className="page-title">Library Management</h2>
+          <p className="page-subtitle">Manage Tables</p>
+        </div>
+        <div className="loading-state">Loading configuration...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="main-content">
+      <div className="page-header">
+        <h2 className="page-title">Library Management</h2>
+        <p className="page-subtitle">Manage Tables</p>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="library-stats">
+        <div className="stat-card">
+          <div className="stat-value">{config.tables.length}</div>
+          <div className="stat-label">Total Tables</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{config.total_seats}</div>
+          <div className="stat-label">Total Seats</div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="library-actions">
+        <button className="btn-primary" onClick={() => setShowAddTableModal(true)}>
+          Add New Table
+        </button>
+        <button className="btn-primary" onClick={() => setShowConfigureModal(true)}>
+          Quick Configure
+        </button>
+      </div>
+
+      {/* Tables Grid */}
+      <div className="tables-management-grid">
+        {config.tables.length === 0 ? (
+          <div className="empty-state">
+            <p>No tables configured yet.</p>
+            <p>Click "Add New Table" or "Quick Configure" to get started.</p>
+          </div>
+        ) : (
+          config.tables.map(table => (
+            <div key={table.table_number} className="table-card">
+              <div className="table-card-header">
+                <h3>Table {table.table_number}</h3>
+                <span className="seat-count">{table.seats} seats</span>
+              </div>
+              <div className="table-card-visual">
+                {Array.from({ length: table.seats }, (_, i) => (
+                  <div key={i} className="mini-seat">{i + 1}</div>
+                ))}
+              </div>
+              <div className="table-card-actions">
+                <button className="btn-edit" onClick={() => openEditSeats(table)}>
+                  Edit Seats
+                </button>
+                <button className="btn-delete" onClick={() => openDeleteTable(table)}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Add Table Modal */}
+      {showAddTableModal && (
+        <div className="modal-overlay" onClick={() => setShowAddTableModal(false)}>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
+            <h3>Add New Table</h3>
+            <hr />
+            <div className="form-group">
+              <label>Number of Seats:</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={newTableSeats}
+                onChange={e => setNewTableSeats(e.target.value)}
+              />
+            </div>
+            <p className="modal-info">
+              This will create Table {config.tables.length + 1} with {parseInt(newTableSeats) || 0} seats.
+            </p>
+            <hr />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowAddTableModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-confirm" onClick={handleAddTable}>
+                ✓ Add Table
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Seats Modal */}
+      {showEditSeatsModal && selectedTable && (
+        <div className="modal-overlay" onClick={() => setShowEditSeatsModal(false)}>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
+            <h3>Edit Table {selectedTable.table_number}</h3>
+            <hr />
+            <div className="form-group">
+              <label>Current Seats: {selectedTable.seats}</label>
+            </div>
+            <div className="form-group">
+              <label>New Seat Count:</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={editSeatsCount}
+                onChange={e => setEditSeatsCount(e.target.value)}
+              />
+            </div>
+            <hr />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowEditSeatsModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-confirm" onClick={handleUpdateSeats}>
+                ✓ Update Seats
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedTable && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ Remove Table</h3>
+            <hr />
+            <p>Are you sure you want to remove <strong>Table {selectedTable.table_number}</strong>?</p>
+            <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
+            <hr />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowDeleteModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={handleDeleteTable}>
+                Yes, Remove Table
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Configure Modal */}
+      {showConfigureModal && (
+        <div className="modal-overlay" onClick={() => setShowConfigureModal(false)}>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
+            <h3>⚙️ Quick Configure Library</h3>
+            <hr />
+            <p className="warning-text">
+              ⚠️ This will replace ALL existing tables and seats!
+            </p>
+            <div className="form-group">
+              <label>Number of Tables:</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={configTables}
+                onChange={e => setConfigTables(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Seats per Table:</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={configSeatsPerTable}
+                onChange={e => setConfigSeatsPerTable(e.target.value)}
+              />
+            </div>
+            <p className="modal-info">
+              This will create {parseInt(configTables) || 0} tables × {parseInt(configSeatsPerTable) || 0} seats = <strong>{(parseInt(configTables) || 0) * (parseInt(configSeatsPerTable) || 0)} total seats</strong>
+            </p>
+            <hr />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowConfigureModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-confirm" onClick={handleConfigureAll}>
+                ✓ Apply Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`toast-notification toast-${toast.type}`}>
+          <div className="toast-icon">
+            {toast.type === 'success' && '✓'}
+            {toast.type === 'error' && '✕'}
+            {toast.type === 'warning' && '⚠'}
+            {toast.type === 'info' && 'ℹ'}
+          </div>
+          <div className="toast-message">{toast.message}</div>
+          <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
+        </div>
+      )}
+    </div>
+  );
+}
