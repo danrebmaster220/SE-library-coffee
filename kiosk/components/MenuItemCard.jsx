@@ -1,0 +1,167 @@
+﻿// components/MenuItemCard.jsx
+import { useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+
+import CustomizationModal from "./CustomizationModal";
+import { useResponsive } from "../hooks/useResponsive";
+
+const MenuItemCard = ({ item, onAddToOrder, isPhone: isPhoneProp }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const { width } = useWindowDimensions();
+  const { isPhone: isPhoneHook } = useResponsive();
+  
+  // Use prop if passed, otherwise use hook
+  const isPhone = isPhoneProp !== undefined ? isPhoneProp : isPhoneHook;
+
+  // Support both backend & local fields
+  const name = item.name || item.item_name || "Unnamed Item";
+  const price = item.price || item.item_price || 0;
+  const imageUri = item.image || item.image_url || null;
+
+  // Dynamic card width for phone
+  const phoneCardWidth = (width - 48) / 2; // 2 columns with gaps
+
+  return (
+    <View style={[
+      styles.card, 
+      isPhone && { ...styles.cardPhone, width: phoneCardWidth }
+    ]}>
+      {imageUri ? (
+        <Image 
+          source={{ uri: imageUri }} 
+          style={[styles.image, isPhone && styles.imagePhone]} 
+        />
+      ) : (
+        <View style={[styles.placeholder, isPhone && styles.placeholderPhone]}>
+          <Text style={[styles.placeholderText, isPhone && styles.placeholderTextPhone]}>
+            No Image
+          </Text>
+        </View>
+      )}
+
+      <View style={[styles.info, isPhone && styles.infoPhone]}>
+        <Text 
+          style={[styles.name, isPhone && styles.namePhone]} 
+          numberOfLines={2}
+        >
+          {name}
+        </Text>
+        <Text style={[styles.price, isPhone && styles.pricePhone]}>
+          ₱{Number(price).toFixed(2)}
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.button, isPhone && styles.buttonPhone]}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={[styles.buttonText, isPhone && styles.buttonTextPhone]}>Order</Text>
+        </TouchableOpacity>
+
+        <CustomizationModal
+          visible={modalVisible}
+          item={item}
+          onClose={() => setModalVisible(false)}
+          onAdd={(customizedItem) => {
+            onAddToOrder(customizedItem);
+            setModalVisible(false);
+          }}
+        />
+      </View>
+    </View>
+  );
+};
+
+export default MenuItemCard;
+
+const styles = StyleSheet.create({
+  card: {
+    flex: 1,
+    maxWidth: 280,
+    backgroundColor: "#FFFDF9",
+    borderRadius: 20,
+    margin: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E8DFD5",
+    alignItems: "center",
+  },
+  cardPhone: {
+    flex: 0,
+    maxWidth: "100%",
+    margin: 0,
+    borderRadius: 16,
+  },
+  image: {
+    width: "100%",
+    height: 180,
+  },
+  imagePhone: {
+    height: 100,
+  },
+  placeholder: {
+    width: "100%",
+    height: 180,
+    backgroundColor: "#F5EDE5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeholderPhone: {
+    height: 100,
+  },
+  placeholderText: {
+    color: "#A89080",
+    fontSize: 14,
+  },
+  placeholderTextPhone: {
+    fontSize: 12,
+  },
+  info: {
+    width: "100%",
+    padding: 14,
+    alignItems: "center",
+  },
+  infoPhone: {
+    padding: 10,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+    color: "#4C2B18",
+    textAlign: "center",
+  },
+  namePhone: {
+    fontSize: 14,
+    marginBottom: 2,
+    minHeight: 34, // 2 lines at 14px + line spacing
+  },
+  price: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#8B5E34",
+    marginBottom: 12,
+  },
+  pricePhone: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  button: {
+    backgroundColor: "#6B4423",
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 25,
+  },
+  buttonPhone: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  buttonTextPhone: {
+    fontSize: 13,
+  },
+});
