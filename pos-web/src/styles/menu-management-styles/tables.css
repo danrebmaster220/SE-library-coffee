@@ -1,0 +1,191 @@
+/* ========================================
+   TABLE STYLES
+   Table Card, Data Table, Item Image Cell,
+   Item Name, Price Cell
+   ======================================== */
+
+/* Table Card Container */
+.table-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(60, 36, 21, 0.08);
+  overflow: hidden;
+}
+
+/* Table Scroll Wrapper - Enables horizontal scrolling for tables */
+.table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--coffee-light) var(--cream); /* Firefox */
+}
+
+/* Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+.table-scroll-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-track {
+  background: var(--cream);
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: var(--coffee-light);
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--coffee-medium);
+}
+
+/* Table Container - Alternative wrapper */
+.table-container {
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Data Table */
+.data-table {
+  width: 100%;
+  min-width: 700px; /* Minimum width to trigger horizontal scroll on small screens */
+  border-collapse: collapse;
+}
+
+.data-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--coffee-medium);
+  background: linear-gradient(135deg, var(--foam) 0%, var(--cream) 100%);
+  border-bottom: 2px solid var(--latte);
+}
+
+.data-table td {
+  padding: 16px 20px;
+  font-size: 14px;
+  color: var(--coffee-dark);
+  border-bottom: 1px solid var(--cream);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+  background: var(--foam);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Item Image Cell */
+.item-image-cell {
+  width: 55px;
+  height: 55px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--cream);
+}
+
+.item-image-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--coffee-light);
+  text-align: center;
+  padding: 5px;
+}
+
+/* Item Name Text */
+.item-name-text {
+  font-weight: 600;
+  color: var(--coffee-dark);
+  font-size: 14px;
+}
+
+/* Price Cell */
+.price-cell {
+  font-weight: 600;
+  color: var(--coffee-medium);
+  font-size: 14px;
+}
+
+/* Options Table */
+.options-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--latte);
+}
+
+.options-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 80px 100px 80px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--coffee-medium);
+  text-transform: uppercase;
+}
+
+.options-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 80px 100px 80px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  align-items: center;
+  border-bottom: 1px solid var(--latte);
+}
+
+.options-table-row:last-child {
+  border-bottom: none;
+}
+
+.option-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--coffee-dark);
+}
+
+.option-price,
+.option-per-unit,
+.option-max-qty {
+  font-size: 13px;
+  color: var(--coffee-medium);
+}
+
+.option-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.no-options {
+  text-align: center;
+  padding: 30px;
+  color: var(--coffee-light);
+  font-size: 14px;
+}

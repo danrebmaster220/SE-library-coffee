@@ -1,11 +1,11 @@
 ﻿// components/MenuItemCard.jsx
-import { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import CustomizationModal from "./CustomizationModal";
 import { useResponsive } from "../hooks/useResponsive";
 
-const MenuItemCard = ({ item, onAddToOrder, isPhone: isPhoneProp }) => {
+const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { width } = useWindowDimensions();
   const { isPhone: isPhoneHook } = useResponsive();
@@ -20,6 +20,14 @@ const MenuItemCard = ({ item, onAddToOrder, isPhone: isPhoneProp }) => {
 
   // Dynamic card width for phone
   const phoneCardWidth = (width - 48) / 2; // 2 columns with gaps
+
+  // Memoized handlers
+  const handleOpenModal = useCallback(() => setModalVisible(true), []);
+  const handleCloseModal = useCallback(() => setModalVisible(false), []);
+  const handleAddItem = useCallback((customizedItem) => {
+    onAddToOrder(customizedItem);
+    setModalVisible(false);
+  }, [onAddToOrder]);
 
   return (
     <View style={[
@@ -52,7 +60,7 @@ const MenuItemCard = ({ item, onAddToOrder, isPhone: isPhoneProp }) => {
 
         <TouchableOpacity
           style={[styles.button, isPhone && styles.buttonPhone]}
-          onPress={() => setModalVisible(true)}
+          onPress={handleOpenModal}
         >
           <Text style={[styles.buttonText, isPhone && styles.buttonTextPhone]}>Order</Text>
         </TouchableOpacity>
@@ -60,16 +68,16 @@ const MenuItemCard = ({ item, onAddToOrder, isPhone: isPhoneProp }) => {
         <CustomizationModal
           visible={modalVisible}
           item={item}
-          onClose={() => setModalVisible(false)}
-          onAdd={(customizedItem) => {
-            onAddToOrder(customizedItem);
-            setModalVisible(false);
-          }}
+          onClose={handleCloseModal}
+          onAdd={handleAddItem}
         />
       </View>
     </View>
   );
-};
+});
+
+// Set display name for React DevTools
+MenuItemCard.displayName = 'MenuItemCard';
 
 export default MenuItemCard;
 

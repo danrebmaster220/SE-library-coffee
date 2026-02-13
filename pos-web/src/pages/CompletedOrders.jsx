@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import '../styles/menu.css';
+import '../styles/menu-management-styles/index.css';
 import '../styles/orders.css';
 
 export default function CompletedOrders() {
@@ -143,7 +143,7 @@ export default function CompletedOrders() {
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll-wrapper">
               <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                 <thead style={{ background: '#f5f0e8' }}>
                   <tr>

@@ -29,8 +29,8 @@ body {
 }
 
 .page-header { margin-bottom: 30px; }
-.page-title { font-family: 'Playfair Display', serif; font-size: 32px; color: var(--coffee-dark); }
-.subtitle { color: var(--coffee-light); font-size: 14px; }
+.page-title { font-family: 'Poppins', sans-serif; font-size: 32px; color: var(--coffee-dark); font-weight: 600; }
+.subtitle, .page-subtitle { color: var(--coffee-light); font-size: 14px; margin-top: 5px; }
 
 .search-box .search-input,
 input.search-input,

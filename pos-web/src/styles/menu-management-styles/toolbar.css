@@ -1,0 +1,80 @@
+/* ========================================
+   TOOLBAR STYLES
+   Toolbar Section, Search Box, Filter Select
+   ======================================== */
+
+/* Toolbar Section */
+.toolbar-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 15px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Search Box */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box svg {
+  position: absolute;
+  left: 12px;
+  color: var(--coffee-light);
+  width: 18px;
+  height: 18px;
+}
+
+.search-box .search-input,
+.search-box input.search-input,
+input.search-input {
+  padding: 10px 12px 10px 40px;
+  border: 2px solid var(--latte);
+  border-radius: 10px;
+  font-size: 14px;
+  width: 280px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.search-box .search-input:focus,
+.search-box input.search-input:focus,
+input.search-input:focus {
+  outline: none;
+  border-color: var(--caramel);
+  box-shadow: 0 0 0 3px rgba(161, 136, 127, 0.15);
+}
+
+/* Filter Select */
+.filter-select {
+  padding: 10px 35px 10px 15px;
+  border: 2px solid var(--latte);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--coffee-dark);
+  background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238d6e63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
+  cursor: pointer;
+  min-width: 150px;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--caramel);
+}

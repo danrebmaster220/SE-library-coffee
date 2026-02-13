@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../api";
-import "../styles/menu.css";
+import "../styles/menu-management-styles/index.css";
 
 export default function MenuItems() {
   const [items, setItems] = useState([]);
@@ -282,17 +282,18 @@ export default function MenuItems() {
             <p>No items found. Add your first menu item!</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Image</th>
-                <th>Item Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Station</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
+          <div className="table-scroll-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Station</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
             </thead>
             <tbody>
               {filteredItems.map((item) => (
@@ -341,6 +342,7 @@ export default function MenuItems() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

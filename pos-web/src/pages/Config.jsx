@@ -137,7 +137,7 @@ export default function Config() {
     <div className="main-content settings-container">
       <div className="page-header">
         <h1 className="page-title">System Configuration</h1>
-        <p className="subtitle">Manage system settings</p>
+        <p className="page-subtitle">Manage system settings</p>
       </div>
 
       {/* Printer Configuration Card */}

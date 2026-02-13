@@ -1,0 +1,225 @@
+/* ========================================
+   BUTTON STYLES
+   Navigation, Primary Action, Cancel, Confirm,
+   Danger, Icon, Action Buttons
+   ======================================== */
+
+/* Navigation Button */
+.btn-navigate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--cream);
+  color: var(--coffee-dark);
+  border: 2px solid var(--latte);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-navigate:hover {
+  background: var(--latte);
+  border-color: var(--caramel);
+}
+
+.btn-navigate svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Primary Action Button */
+.btn-primary-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--caramel) 0%, var(--coffee-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(161, 136, 127, 0.3);
+}
+
+.btn-primary-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
+}
+
+.btn-primary-action svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Cancel Button */
+.btn-cancel {
+  flex: 1;
+  padding: 14px 20px;
+  background: var(--cream);
+  color: var(--coffee-dark);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: var(--latte);
+}
+
+/* Confirm Button */
+.btn-confirm {
+  flex: 1;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--caramel) 0%, var(--coffee-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
+}
+
+/* Danger Button */
+.btn-danger {
+  background: linear-gradient(135deg, #ef5350, #c62828);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c62828, #b71c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3);
+}
+
+/* Delete Confirm Button */
+.btn-delete-confirm {
+  background: linear-gradient(135deg, #ef5350, #c62828);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-confirm:hover {
+  background: linear-gradient(135deg, #c62828, #b71c1c);
+}
+
+/* Icon Button */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--coffee-medium);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--latte);
+  color: var(--coffee-dark);
+}
+
+.btn-icon.delete:hover {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.btn-icon.small {
+  width: 28px;
+  height: 28px;
+}
+
+/* Action Buttons Container */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit {
+  background: var(--cream);
+  color: var(--coffee-dark);
+}
+
+.btn-edit:hover {
+  background: var(--latte);
+}
+
+.btn-delete {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.btn-delete:hover {
+  background: #ffcdd2;
+}
+
+.btn-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Add Option Button */
+.btn-add-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--coffee-medium);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-option:hover {
+  background: var(--coffee-dark);
+}

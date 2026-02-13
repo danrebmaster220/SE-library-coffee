@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
-import "../styles/menu.css";
+import "../styles/menu-management-styles/index.css";
 
 export default function Discounts() {
   const [discounts, setDiscounts] = useState([]);
@@ -157,22 +157,23 @@ export default function Discounts() {
             <p>No discounts found. Add your first discount!</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Discount Name</th>
-                <th>Percentage</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDiscounts.map((discount) => (
-                <tr key={discount.discount_id}>
-                  <td>#{discount.discount_id}</td>
-                  <td><span className="item-name-text">{discount.name}</span></td>
-                  <td>
+          <div className="table-scroll-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Discount Name</th>
+                  <th>Percentage</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDiscounts.map((discount) => (
+                  <tr key={discount.discount_id}>
+                    <td>#{discount.discount_id}</td>
+                    <td><span className="item-name-text">{discount.name}</span></td>
+                    <td>
                     <span className="percentage-badge">{discount.percentage}%</span>
                   </td>
                   <td>
@@ -202,6 +203,7 @@ export default function Discounts() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

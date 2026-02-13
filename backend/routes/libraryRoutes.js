@@ -27,6 +27,9 @@ router.delete('/tables/:table_number', verifyToken, isAdmin, libraryController.r
 // Update seats for a table
 router.put('/tables/:table_number/seats', verifyToken, isAdmin, libraryController.updateTableSeats);
 
+// Update table name
+router.put('/tables/:table_number/name', verifyToken, isAdmin, libraryController.updateTableName);
+
 // Set seat maintenance status
 router.put('/seats/:seat_id/maintenance', verifyToken, isAdmin, libraryController.setMaintenance);
 

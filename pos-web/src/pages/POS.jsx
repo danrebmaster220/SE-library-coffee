@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
 import '../styles/pos.css';
@@ -53,10 +53,63 @@ export default function POS() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
 
   // Toast notification function
-  const showToast = (message, type = 'info') => {
+  const showToast = useCallback((message, type = 'info') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
-  };
+  }, []);
+
+  // Define fetch functions BEFORE useEffect that uses them
+  const fetchMenuData = useCallback(async () => {
+    try {
+      const [itemsRes, catsRes] = await Promise.all([
+        api.get('/menu/items'),
+        api.get('/menu/categories')
+      ]);
+      setMenuItems(itemsRes.data);
+      // Filter to only show active categories in POS
+      const activeCategories = catsRes.data.filter(cat => cat.status === 'active');
+      setCategories(activeCategories);
+      // Auto-select first active category using category_id from database
+      if (activeCategories.length > 0) setSelectedCategory(activeCategories[0].category_id);
+    } catch (err) {
+      console.error('Failed to fetch menu:', err);
+    }
+  }, []);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const [pendingRes, preparingRes, readyRes] = await Promise.all([
+        api.get('/pos/orders/pending'),
+        api.get('/pos/orders/preparing'),
+        api.get('/pos/orders/ready')
+      ]);
+      setOrders({
+        pending: pendingRes.data,
+        preparing: preparingRes.data,
+        ready: readyRes.data
+      });
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+    }
+  }, []);
+
+  const fetchBeepers = useCallback(async () => {
+    try {
+      const res = await api.get('/pos/beepers');
+      setBeepers(res.data);
+    } catch (err) {
+      console.error('Failed to fetch beepers:', err);
+    }
+  }, []);
+
+  const fetchDiscounts = useCallback(async () => {
+    try {
+      const res = await api.get('/discounts/active');
+      setDiscounts(res.data);
+    } catch (err) {
+      console.error('Failed to fetch discounts:', err);
+    }
+  }, []);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -81,59 +134,7 @@ export default function POS() {
       clearInterval(interval);
       socketService.removeListener('beepers:update');
     };
-  }, []);
-
-  const fetchMenuData = async () => {
-    try {
-      const [itemsRes, catsRes] = await Promise.all([
-        api.get('/menu/items'),
-        api.get('/menu/categories')
-      ]);
-      setMenuItems(itemsRes.data);
-      // Filter to only show active categories in POS
-      const activeCategories = catsRes.data.filter(cat => cat.status === 'active');
-      setCategories(activeCategories);
-      // Auto-select first active category using category_id from database
-      if (activeCategories.length > 0) setSelectedCategory(activeCategories[0].category_id);
-    } catch (err) {
-      console.error('Failed to fetch menu:', err);
-    }
-  };
-
-  const fetchOrders = async () => {
-    try {
-      const [pendingRes, preparingRes, readyRes] = await Promise.all([
-        api.get('/pos/orders/pending'),
-        api.get('/pos/orders/preparing'),
-        api.get('/pos/orders/ready')
-      ]);
-      setOrders({
-        pending: pendingRes.data,
-        preparing: preparingRes.data,
-        ready: readyRes.data
-      });
-    } catch (err) {
-      console.error('Failed to fetch orders:', err);
-    }
-  };
-
-  const fetchBeepers = async () => {
-    try {
-      const res = await api.get('/pos/beepers');
-      setBeepers(res.data);
-    } catch (err) {
-      console.error('Failed to fetch beepers:', err);
-    }
-  };
-
-  const fetchDiscounts = async () => {
-    try {
-      const res = await api.get('/discounts/active');
-      setDiscounts(res.data);
-    } catch (err) {
-      console.error('Failed to fetch discounts:', err);
-    }
-  };
+  }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts]);
 
   // Fetch barista defaults (Size/Temp) + any add-on groups
   const fetchBaristaDefaults = async (itemId) => {
@@ -294,6 +295,23 @@ export default function POS() {
   const confirmCustomization = () => {
     if (!customizingItem) return;
     
+    // Validate required customization groups
+    const requiredGroups = customizationGroups.filter(g => g.is_required);
+    const missingRequired = [];
+    
+    requiredGroups.forEach(group => {
+      const groupId = group.group_id || group.id;
+      const hasSelection = (selectedCustomizations[groupId] || []).length > 0;
+      if (!hasSelection) {
+        missingRequired.push(group.name);
+      }
+    });
+    
+    if (missingRequired.length > 0) {
+      showToast(`Please select: ${missingRequired.join(', ')}`, 'error');
+      return;
+    }
+    
     const customizations = [];
     let customizationTotal = 0;
     
@@ -382,6 +400,29 @@ export default function POS() {
     });
   };
 
+  // Handle library booking removal
+  const handleRemoveLibraryBooking = () => {
+    if (pendingOrderId) {
+      // Kiosk order - require admin auth
+      setRemovingItem({ 
+        itemId: 'library-booking', 
+        action: 'remove-library', 
+        name: 'Study Area Booking',
+        libraryBooking: pendingLibraryBooking
+      });
+      setItemRemovalCredentials({ username: '', password: '' });
+      setItemRemovalReason('');
+      setShowItemRemovalModal(true);
+    } else {
+      // POS direct order - simple confirmation
+      setConfirmAction({ 
+        action: 'remove-library', 
+        name: 'Study Area Booking'
+      });
+      setShowConfirmModal(true);
+    }
+  };
+
   // Handle item removal with proper auth flow
   const handleRemoveItem = (item) => {
     if (pendingOrderId) {
@@ -406,9 +447,16 @@ export default function POS() {
       setItemRemovalReason('');
       setShowItemRemovalModal(true);
     } else {
-      // POS direct order - simple confirmation for decrease
-      setConfirmAction({ action: 'decrease', itemId: item.id, name: item.name, size: item.size, quantity: item.quantity });
-      setShowConfirmModal(true);
+      // POS direct order
+      if (item.quantity > 1) {
+        // Quantity > 1: Decrease directly without confirmation
+        updateQuantity(item.id, -1);
+        showToast(`Decreased quantity of ${item.name}`, 'success');
+      } else {
+        // Quantity = 1: Show confirmation (will remove item)
+        setConfirmAction({ action: 'decrease', itemId: item.id, name: item.name, size: item.size, quantity: item.quantity });
+        setShowConfirmModal(true);
+      }
     }
   };
 
@@ -445,10 +493,13 @@ export default function POS() {
         // Perform the action
         if (removingItem.action === 'remove') {
           removeFromCart(removingItem.itemId);
-          showToast(`Removed ${removingItem.itemName} from order`, 'success');
+          showToast(`Removed ${removingItem.name} from order`, 'success');
         } else if (removingItem.action === 'decrease') {
           updateQuantity(removingItem.itemId, -1);
-          showToast(`Decreased ${removingItem.itemName} quantity`, 'success');
+          showToast(`Decreased ${removingItem.name} quantity`, 'success');
+        } else if (removingItem.action === 'remove-library') {
+          setPendingLibraryBooking(null);
+          showToast('Removed Study Area Booking from order', 'success');
         }
         
         // Close modal and reset
@@ -475,47 +526,84 @@ export default function POS() {
     } else if (confirmAction.action === 'clear') {
       resetOrder();
       showToast('Cart cleared', 'success');
+    } else if (confirmAction.action === 'remove-library') {
+      setPendingLibraryBooking(null);
+      showToast('Removed Study Area Booking', 'success');
     }
     setShowConfirmModal(false);
     setConfirmAction(null);
   };
 
-  const calculateSubtotal = () => {
+  // Memoized calculations to prevent recalculation on every render
+  const subtotal = useMemo(() => {
     const itemsTotal = cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
     const libraryTotal = pendingLibraryBooking ? pendingLibraryBooking.amount : 0;
     return itemsTotal + libraryTotal;
-  };
+  }, [cart, pendingLibraryBooking]);
 
-  const calculateItemsOnly = () => {
+  const itemsOnlyTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
-  };
+  }, [cart]);
 
-  const calculateDiscount = () => {
+  const discountAmount = useMemo(() => {
     if (!selectedDiscount) return 0;
-    const subtotal = calculateSubtotal();
-    // Discounts are always percentage based
     return subtotal * (parseFloat(selectedDiscount.percentage) / 100);
-  };
+  }, [selectedDiscount, subtotal]);
 
-  const calculateTotal = () => {
-    return calculateSubtotal() - calculateDiscount();
-  };
+  const total = useMemo(() => {
+    return subtotal - discountAmount;
+  }, [subtotal, discountAmount]);
 
-  const calculateChange = () => {
+  const change = useMemo(() => {
     const cash = parseFloat(cashAmount) || 0;
-    return Math.max(0, cash - calculateTotal());
-  };
+    return Math.max(0, cash - total);
+  }, [cashAmount, total]);
 
-  const handleQuickCash = (amount) => {
+  // Keep old function names for backward compatibility but use memoized values
+  const calculateSubtotal = useCallback(() => subtotal, [subtotal]);
+  const calculateItemsOnly = useCallback(() => itemsOnlyTotal, [itemsOnlyTotal]);
+  const calculateDiscount = useCallback(() => discountAmount, [discountAmount]);
+  const calculateTotal = useCallback(() => total, [total]);
+  const calculateChange = useCallback(() => change, [change]);
+
+  // Memoized filtered menu items by category
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter(item => 
+      item.category_id === selectedCategory && item.status === 'active'
+    );
+  }, [menuItems, selectedCategory]);
+
+  // Memoized available beepers
+  const availableBeepers = useMemo(() => {
+    return beepers.filter(b => b.status === 'available');
+  }, [beepers]);
+
+  // Memoized in-use beepers count
+  const inUseBeepersCount = useMemo(() => {
+    return beepers.filter(b => b.status === 'in-use').length;
+  }, [beepers]);
+
+  // Memoized filtered orders by search query
+  const filteredPendingOrders = useMemo(() => {
+    if (!orderSearchQuery.trim()) return orders.pending;
+    const searchNum = orderSearchQuery.trim().replace('#', '').toLowerCase();
+    return orders.pending.filter(order => {
+      const beeperNum = order.beeper_number?.toString() || '';
+      const orderNum = order.order_number?.toString() || '';
+      return beeperNum.includes(searchNum) || orderNum.includes(searchNum);
+    });
+  }, [orders.pending, orderSearchQuery]);
+
+  const handleQuickCash = useCallback((amount) => {
     setCashAmount(prev => {
       const current = parseFloat(prev) || 0;
       return String(current + amount);
     });
-  };
+  }, []);
 
-  const clearCash = () => {
+  const clearCash = useCallback(() => {
     setCashAmount('');
-  };
+  }, []);
 
   const handlePayment = async () => {
     if (!orderType) {
@@ -765,15 +853,6 @@ export default function POS() {
 
   // Search for pending order by beeper number and load it
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  
-  // Filter pending orders based on search query
-  const filteredPendingOrders = orders.pending.filter(order => {
-    if (!orderSearchQuery.trim()) return true; // Show all when empty
-    const searchNum = orderSearchQuery.trim().replace('#', '').toLowerCase();
-    const beeperNum = order.beeper_number?.toString() || '';
-    const orderNum = order.order_number?.toString() || '';
-    return beeperNum.includes(searchNum) || orderNum.includes(searchNum);
-  });
 
   const handleOrderSearchSelect = (order) => {
     loadPendingOrder(order);
@@ -800,8 +879,6 @@ export default function POS() {
       setOrderSearchQuery('');
     }
   };
-
-  const filteredItems = menuItems.filter(item => item.category_id === selectedCategory);
 
   return (
     <div className="pos-container">
@@ -975,10 +1052,10 @@ export default function POS() {
         <div className="menu-section">
           <h3 className="section-label">Menu Items</h3>
           <div className="menu-grid">
-            {filteredItems.length === 0 ? (
+            {filteredMenuItems.length === 0 ? (
               <div className="empty-message">No items in this category</div>
             ) : (
-              filteredItems.map(item => (
+              filteredMenuItems.map(item => (
                 <div
                   key={item.item_id}
                   className={`menu-item ${item.status !== 'available' ? 'unavailable' : ''}`}
@@ -1065,11 +1142,11 @@ export default function POS() {
           </button>
           <div className="beeper-status-hint">
             <span className="available-count">
-              {beepers.filter(b => b.status === 'available').length} available
+              {availableBeepers.length} available
             </span>
             <span className="separator">•</span>
             <span className="in-use-count">
-              {beepers.filter(b => b.status === 'in-use').length} in use
+              {inUseBeepersCount} in use
             </span>
           </div>
           </div>
@@ -1083,6 +1160,11 @@ export default function POS() {
               <div className="library-booking-header">
                 <span className="library-icon">📚</span>
                 <span className="library-title">Study Area Booking</span>
+                <button 
+                  className="btn-remove-library" 
+                  onClick={handleRemoveLibraryBooking}
+                  title="Remove booking"
+                >×</button>
               </div>
               <div className="library-booking-details">
                 <p><strong>Customer:</strong> {pendingLibraryBooking.customer_name}</p>
@@ -1465,7 +1547,7 @@ export default function POS() {
             </div>
             <div className="modal-footer beeper-modal-footer">
               <div className="beeper-summary">
-                <span>{beepers.filter(b => b.status === 'available').length} of {beepers.length} beepers available</span>
+                <span>{availableBeepers.length} of {beepers.length} beepers available</span>
               </div>
               <button onClick={() => setShowBeeperModal(false)} className="btn-cancel">Close</button>
             </div>
@@ -1507,12 +1589,12 @@ export default function POS() {
             </div>
             <div className="modal-body">
               <p className="removal-question">
-                Are you sure you want to {removingItem.action === 'remove' ? 'remove' : 'decrease quantity of'} this item?
+                Are you sure you want to {removingItem.action === 'remove-library' ? 'remove' : removingItem.action === 'remove' ? 'remove' : 'decrease quantity of'} this {removingItem.action === 'remove-library' ? 'booking' : 'item'}?
               </p>
               <div className="removal-item-info">
                 <span className="item-name">{removingItem.name}</span>
                 {removingItem.size && <span className="item-size">({removingItem.size})</span>}
-                <span className="item-qty">× {removingItem.quantity}</span>
+                {removingItem.action !== 'remove-library' && <span className="item-qty">× {removingItem.quantity}</span>}
               </div>
               
               <div className="removal-form">
@@ -1556,7 +1638,7 @@ export default function POS() {
                 className="btn-confirm-modify"
                 disabled={!itemRemovalCredentials.username || !itemRemovalCredentials.password}
               >
-                Confirm {removingItem.action === 'remove' ? 'Remove' : 'Decrease'}
+                Confirm {removingItem.action === 'remove-library' || removingItem.action === 'remove' ? 'Remove' : 'Decrease'}
               </button>
             </div>
           </div>

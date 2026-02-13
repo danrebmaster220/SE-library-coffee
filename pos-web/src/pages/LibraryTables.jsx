@@ -6,12 +6,14 @@ export default function LibraryTables() {
   const [config, setConfig] = useState({ total_seats: 0, tables: [] });
   const [loading, setLoading] = useState(true);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
-  const [showEditSeatsModal, setShowEditSeatsModal] = useState(false);
+  const [showEditTableModal, setShowEditTableModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showConfigureModal, setShowConfigureModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [newTableSeats, setNewTableSeats] = useState('8');
+  const [newTableName, setNewTableName] = useState('');
   const [editSeatsCount, setEditSeatsCount] = useState('8');
+  const [editTableName, setEditTableName] = useState('');
   const [configTables, setConfigTables] = useState('3');
   const [configSeatsPerTable, setConfigSeatsPerTable] = useState('8');
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
@@ -45,10 +47,11 @@ export default function LibraryTables() {
       return;
     }
     try {
-      await api.post('/library/tables', { seats });
+      await api.post('/library/tables', { seats, table_name: newTableName.trim() || null });
       showToast(`Table added with ${seats} seats`, 'success');
       setShowAddTableModal(false);
       setNewTableSeats('8');
+      setNewTableName('');
       fetchConfig();
     } catch (err) {
       console.error('Failed to add table:', err);
@@ -56,22 +59,40 @@ export default function LibraryTables() {
     }
   };
 
-  const handleUpdateSeats = async () => {
+  const handleUpdateTable = async () => {
     if (!selectedTable) return;
+    
+    // Validate table name
+    if (!editTableName.trim()) {
+      showToast('Table name is required', 'warning');
+      return;
+    }
+    
+    // Validate seat count
     const seats = parseInt(editSeatsCount) || 1;
     if (seats < 1 || seats > 20) {
       showToast('Seats must be between 1 and 20', 'warning');
       return;
     }
+    
     try {
-      await api.put(`/library/tables/${selectedTable.table_number}/seats`, { seats });
-      showToast(`Table ${selectedTable.table_number} updated to ${seats} seats`, 'success');
-      setShowEditSeatsModal(false);
+      // Update table name
+      await api.put(`/library/tables/${selectedTable.table_number}/name`, { table_name: editTableName.trim() });
+      
+      // Update seats if changed
+      if (seats !== selectedTable.seats) {
+        await api.put(`/library/tables/${selectedTable.table_number}/seats`, { seats });
+      }
+      
+      showToast(`Table updated successfully`, 'success');
+      setShowEditTableModal(false);
       setSelectedTable(null);
+      setEditTableName('');
+      setEditSeatsCount('8');
       fetchConfig();
     } catch (err) {
-      console.error('Failed to update seats:', err);
-      showToast(err.response?.data?.error || 'Failed to update seats', 'error');
+      console.error('Failed to update table:', err);
+      showToast(err.response?.data?.error || 'Failed to update table', 'error');
     }
   };
 
@@ -110,10 +131,11 @@ export default function LibraryTables() {
     }
   };
 
-  const openEditSeats = (table) => {
+  const openEditTable = (table) => {
     setSelectedTable(table);
+    setEditTableName(table.table_name || `Table ${table.table_number}`);
     setEditSeatsCount(String(table.seats));
-    setShowEditSeatsModal(true);
+    setShowEditTableModal(true);
   };
 
   const openDeleteTable = (table) => {
@@ -173,7 +195,7 @@ export default function LibraryTables() {
           config.tables.map(table => (
             <div key={table.table_number} className="table-card">
               <div className="table-card-header">
-                <h3>Table {table.table_number}</h3>
+                <h3>{table.table_name || `Table ${table.table_number}`}</h3>
                 <span className="seat-count">{table.seats} seats</span>
               </div>
               <div className="table-card-visual">
@@ -182,8 +204,8 @@ export default function LibraryTables() {
                 ))}
               </div>
               <div className="table-card-actions">
-                <button className="btn-edit" onClick={() => openEditSeats(table)}>
-                  Edit Seats
+                <button className="btn-edit" onClick={() => openEditTable(table)}>
+                  Edit
                 </button>
                 <button className="btn-delete" onClick={() => openDeleteTable(table)}>
                   Remove
@@ -201,6 +223,15 @@ export default function LibraryTables() {
             <h3>Add New Table</h3>
             <hr />
             <div className="form-group">
+              <label>Table Name (optional):</label>
+              <input
+                type="text"
+                placeholder={`Table ${config.tables.length + 1}`}
+                value={newTableName}
+                onChange={e => setNewTableName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
               <label>Number of Seats:</label>
               <input
                 type="number"
@@ -211,11 +242,11 @@ export default function LibraryTables() {
               />
             </div>
             <p className="modal-info">
-              This will create Table {config.tables.length + 1} with {parseInt(newTableSeats) || 0} seats.
+              This will create "{newTableName.trim() || `Table ${config.tables.length + 1}`}" with {parseInt(newTableSeats) || 0} seats.
             </p>
             <hr />
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowAddTableModal(false)}>
+              <button className="btn-cancel" onClick={() => { setShowAddTableModal(false); setNewTableName(''); }}>
                 Cancel
               </button>
               <button className="btn-confirm" onClick={handleAddTable}>
@@ -226,17 +257,23 @@ export default function LibraryTables() {
         </div>
       )}
 
-      {/* Edit Seats Modal */}
-      {showEditSeatsModal && selectedTable && (
-        <div className="modal-overlay" onClick={() => setShowEditSeatsModal(false)}>
+      {/* Edit Table Modal (Combined Name + Seats) */}
+      {showEditTableModal && selectedTable && (
+        <div className="modal-overlay" onClick={() => setShowEditTableModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <h3>Edit Table {selectedTable.table_number}</h3>
+            <h3>Edit Table</h3>
             <hr />
             <div className="form-group">
-              <label>Current Seats: {selectedTable.seats}</label>
+              <label>Table Name:</label>
+              <input
+                type="text"
+                placeholder={`Table ${selectedTable.table_number}`}
+                value={editTableName}
+                onChange={e => setEditTableName(e.target.value)}
+              />
             </div>
             <div className="form-group">
-              <label>New Seat Count:</label>
+              <label>Number of Seats:</label>
               <input
                 type="number"
                 min="1"
@@ -247,11 +284,11 @@ export default function LibraryTables() {
             </div>
             <hr />
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowEditSeatsModal(false)}>
+              <button className="btn-cancel" onClick={() => { setShowEditTableModal(false); setEditTableName(''); setEditSeatsCount('8'); }}>
                 Cancel
               </button>
-              <button className="btn-confirm" onClick={handleUpdateSeats}>
-                ✓ Update Seats
+              <button className="btn-confirm" onClick={handleUpdateTable}>
+                ✓ Update Table
               </button>
             </div>
           </div>
@@ -264,7 +301,7 @@ export default function LibraryTables() {
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
             <h3>⚠️ Remove Table</h3>
             <hr />
-            <p>Are you sure you want to remove <strong>Table {selectedTable.table_number}</strong>?</p>
+            <p>Are you sure you want to remove <strong>{selectedTable.table_name || `Table ${selectedTable.table_number}`}</strong>?</p>
             <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
             <hr />
             <div className="modal-actions">

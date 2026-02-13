@@ -162,10 +162,33 @@ exports.getSalesChart = async (req, res) => {
             });
         }
 
+        // Monthly sales for current year
+        const [yearData] = await db.query(`
+            SELECT 
+                MONTH(created_at) as month_num,
+                COALESCE(SUM(total_amount), 0) as sales
+            FROM transactions 
+            WHERE YEAR(created_at) = YEAR(CURDATE())
+            AND status NOT IN ('voided', 'pending')
+            GROUP BY MONTH(created_at)
+            ORDER BY month_num ASC
+        `);
+        
+        // Fill in all 12 months
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const yearlyData = monthNames.map((month, idx) => {
+            const found = yearData.find(d => d.month_num === idx + 1);
+            return {
+                month: month,
+                sales: found ? parseFloat(found.sales) : 0
+            };
+        });
+
         res.json({
             today: hourlyData,
             weekly: weeklyData,
-            monthly: monthlyData
+            monthly: monthlyData,
+            yearly: yearlyData
         });
     } catch (error) {
         console.error('Sales chart error:', error);

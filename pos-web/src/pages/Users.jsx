@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
-import "../styles/menu.css";
+import "../styles/menu-management-styles/index.css";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -248,21 +248,22 @@ export default function Users() {
             <p>No users found. Add your first user!</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.user_id}>
-                  <td>#{user.user_id}</td>
+          <div className="table-scroll-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.user_id}>
+                    <td>#{user.user_id}</td>
                   <td>
                     <span className="item-name-text">{user.full_name}</span>
                   </td>
@@ -301,6 +302,7 @@ export default function Users() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

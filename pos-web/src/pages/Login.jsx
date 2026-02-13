@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import '../styles/login.css';
+import logoImg from '../assets/logo.png';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -43,30 +44,23 @@ export default function Login() {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(err.response?.data?.error || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f0e8 0%, #e8ddd0 100%)'
-    }}>
+    <div className="login-page">
       <div className="login-container">
         <div className="logo-container">
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>☕</div>
-          <div className="logo-text">the Library</div>
+          <img src={logoImg} alt="The Library Coffee" />
         </div>
 
         <h1>Welcome Back</h1>
         <p className="subtitle">Enter your credentials.</p>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
             <input
               type="text"
@@ -75,6 +69,7 @@ export default function Login() {
               value={formData.username}
               onChange={handleChange}
               required
+              autoComplete="username"
             />
           </div>
 
@@ -86,18 +81,12 @@ export default function Login() {
               value={formData.password}
               onChange={handleChange}
               required
+              autoComplete="current-password"
             />
           </div>
 
           {error && (
-            <div style={{
-              background: '#fee',
-              color: '#c33',
-              padding: '10px',
-              borderRadius: '6px',
-              marginBottom: '15px',
-              fontSize: '13px'
-            }}>
+            <div className="error-message">
               {error}
             </div>
           )}

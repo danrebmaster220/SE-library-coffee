@@ -47,12 +47,14 @@ export default function LibrarySeats() {
 
   useEffect(() => {
     fetchSeats();
-    Animated.timing(fadeAnim, {
+    // Animation value from useRef is stable
+    const animation = fadeAnim;
+    Animated.timing(animation, {
       toValue: 1,
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim]);
 
   const fetchSeats = async () => {
     try {

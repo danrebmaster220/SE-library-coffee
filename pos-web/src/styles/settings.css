@@ -2,50 +2,54 @@
    Settings/Config Page Styles
    ========================================== */
 
+/* ================================================================
+   Mobile-First Base Styles (320px+)
+   ================================================================ */
+
 .settings-container {
-  padding: 30px 40px;
-  max-width: 900px;
+  padding: 16px;
+  max-width: 100%;
 }
 
 /* Settings Cards */
 .settings-card {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   overflow: hidden;
 }
 
 .settings-card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 20px 24px;
+  gap: 10px;
+  padding: 14px 16px;
   background: linear-gradient(135deg, var(--coffee-dark) 0%, var(--espresso) 100%);
   color: white;
 }
 
 .settings-card-header h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
   font-weight: 600;
   margin: 0;
 }
 
 .settings-card-header .icon {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .settings-card-body {
-  padding: 24px;
+  padding: 16px;
 }
 
-/* Form Grid */
+/* Form Grid - Single column on mobile */
 .settings-form-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .settings-form-grid.single {
@@ -54,15 +58,15 @@
 
 /* Form Groups */
 .settings-form-group {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .settings-form-group label {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--coffee-medium);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -70,13 +74,14 @@
 .settings-form-group input,
 .settings-form-group select {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border: 2px solid #e0e0e0;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   color: var(--coffee-dark);
   transition: all 0.3s ease;
   background: white;
+  box-sizing: border-box;
 }
 
 .settings-form-group input:focus,
@@ -101,24 +106,26 @@
   padding-right: 40px;
 }
 
-/* Action Buttons Row */
+/* Action Buttons Row - Stack on mobile */
 .settings-actions {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .settings-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 12px 16px;
   border: none;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  width: 100%;
 }
 
 .settings-btn-primary {
@@ -218,15 +225,16 @@
   margin: 4px 0;
 }
 
-/* Password Change Row */
+/* Password Change Row - Stack on mobile */
 .password-change-row {
   display: flex;
-  gap: 12px;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .password-change-row input {
   flex: 1;
+  width: 100%;
 }
 
 /* Right Panel Overlay */
@@ -246,13 +254,14 @@
   top: 0;
   right: 0;
   height: 100vh;
-  width: 420px;
+  width: 100%;
   background: white;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
   z-index: 1001;
-  padding: 40px;
+  padding: 24px;
   animation: slideIn 0.3s ease;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 @keyframes slideIn {
@@ -265,39 +274,166 @@
 }
 
 .settings-side-panel h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 24px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 20px;
   color: var(--coffee-dark);
   margin-bottom: 8px;
 }
 
 .settings-side-panel .subtitle {
   color: #888;
-  font-size: 14px;
-  margin-bottom: 30px;
+  font-size: 13px;
+  margin-bottom: 24px;
 }
 
 .settings-side-panel .settings-form-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .settings-panel-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 30px;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
 }
 
 .settings-panel-actions .settings-btn {
   flex: 1;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* ================================================================
+   Responsive Breakpoints - Mobile First
+   ================================================================ */
+
+/* === 375px: Mobile Medium === */
+@media (min-width: 375px) {
+  .settings-container {
+    padding: 20px;
+  }
+  
+  .settings-card-header {
+    padding: 16px 18px;
+  }
+  
+  .settings-card-header h2 {
+    font-size: 16px;
+  }
+  
+  .settings-card-body {
+    padding: 18px;
+  }
+}
+
+/* === 414px: Mobile Large === */
+@media (min-width: 414px) {
+  .settings-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .settings-btn {
+    width: auto;
+    flex: 1;
+    min-width: 140px;
+  }
+  
+  .password-change-row {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+  
+  .settings-panel-actions {
+    flex-direction: row;
+  }
+}
+
+/* === 768px: Tablet Portrait === */
+@media (min-width: 768px) {
+  .settings-container {
+    padding: 24px 30px;
+    max-width: 800px;
+  }
+  
+  .settings-card {
+    border-radius: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .settings-card-header {
+    padding: 18px 22px;
+  }
+  
+  .settings-card-header h2 {
+    font-size: 17px;
+  }
+  
+  .settings-card-header .icon {
+    font-size: 22px;
+  }
+  
+  .settings-card-body {
+    padding: 22px;
+  }
+  
   .settings-form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .settings-form-group label {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  
+  .settings-form-group input,
+  .settings-form-group select {
+    padding: 12px 16px;
+    border-radius: 10px;
   }
   
   .settings-side-panel {
-    width: 100%;
+    width: 420px;
+    padding: 40px;
+  }
+  
+  .settings-side-panel h2 {
+    font-size: 24px;
+  }
+  
+  .settings-side-panel .subtitle {
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+}
+
+/* === 1024px: Tablet Landscape / Small Desktop === */
+@media (min-width: 1024px) {
+  .settings-container {
+    padding: 30px 40px;
+    max-width: 900px;
+  }
+  
+  .settings-card-header {
+    padding: 20px 24px;
+  }
+  
+  .settings-card-header h2 {
+    font-size: 18px;
+  }
+  
+  .settings-card-header .icon {
+    font-size: 24px;
+  }
+  
+  .settings-card-body {
+    padding: 24px;
+  }
+}
+
+/* === 1280px+: Desktop === */
+@media (min-width: 1280px) {
+  .settings-container {
+    max-width: 1000px;
   }
 }

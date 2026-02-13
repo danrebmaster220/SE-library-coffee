@@ -636,6 +636,106 @@ exports.getBeepers = async (req, res) => {
     }
 };
 
+// Get beeper configuration (total count)
+exports.getBeeperConfig = async (req, res) => {
+    try {
+        const [beepers] = await db.query('SELECT COUNT(*) as total FROM beepers');
+        const [available] = await db.query("SELECT COUNT(*) as available FROM beepers WHERE status = 'available'");
+        const [inUse] = await db.query("SELECT COUNT(*) as in_use FROM beepers WHERE status = 'in-use'");
+        
+        res.json({
+            total: beepers[0].total,
+            available: available[0].available,
+            in_use: inUse[0].in_use
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Update beeper count (add or remove beepers)
+exports.updateBeeperCount = async (req, res) => {
+    const { count } = req.body;
+    
+    if (!count || count < 1 || count > 100) {
+        return res.status(400).json({ error: 'Beeper count must be between 1 and 100' });
+    }
+    
+    try {
+        // Get current beeper count
+        const [current] = await db.query('SELECT COUNT(*) as total FROM beepers');
+        const currentCount = current[0].total;
+        
+        if (count > currentCount) {
+            // Add more beepers
+            const beepersToAdd = [];
+            for (let i = currentCount + 1; i <= count; i++) {
+                beepersToAdd.push([i, 'available', null, null]);
+            }
+            
+            if (beepersToAdd.length > 0) {
+                await db.query(
+                    'INSERT INTO beepers (beeper_number, status, transaction_id, assigned_at) VALUES ?',
+                    [beepersToAdd]
+                );
+            }
+        } else if (count < currentCount) {
+            // Check if beepers to be removed are in use
+            const [inUseBeepers] = await db.query(
+                "SELECT beeper_number FROM beepers WHERE beeper_number > ? AND status = 'in-use'",
+                [count]
+            );
+            
+            if (inUseBeepers.length > 0) {
+                return res.status(400).json({ 
+                    error: `Cannot remove beepers ${inUseBeepers.map(b => b.beeper_number).join(', ')} - they are currently in use` 
+                });
+            }
+            
+            // Remove beepers with higher numbers
+            await db.query('DELETE FROM beepers WHERE beeper_number > ?', [count]);
+        }
+        
+        res.json({ 
+            message: `Beeper count updated to ${count}`,
+            count: count
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Release a specific beeper manually (make it available)
+exports.releaseBeeperManually = async (req, res) => {
+    const { beeperNumber } = req.params;
+    
+    try {
+        // Check if beeper exists
+        const [beeper] = await db.query(
+            'SELECT * FROM beepers WHERE beeper_number = ?',
+            [beeperNumber]
+        );
+        
+        if (beeper.length === 0) {
+            return res.status(404).json({ error: 'Beeper not found' });
+        }
+        
+        if (beeper[0].status === 'available') {
+            return res.status(400).json({ error: 'Beeper is already available' });
+        }
+        
+        // Release the beeper
+        await releaseBeeper(beeperNumber);
+        
+        res.json({ 
+            success: true,
+            message: `Beeper ${beeperNumber} has been released`
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Get single transaction by ID
 exports.getTransactionById = async (req, res) => {
     try {

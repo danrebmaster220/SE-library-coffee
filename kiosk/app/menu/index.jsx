@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   StyleSheet, 
   View, 
@@ -39,9 +39,9 @@ export default function MenuPage() {
   });
   
   // Function to remove library booking
-  const handleRemoveLibraryBooking = () => {
+  const handleRemoveLibraryBooking = useCallback(() => {
     setCurrentLibraryBooking(null);
-  };
+  }, []);
 
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -57,7 +57,7 @@ export default function MenuPage() {
   const categoryScrollRef = useRef(null);
 
   // Handle category scroll to show/hide arrows
-  const handleCategoryScroll = (event) => {
+  const handleCategoryScroll = useCallback((event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const scrollX = contentOffset.x;
     const maxScrollX = contentSize.width - layoutMeasurement.width;
@@ -66,21 +66,21 @@ export default function MenuPage() {
     setShowLeftArrow(scrollX > 10);
     // Show right arrow if not at the end (with 10px threshold)
     setShowRightArrow(scrollX < maxScrollX - 10);
-  };
+  }, []);
 
   // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   // Fetch items when category changes
   useEffect(() => {
     if (selectedCategory) {
       fetchItemsForCategory(selectedCategory);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, fetchItemsForCategory]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       const cats = await getCategories();
@@ -95,9 +95,9 @@ export default function MenuPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchItemsForCategory = async (categoryName) => {
+  const fetchItemsForCategory = useCallback(async (categoryName) => {
     try {
       setLoadingItems(true);
       
@@ -118,10 +118,10 @@ export default function MenuPage() {
     } finally {
       setLoadingItems(false);
     }
-  };
+  }, [categories]);
 
   // Add item or increase quantity
-  const handleAddToOrder = (item) => {
+  const handleAddToOrder = useCallback((item) => {
     setOrders((prev) => {
       // Create unique key using item_id and customization summary
       const itemKey = item.customizationSummary 
@@ -154,20 +154,20 @@ export default function MenuPage() {
         name: item.name || item.item_name,
       }];
     });
-  };
+  }, []);
 
   // Remove item from order
-  const removeItem = (itemKey) => {
+  const removeItem = useCallback((itemKey) => {
     setOrders((prev) => prev.filter((item) => {
       const key = item.customizationSummary 
         ? `${item.item_id}-${item.customizationSummary}`
         : `${item.item_id}-standard`;
       return key !== itemKey;
     }));
-  };
+  }, []);
 
   // Update item quantity
-  const updateQuantity = (itemKey, newQuantity) => {
+  const updateQuantity = useCallback((itemKey, newQuantity) => {
     setOrders((prev) =>
       prev
         .map((item) => {
@@ -178,7 +178,25 @@ export default function MenuPage() {
         })
         .filter((item) => item.quantity > 0)
     );
-  };
+  }, []);
+
+  // Memoized cart calculations - must be before any conditional returns
+  const totalCartItems = useMemo(() => {
+    return orders.reduce((sum, item) => sum + item.quantity, 0);
+  }, [orders]);
+
+  const totalCartAmount = useMemo(() => {
+    return orders.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }, [orders]);
+  
+  // Include library booking amount in total
+  const libraryBookingAmount = currentLibraryBooking?.amount || 0;
+  const grandTotal = useMemo(() => {
+    return totalCartAmount + libraryBookingAmount;
+  }, [totalCartAmount, libraryBookingAmount]);
+  
+  // Show cart if there are items OR a library booking
+  const hasCartContent = totalCartItems > 0 || currentLibraryBooking;
 
   if (loading) {
     return (
@@ -190,17 +208,6 @@ export default function MenuPage() {
       </SafeAreaView>
     );
   }
-
-  // Calculate total items in cart for badge
-  const totalCartItems = orders.reduce((sum, item) => sum + item.quantity, 0);
-  const totalCartAmount = orders.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Include library booking amount in total
-  const libraryBookingAmount = currentLibraryBooking?.amount || 0;
-  const grandTotal = totalCartAmount + libraryBookingAmount;
-  
-  // Show cart if there are items OR a library booking
-  const hasCartContent = totalCartItems > 0 || currentLibraryBooking;
 
   // PHONE LAYOUT: Stack vertically with bottom cart button
   if (isPhone) {

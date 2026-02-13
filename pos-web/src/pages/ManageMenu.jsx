@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
-import "../styles/menu.css";
+import "../styles/menu-management-styles/index.css";
 
 export default function ManageMenu() {
   const navigate = useNavigate();
@@ -149,18 +149,19 @@ export default function ManageMenu() {
             <p>No items found. Add your first menu item!</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Image</th>
-                <th>Item Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Station</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          <div className="table-scroll-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Station</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
             <tbody>
               {filteredItems.map((item) => (
                 <tr key={item.item_id}>
@@ -212,6 +213,7 @@ export default function ManageMenu() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

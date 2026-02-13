@@ -1,0 +1,938 @@
+/* ================================================================
+   MENU MANAGEMENT - Mobile-First Responsive Design
+   ================================================================
+   Breakpoints:
+   - Base: Mobile Small (320px+) - iPhone SE, small Android
+   - 375px: Mobile Medium - iPhone X/11/12/13/14, Pixel
+   - 414px: Mobile Large - iPhone Plus/Max, large Android
+   - 768px: Tablet Portrait - iPad, Android tablets
+   - 1024px: Tablet Landscape / Small Desktop
+   - 1280px+: Desktop
+   ================================================================ */
+
+/* === BASE STYLES (Mobile Small 320px+) === */
+
+/* Main Content - Mobile default */
+.main-content {
+  padding: 60px 12px 16px 12px; /* Top padding for hamburger menu */
+  margin-left: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Page Header */
+.page-header-section {
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: 12px;
+}
+
+/* Toolbar Section - Stacked on mobile */
+.toolbar-section {
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolbar-left {
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+}
+
+.toolbar-right {
+  width: 100%;
+}
+
+/* Search Box - Full width on mobile */
+.search-box {
+  width: 100%;
+}
+
+.search-box .search-input,
+.search-box input.search-input,
+input.search-input {
+  width: 100%;
+  padding: 10px 10px 10px 38px;
+  font-size: 14px;
+}
+
+.search-box svg {
+  left: 10px;
+  width: 16px;
+  height: 16px;
+}
+
+/* Filter Select - Full width on mobile */
+.filter-select {
+  width: 100%;
+  min-width: unset;
+  padding: 10px 32px 10px 12px;
+  font-size: 13px;
+}
+
+/* Buttons - Full width on mobile */
+.btn-navigate,
+.btn-primary-action {
+  width: 100%;
+  justify-content: center;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.btn-primary-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Table Card - Horizontal scroll on mobile */
+.table-card {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  margin: 0 -12px;
+  padding: 0 12px;
+}
+
+.data-table {
+  min-width: 600px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.data-table th {
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+
+/* Item Image Cell - Smaller on mobile */
+.item-image-cell {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+}
+
+.no-image-placeholder {
+  font-size: 7px;
+}
+
+.item-name-text {
+  font-size: 12px;
+}
+
+.price-cell {
+  font-size: 12px;
+}
+
+/* Badges - Compact on mobile */
+.status-badge,
+.station-badge {
+  padding: 4px 8px;
+  font-size: 10px;
+  border-radius: 10px;
+}
+
+.percentage-badge,
+.role-badge {
+  padding: 3px 8px;
+  font-size: 10px;
+  border-radius: 10px;
+}
+
+/* Action Buttons - Stacked on mobile */
+.action-buttons {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-action {
+  width: 100%;
+  justify-content: center;
+  padding: 6px 8px;
+  font-size: 10px;
+  gap: 3px;
+}
+
+.btn-action svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Empty/Loading States */
+.empty-state,
+.loading-state {
+  padding: 40px 16px;
+  font-size: 13px;
+}
+
+/* Modal - Full screen on mobile */
+.modal-overlay {
+  padding: 0;
+  align-items: flex-end;
+}
+
+.modal-content {
+  margin: 0;
+  max-height: 95vh;
+  max-width: 100%;
+  border-radius: 20px 20px 0 0;
+  animation: modalSlideUp 0.3s ease;
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 14px 16px;
+  border-radius: 20px 20px 0 0;
+}
+
+.modal-title {
+  font-size: 16px;
+}
+
+.modal-close {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+
+.modal-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modal-content form {
+  padding: 12px 16px 16px;
+}
+
+/* Form - Single column on mobile */
+.form-row {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-label {
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+.form-textarea {
+  min-height: 80px;
+}
+
+.form-helper,
+.form-hint {
+  font-size: 10px;
+}
+
+/* Modal Actions */
+.modal-actions {
+  padding: 12px 16px 20px;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.modal-actions button,
+.btn-cancel,
+.btn-confirm {
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+/* Image Upload - Smaller on mobile */
+.image-upload-box {
+  width: 100px;
+  height: 100px;
+}
+
+.upload-placeholder {
+  font-size: 11px;
+}
+
+.upload-placeholder svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Customization Form Section */
+.customization-form-section {
+  padding: 10px;
+}
+
+.group-checkbox-item {
+  flex: 0 0 100%;
+  padding: 8px 10px;
+}
+
+.group-checkbox-label strong {
+  font-size: 11px;
+}
+
+.group-checkbox-label small {
+  font-size: 9px;
+}
+
+/* Delete Modal */
+.delete-modal-body {
+  padding: 16px;
+}
+
+.delete-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+.delete-message {
+  font-size: 14px;
+}
+
+.delete-warning {
+  font-size: 12px;
+}
+
+/* Customizations Page - Accordion Style */
+.customization-group-card {
+  border-radius: 10px;
+}
+
+.group-header {
+  padding: 14px 12px;
+}
+
+.group-name {
+  font-size: 14px;
+}
+
+.meta-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
+.group-options-section {
+  padding: 12px;
+}
+
+.options-table-header {
+  display: none; /* Hide header on mobile, use card layout */
+}
+
+.options-table-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--foam);
+}
+
+.option-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.option-price,
+.option-per-unit,
+.option-max-qty {
+  font-size: 12px;
+}
+
+.option-actions {
+  margin-top: 8px;
+}
+
+/* === MOBILE MEDIUM (375px+) === */
+@media (min-width: 375px) {
+  .main-content {
+    padding: 60px 16px 20px 16px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+  }
+
+  .table-card {
+    margin: 0;
+    padding: 0;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  .item-image-cell {
+    width: 40px;
+    height: 40px;
+  }
+
+  .btn-action {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .image-upload-box {
+    width: 110px;
+    height: 110px;
+  }
+
+  .group-checkbox-item {
+    flex: 0 0 100%;
+    padding: 10px 12px;
+  }
+}
+
+/* === MOBILE LARGE (414px+) === */
+@media (min-width: 414px) {
+  .page-title {
+    font-size: 24px;
+  }
+
+  .toolbar-section {
+    gap: 14px;
+  }
+
+  .filter-select {
+    padding: 12px 35px 12px 14px;
+    font-size: 14px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px 16px;
+  }
+
+  .item-image-cell {
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
+  }
+
+  .action-buttons {
+    flex-direction: row;
+  }
+
+  .btn-action {
+    width: auto;
+    padding: 8px 12px;
+  }
+
+  .modal-header {
+    padding: 16px 18px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+  }
+
+  .modal-content form {
+    padding: 14px 18px 18px;
+  }
+
+  .image-upload-box {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+/* === TABLET PORTRAIT (768px+) === */
+@media (min-width: 768px) {
+  .main-content {
+    padding: 65px 24px 24px 24px;
+  }
+
+  .page-header-section {
+    margin-bottom: 20px;
+  }
+
+  .page-title {
+    font-size: 26px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+  }
+
+  /* Toolbar - Side by side */
+  .toolbar-section {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .toolbar-left {
+    flex-direction: row;
+    width: auto;
+    gap: 12px;
+  }
+
+  .toolbar-right {
+    width: auto;
+  }
+
+  .search-box {
+    width: auto;
+  }
+
+  .search-box .search-input,
+  .search-box input.search-input,
+  input.search-input {
+    width: 240px;
+    padding: 10px 12px 10px 40px;
+  }
+
+  .search-box svg {
+    left: 12px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .filter-select {
+    width: auto;
+    min-width: 140px;
+  }
+
+  .btn-navigate,
+  .btn-primary-action {
+    width: auto;
+    padding: 12px 20px;
+  }
+
+  /* Table - Better sizing */
+  .table-card {
+    border-radius: 14px;
+  }
+
+  .data-table {
+    min-width: 700px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 14px 18px;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    font-size: 11px;
+  }
+
+  .item-image-cell {
+    width: 50px;
+    height: 50px;
+  }
+
+  .item-name-text {
+    font-size: 13px;
+  }
+
+  .price-cell {
+    font-size: 13px;
+  }
+
+  .status-badge,
+  .station-badge {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+
+  .action-buttons {
+    gap: 8px;
+  }
+
+  .btn-action {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .btn-action svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Modal - Centered, not full screen */
+  .modal-overlay {
+    padding: 20px;
+    align-items: center;
+  }
+
+  .modal-content {
+    max-width: 550px;
+    max-height: 90vh;
+    border-radius: 20px;
+    animation: modalFadeIn 0.3s ease;
+  }
+
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-large {
+    max-width: 650px;
+  }
+
+  .modal-header {
+    padding: 18px 24px;
+  }
+
+  .modal-title {
+    font-size: 20px;
+  }
+
+  .modal-content form {
+    padding: 20px 24px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 18px;
+  }
+
+  .form-label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: 11px 14px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+
+  .modal-actions {
+    flex-direction: row;
+    padding: 16px 24px 24px;
+    gap: 12px;
+  }
+
+  .modal-actions button,
+  .btn-cancel,
+  .btn-confirm {
+    width: auto;
+    flex: 1;
+    padding: 13px 20px;
+    font-size: 14px;
+  }
+
+  .image-upload-box {
+    width: 130px;
+    height: 130px;
+  }
+
+  .upload-placeholder {
+    font-size: 12px;
+  }
+
+  /* Customizations Page */
+  .group-checkbox-item {
+    flex: 0 0 calc(50% - 5px);
+    padding: 10px 14px;
+  }
+
+  .options-table-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 80px 100px 80px;
+  }
+
+  .options-table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 80px 100px 80px;
+    flex-direction: row;
+    padding: 12px 16px;
+    margin-bottom: 0;
+    background: white;
+    border-radius: 0;
+  }
+
+  .group-header {
+    padding: 16px 20px;
+  }
+
+  .group-name {
+    font-size: 15px;
+  }
+
+  .meta-tag {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+}
+
+/* === TABLET LANDSCAPE / SMALL DESKTOP (1024px+) === */
+@media (min-width: 1024px) {
+  .main-content {
+    padding: 30px;
+    margin-left: 250px; /* Space for sidebar */
+  }
+
+  .page-header-section {
+    margin-bottom: 24px;
+  }
+
+  .page-title {
+    font-size: 28px;
+  }
+
+  .toolbar-section {
+    margin-bottom: 24px;
+  }
+
+  .search-box .search-input,
+  .search-box input.search-input,
+  input.search-input {
+    width: 280px;
+  }
+
+  .filter-select {
+    min-width: 150px;
+  }
+
+  .btn-primary-action {
+    padding: 12px 24px;
+  }
+
+  .table-card {
+    border-radius: 16px;
+  }
+
+  .data-table {
+    min-width: auto;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 16px 20px;
+    font-size: 14px;
+  }
+
+  .data-table th {
+    font-size: 12px;
+  }
+
+  .item-image-cell {
+    width: 55px;
+    height: 55px;
+    border-radius: 10px;
+  }
+
+  .item-name-text {
+    font-size: 14px;
+  }
+
+  .price-cell {
+    font-size: 14px;
+  }
+
+  .status-badge,
+  .station-badge {
+    padding: 5px 14px;
+    font-size: 12px;
+  }
+
+  .percentage-badge,
+  .role-badge {
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+
+  .btn-action {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .btn-action svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .empty-state,
+  .loading-state {
+    padding: 60px;
+    font-size: 16px;
+  }
+
+  /* Modal */
+  .modal-content {
+    max-width: 500px;
+  }
+
+  .modal-large {
+    max-width: 700px;
+  }
+
+  .modal-header {
+    padding: 20px 28px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+  }
+
+  .modal-content form {
+    padding: 24px 28px;
+  }
+
+  .form-row {
+    gap: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: 12px 16px;
+  }
+
+  .modal-actions {
+    padding: 20px 28px 28px;
+    margin-top: 20px;
+  }
+
+  .modal-actions button,
+  .btn-cancel,
+  .btn-confirm {
+    padding: 14px 24px;
+  }
+
+  .image-upload-box {
+    width: 140px;
+    height: 140px;
+  }
+
+  .upload-placeholder {
+    font-size: 13px;
+  }
+
+  .upload-placeholder svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Customizations Page */
+  .customization-form-section {
+    padding: 16px;
+  }
+
+  .group-header {
+    padding: 18px 20px;
+  }
+
+  .group-name {
+    font-size: 16px;
+  }
+
+  .group-options-section {
+    padding: 20px;
+  }
+}
+
+/* === DESKTOP (1280px+) === */
+@media (min-width: 1280px) {
+  .main-content {
+    padding: 35px 40px;
+  }
+
+  .page-title {
+    font-size: 30px;
+  }
+
+  .toolbar-section {
+    margin-bottom: 28px;
+  }
+
+  .search-box .search-input,
+  .search-box input.search-input,
+  input.search-input {
+    width: 320px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 18px 24px;
+  }
+
+  .item-image-cell {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* === LARGE DESKTOP (1400px+) === */
+@media (min-width: 1400px) {
+  .main-content {
+    padding: 40px 50px;
+  }
+
+  .search-box .search-input,
+  .search-box input.search-input,
+  input.search-input {
+    width: 350px;
+  }
+
+  .filter-select {
+    min-width: 160px;
+  }
+}

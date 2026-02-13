@@ -1,0 +1,34 @@
+/* ========================================
+   MENU MANAGEMENT STYLES - INDEX
+   Consolidated imports for all menu management pages
+   ======================================== */
+
+/* Base styles - CSS variables, main content, page header */
+@import './base.css';
+
+/* Toolbar - search box, filters */
+@import './toolbar.css';
+
+/* Buttons - all button variations */
+@import './buttons.css';
+
+/* Tables - data tables, options tables */
+@import './tables.css';
+
+/* Badges - status, role, percentage badges */
+@import './badges.css';
+
+/* Modals - overlays, content, headers, actions */
+@import './modals.css';
+
+/* Forms - inputs, selects, textareas, checkboxes */
+@import './forms.css';
+
+/* Image Upload - upload boxes, previews */
+@import './image-upload.css';
+
+/* Customizations - customization groups, options */
+@import './customizations.css';
+
+/* Responsive - media queries for all breakpoints */
+@import './responsive.css';

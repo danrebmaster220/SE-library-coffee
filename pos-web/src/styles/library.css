@@ -20,7 +20,7 @@
 }
 
 .table-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Poppins', sans-serif;
   color: var(--coffee-dark);
   margin-bottom: 20px;
   font-size: 20px;
@@ -976,8 +976,8 @@
 
 .page-subtitle {
   font-size: 14px;
-  color: #666;
-  margin-top: 4px;
+  color: var(--coffee-light, #8d6e63);
+  margin-top: 5px;
 }
 
 .stat-card.stat-available {
@@ -2253,3 +2253,4 @@ button.btn-void-small:disabled {
     width: 100%;
   }
 }
+

@@ -101,7 +101,7 @@
 }
 
 .logo-text h1 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: #fff;
@@ -649,7 +649,7 @@
   font-size: 22px;
   font-weight: 700;
   color: #3e2723;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .logout-modal p {
@@ -696,3 +696,4 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
 }
+

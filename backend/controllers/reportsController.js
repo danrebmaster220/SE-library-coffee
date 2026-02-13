@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 
 
 // SALES SUMMARY (by date range) - Uses transactions table
@@ -919,3 +920,331 @@ exports.exportExcel = async (req, res) => {
     }
 };
 
+
+// EXPORT TO PDF
+
+exports.exportPDF = async (req, res) => {
+    const { type, startDate, endDate, orderType, status } = req.query;
+
+    try {
+        // Create PDF document
+        const doc = new PDFDocument({ 
+            margin: 40,
+            size: 'A4',
+            layout: 'landscape'
+        });
+
+        let filename = '';
+
+        // Helper function to format currency
+        const formatCurrency = (amount) => {
+            return `P${parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        };
+
+        // Helper function to format date
+        const formatDate = (dateString) => {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        };
+
+        // Helper function to format datetime
+        const formatDateTime = (dateString) => {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('en-PH', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        };
+
+        // Draw table header
+        const drawTableHeader = (headers, y, columnWidths) => {
+            doc.font('Helvetica-Bold').fontSize(9);
+            let x = 40;
+            
+            // Header background
+            doc.fillColor('#6b4423').rect(40, y - 5, 760, 20).fill();
+            doc.fillColor('white');
+            
+            headers.forEach((header, i) => {
+                doc.text(header, x + 5, y, { width: columnWidths[i] - 10, align: 'left' });
+                x += columnWidths[i];
+            });
+            
+            doc.fillColor('black');
+            return y + 20;
+        };
+
+        // Draw table row
+        const drawTableRow = (data, y, columnWidths, isAlternate = false) => {
+            doc.font('Helvetica').fontSize(8);
+            let x = 40;
+            
+            // Alternate row background
+            if (isAlternate) {
+                doc.fillColor('#f5f5f5').rect(40, y - 3, 760, 18).fill();
+                doc.fillColor('black');
+            }
+            
+            data.forEach((cell, i) => {
+                doc.text(String(cell || '-'), x + 5, y, { width: columnWidths[i] - 10, align: 'left' });
+                x += columnWidths[i];
+            });
+            
+            return y + 18;
+        };
+
+        // Add page header
+        const addPageHeader = (title, subtitle) => {
+            doc.font('Helvetica-Bold').fontSize(18).fillColor('#3e2723');
+            doc.text('LIBRARY COFFEE + STUDY', 40, 40);
+            doc.font('Helvetica').fontSize(12).fillColor('#666');
+            doc.text(title, 40, 62);
+            doc.fontSize(10).fillColor('#888');
+            doc.text(subtitle, 40, 78);
+            doc.moveDown(2);
+            return 100;
+        };
+
+        // Check if we need a new page
+        const checkNewPage = (y, minHeight = 100) => {
+            if (y > 520) {
+                doc.addPage();
+                return 40;
+            }
+            return y;
+        };
+
+        if (type === 'orders') {
+            // ORDERS REPORT PDF
+            filename = `Orders_Report_${startDate}_to_${endDate}.pdf`;
+            
+            let whereConditions = ["t.status != 'voided'"];
+            const params = [];
+
+            if (startDate && endDate) {
+                whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
+                params.push(startDate, endDate);
+            }
+
+            if (orderType) {
+                whereConditions.push('t.order_type = ?');
+                params.push(orderType);
+            }
+
+            if (status) {
+                whereConditions.push('t.status = ?');
+                params.push(status);
+            }
+
+            const [orders] = await db.query(`
+                SELECT 
+                    t.transaction_id,
+                    t.beeper_number,
+                    t.order_type,
+                    t.subtotal,
+                    t.discount_amount,
+                    t.total_amount,
+                    t.payment_method,
+                    t.status,
+                    t.created_at,
+                    u.full_name as cashier_name,
+                    (SELECT COUNT(*) FROM transaction_items ti WHERE ti.transaction_id = t.transaction_id) as item_count
+                FROM transactions t
+                LEFT JOIN users u ON t.cashier_id = u.user_id
+                WHERE ${whereConditions.join(' AND ')}
+                ORDER BY t.created_at DESC
+            `, params);
+
+            // Calculate summary
+            const totalOrders = orders.length;
+            const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+            const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+            // Page header
+            let y = addPageHeader('Orders Report', `Date Range: ${startDate} to ${endDate}`);
+
+            // Summary section
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.text('Summary', 40, y);
+            y += 18;
+            doc.font('Helvetica').fontSize(10).fillColor('black');
+            doc.text(`Total Orders: ${totalOrders}    |    Total Revenue: ${formatCurrency(totalRevenue)}    |    Average Order Value: ${formatCurrency(avgOrderValue)}`, 40, y);
+            y += 30;
+
+            // Table
+            const headers = ['Order #', 'Date/Time', 'Beeper', 'Type', 'Items', 'Subtotal', 'Discount', 'Total', 'Status'];
+            const columnWidths = [85, 120, 60, 70, 50, 80, 70, 80, 75];
+            
+            y = drawTableHeader(headers, y, columnWidths);
+
+            orders.forEach((order, index) => {
+                y = checkNewPage(y);
+                const rowData = [
+                    `ORD-${String(order.transaction_id).padStart(6, '0')}`,
+                    formatDateTime(order.created_at),
+                    order.beeper_number || '-',
+                    order.order_type || '-',
+                    order.item_count,
+                    formatCurrency(order.subtotal),
+                    order.discount_amount > 0 ? formatCurrency(order.discount_amount) : '-',
+                    formatCurrency(order.total_amount),
+                    order.status
+                ];
+                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
+            });
+
+        } else if (type === 'sales') {
+            // SALES REPORT PDF
+            filename = `Sales_Report_${startDate}_to_${endDate}.pdf`;
+
+            const [dailySales] = await db.query(`
+                SELECT 
+                    DATE(t.created_at) as sale_date,
+                    COUNT(DISTINCT t.transaction_id) as order_count,
+                    SUM(t.total_amount) as total_sales,
+                    SUM(t.discount_amount) as total_discounts
+                FROM transactions t
+                WHERE t.status != 'voided'
+                AND DATE(t.created_at) BETWEEN ? AND ?
+                GROUP BY DATE(t.created_at)
+                ORDER BY DATE(t.created_at) DESC
+            `, [startDate, endDate]);
+
+            // Calculate totals
+            const totalOrders = dailySales.reduce((sum, d) => sum + d.order_count, 0);
+            const totalSales = dailySales.reduce((sum, d) => sum + parseFloat(d.total_sales || 0), 0);
+            const totalDiscounts = dailySales.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
+
+            // Page header
+            let y = addPageHeader('Sales Report', `Date Range: ${startDate} to ${endDate}`);
+
+            // Summary section
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.text('Summary', 40, y);
+            y += 18;
+            doc.font('Helvetica').fontSize(10).fillColor('black');
+            doc.text(`Total Orders: ${totalOrders}    |    Total Sales: ${formatCurrency(totalSales)}    |    Total Discounts: ${formatCurrency(totalDiscounts)}`, 40, y);
+            y += 30;
+
+            // Table
+            const headers = ['Date', 'Orders', 'Total Sales', 'Discounts', 'Net Sales'];
+            const columnWidths = [150, 120, 150, 150, 150];
+            
+            y = drawTableHeader(headers, y, columnWidths);
+
+            dailySales.forEach((day, index) => {
+                y = checkNewPage(y);
+                const netSales = parseFloat(day.total_sales || 0) - parseFloat(day.total_discounts || 0);
+                const rowData = [
+                    formatDate(day.sale_date),
+                    day.order_count,
+                    formatCurrency(day.total_sales),
+                    formatCurrency(day.total_discounts),
+                    formatCurrency(netSales)
+                ];
+                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
+            });
+
+        } else if (type === 'library') {
+            // LIBRARY REPORT PDF
+            filename = `Library_Report_${startDate}_to_${endDate}.pdf`;
+
+            let whereConditions = ['1=1'];
+            const params = [startDate, endDate];
+
+            if (status) {
+                whereConditions.push('ls.status = ?');
+                params.push(status);
+            }
+
+            const [sessions] = await db.query(`
+                SELECT 
+                    ls.session_id,
+                    ls.customer_name,
+                    ls.check_in_time,
+                    ls.check_out_time,
+                    ls.duration_hours,
+                    ls.fee,
+                    ls.status,
+                    lt.table_name,
+                    ls.seat_number
+                FROM library_sessions ls
+                LEFT JOIN library_tables lt ON ls.table_id = lt.table_id
+                WHERE DATE(ls.check_in_time) BETWEEN ? AND ?
+                AND ${whereConditions.join(' AND ')}
+                ORDER BY ls.check_in_time DESC
+            `, params);
+
+            // Calculate summary
+            const totalSessions = sessions.length;
+            const totalRevenue = sessions.reduce((sum, s) => sum + parseFloat(s.fee || 0), 0);
+            const totalHours = sessions.reduce((sum, s) => sum + parseFloat(s.duration_hours || 0), 0);
+
+            // Page header
+            let y = addPageHeader('Library Report', `Date Range: ${startDate} to ${endDate}`);
+
+            // Summary section
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.text('Summary', 40, y);
+            y += 18;
+            doc.font('Helvetica').fontSize(10).fillColor('black');
+            doc.text(`Total Sessions: ${totalSessions}    |    Total Revenue: ${formatCurrency(totalRevenue)}    |    Total Hours: ${totalHours.toFixed(1)}`, 40, y);
+            y += 30;
+
+            // Table
+            const headers = ['Session #', 'Customer', 'Table/Seat', 'Check In', 'Check Out', 'Duration', 'Fee', 'Status'];
+            const columnWidths = [80, 120, 80, 110, 110, 70, 80, 70];
+            
+            y = drawTableHeader(headers, y, columnWidths);
+
+            sessions.forEach((session, index) => {
+                y = checkNewPage(y);
+                const rowData = [
+                    `SES-${String(session.session_id).padStart(6, '0')}`,
+                    session.customer_name || '-',
+                    session.table_name ? `${session.table_name} / Seat ${session.seat_number}` : '-',
+                    formatDateTime(session.check_in_time),
+                    session.check_out_time ? formatDateTime(session.check_out_time) : '-',
+                    session.duration_hours ? `${parseFloat(session.duration_hours).toFixed(1)} hrs` : '-',
+                    formatCurrency(session.fee),
+                    session.status
+                ];
+                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
+            });
+        }
+
+        // Add footer with generation date
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+            doc.switchToPage(i);
+            doc.font('Helvetica').fontSize(8).fillColor('#888');
+            doc.text(
+                `Generated on ${new Date().toLocaleString('en-PH')} | Page ${i + 1} of ${pages.count}`,
+                40, 560,
+                { align: 'center', width: 760 }
+            );
+        }
+
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        
+        // Pipe PDF to response
+        doc.pipe(res);
+        doc.end();
+
+    } catch (error) {
+        console.error('PDF export error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

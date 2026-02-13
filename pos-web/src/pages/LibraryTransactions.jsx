@@ -58,8 +58,15 @@ export default function LibraryTransactions() {
       const seatsData = response.data || [];
       setSeats(seatsData);
       
-      const tableNumbers = [...new Set(seatsData.map(s => s.table_number))].sort((a, b) => a - b);
-      setTables(tableNumbers);
+      // Build table info with names
+      const tableMap = {};
+      seatsData.forEach(s => {
+        if (!tableMap[s.table_number]) {
+          tableMap[s.table_number] = s.table_name || `Table ${s.table_number}`;
+        }
+      });
+      const tableNumbers = Object.keys(tableMap).map(Number).sort((a, b) => a - b);
+      setTables(tableNumbers.map(num => ({ table_number: num, table_name: tableMap[num] })));
       
       const active = seatsData
         .filter(s => s.status === 'occupied' && s.session_id)
@@ -67,6 +74,7 @@ export default function LibraryTransactions() {
           session_id: s.session_id,
           seat_id: s.seat_id,
           table_number: s.table_number,
+          table_name: s.table_name || `Table ${s.table_number}`,
           seat_number: s.seat_number,
           customer_name: s.customer_name,
           start_time: s.start_time,
@@ -314,9 +322,10 @@ export default function LibraryTransactions() {
   const maintenanceCount = seats.filter(s => s.status === 'maintenance').length;
   const activeRevenue = activeSessions.reduce((sum, s) => sum + calculateFee(s.elapsed_minutes), 0);
 
-  const groupedSeats = tables.map(tableNum => ({
-    tableNum,
-    seats: seats.filter(s => s.table_number === tableNum).sort((a, b) => a.seat_number - b.seat_number)
+  const groupedSeats = tables.map(table => ({
+    tableNum: table.table_number,
+    tableName: table.table_name,
+    seats: seats.filter(s => s.table_number === table.table_number).sort((a, b) => a.seat_number - b.seat_number)
   }));
 
   if (loading) {
@@ -399,7 +408,7 @@ export default function LibraryTransactions() {
               {groupedSeats.map(function(group) {
                 return (
                   <div key={group.tableNum} className="table-section-compact">
-                    <div className="table-header-compact">Table {group.tableNum}</div>
+                    <div className="table-header-compact">{group.tableName}</div>
                     <div className="seats-row">
                       {group.seats.map(function(seat) {
                         var seatClass = 'seat-item ';
@@ -434,7 +443,7 @@ export default function LibraryTransactions() {
                   {paginatedActiveSessions.map(function(session) {
                     return (
                       <tr key={session.session_id} className={session.remaining_minutes <= 5 && session.remaining_minutes > 0 ? 'warning-row' : ''}>
-                        <td>Table {session.table_number}, Seat {session.seat_number}</td>
+                        <td>{session.table_name}, Seat {session.seat_number}</td>
                         <td>{session.customer_name || '-'}</td>
                         <td>{formatTime(session.start_time)}</td>
                         <td>{formatDuration(session.elapsed_minutes)}</td>
@@ -502,7 +511,7 @@ export default function LibraryTransactions() {
                         <tr key={session.session_id} className={session.status === 'voided' ? 'voided-row' : ''}>
                           <td className="session-id-cell">LIB-{String(session.session_id).padStart(6, '0')}</td>
                           <td>{formatDate(session.start_time)}</td>
-                          <td>Table {session.table_number}, Seat {session.seat_number}</td>
+                          <td>{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</td>
                           <td>{session.customer_name || '-'}</td>
                           <td>{formatDuration(session.total_minutes)}</td>
                           <td>₱{parseFloat(session.amount_paid || 0).toFixed(2)}</td>
@@ -651,16 +660,16 @@ function CheckinModal(props) {
         <h3>Check-in Customer</h3>
         <div className="modal-divider"></div>
         <form onSubmit={handleSubmit}>
-          <div className="modal-info-row"><span className="info-label">Table:</span><span className="info-value">{seat.table_number}</span></div>
+          <div className="modal-info-row"><span className="info-label">Table:</span><span className="info-value">{seat.table_name || `Table ${seat.table_number}`}</span></div>
           <div className="modal-info-row"><span className="info-label">Seat:</span><span className="info-value">{seat.seat_number}</span></div>
           
           <div className="form-group">
-            <label>Customer ID (from surrendered ID):</label>
+            <label>Customer Name:</label>
             <input 
               type="text" 
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Enter ID info" 
+              placeholder="Enter customer name" 
               required 
               autoFocus 
             />
@@ -722,7 +731,7 @@ function SessionModal(props) {
         <h3>Session Details</h3>
         <div className="modal-divider"></div>
         <div className="session-details">
-          <div className="detail-row"><span className="detail-label">Location:</span><span className="detail-value">Table {session.table_number}, Seat {session.seat_number}</span></div>
+          <div className="detail-row"><span className="detail-label">Location:</span><span className="detail-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
           <div className="detail-row"><span className="detail-label">Customer:</span><span className="detail-value">{session.customer_name || '-'}</span></div>
           <div className="detail-row"><span className="detail-label">Start Time:</span><span className="detail-value">{formatTime(session.start_time)}</span></div>
           <div className="detail-row"><span className="detail-label">Duration:</span><span className="detail-value">{formatDuration(session.elapsed_minutes)}</span></div>
@@ -762,7 +771,7 @@ function CheckoutModal(props) {
       <div className="modal-content library-modal" onClick={function(e) { e.stopPropagation(); }}>
         <h3>Checkout - Return ID</h3>
         <div className="modal-divider"></div>
-        <div className="modal-info-row"><span className="info-label">Location:</span><span className="info-value">Table {session.table_number}, Seat {session.seat_number}</span></div>
+        <div className="modal-info-row"><span className="info-label">Location:</span><span className="info-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
         <div className="modal-info-row"><span className="info-label">Customer:</span><span className="info-value">{session.customer_name}</span></div>
         <div className="modal-info-row"><span className="info-label">Duration Used:</span><span className="info-value">{formatDuration(session.elapsed_minutes)}</span></div>
         <div className="modal-info-row"><span className="info-label">Time Paid:</span><span className="info-value">{formatDuration(session.paid_minutes || 120)}</span></div>
@@ -794,7 +803,7 @@ function WarningModal(props) {
         <div className="warning-header"><span className="warning-icon">!</span><h3>Time Warning!</h3></div>
         <div className="modal-divider"></div>
         <div className="warning-content">
-          <p className="warning-message"><strong>Table {session.table_number}, Seat {session.seat_number}</strong> has <span className="time-highlight"> {session.remaining_minutes} minutes </span> remaining.</p>
+          <p className="warning-message"><strong>{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</strong> has <span className="time-highlight"> {session.remaining_minutes} minutes </span> remaining.</p>
           <p className="customer-info">Customer: {session.customer_name}</p>
         </div>
         <p className="warning-instruction">Please politely remind the customer and ask if they would like to extend their session.</p>
@@ -916,7 +925,7 @@ function VoidSessionModal(props) {
         <div style={detailsGridStyle}>
           <div><strong>ID:</strong> LIB-{String(sessionId).padStart(6, '0')}</div>
           <div><strong>Customer:</strong> {session.customer_name}</div>
-          <div><strong>Location:</strong> T{session.table_number}-S{session.seat_number}</div>
+          <div><strong>Location:</strong> {session.table_name || `T${session.table_number}`}-S{session.seat_number}</div>
           <div><strong>Fee:</strong> ₱{session.total_fee ? parseFloat(session.total_fee).toFixed(2) : (100 + (session.elapsed_minutes > 120 ? Math.ceil((session.elapsed_minutes - 120) / 30) * 50 : 0)).toFixed(2)}</div>
         </div>
 

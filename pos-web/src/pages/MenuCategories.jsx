@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
-import "../styles/menu.css";
+import "../styles/menu-management-styles/index.css";
 
 export default function MenuCategories() {
   const [categories, setCategories] = useState([]);
@@ -143,17 +143,18 @@ export default function MenuCategories() {
             <p>No categories found. Add your first category!</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Category Name</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="table-scroll-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Category Name</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
               {filteredCategories.map((category) => (
                 <tr key={category.category_id}>
                   <td>#{category.category_id}</td>
@@ -186,6 +187,7 @@ export default function MenuCategories() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

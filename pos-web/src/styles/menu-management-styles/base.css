@@ -1,0 +1,66 @@
+/* ========================================
+   BASE STYLES
+   CSS Variables, Main Content, Page Header
+   ======================================== */
+
+/* CSS Variables */
+:root {
+  --coffee-dark: #3c2415;
+  --coffee-medium: #5d4037;
+  --coffee-light: #8d6e63;
+  --caramel: #a1887f;
+  --cream: #efebe9;
+  --foam: #fafafa;
+  --latte: #d7ccc8;
+  --espresso: #2c1810;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --success: #28a745;
+}
+
+/* Main Content Area */
+.main-content {
+  padding: 30px;
+  min-height: 100vh;
+}
+
+/* Page Header Section */
+.page-header-section {
+  margin-bottom: 25px;
+}
+
+.page-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--coffee-dark);
+  margin: 0 0 5px 0;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--coffee-light);
+  margin: 0;
+}
+
+/* Empty and Loading States */
+.empty-state,
+.loading-state {
+  text-align: center;
+  padding: 60px;
+  color: var(--coffee-light);
+}
+
+.empty-state svg {
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 16px;
+  margin: 0;
+}
+
+.loading-state {
+  font-size: 16px;
+}

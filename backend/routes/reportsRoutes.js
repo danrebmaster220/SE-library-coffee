@@ -33,4 +33,7 @@ router.get('/library', verifyToken, isAdmin, reportsController.getLibraryReport)
 // Export to Excel
 router.get('/export', verifyToken, isAdmin, reportsController.exportExcel);
 
+// Export to PDF
+router.get('/export-pdf', verifyToken, isAdmin, reportsController.exportPDF);
+
 module.exports = router;

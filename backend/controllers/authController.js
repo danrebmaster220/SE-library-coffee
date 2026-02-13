@@ -12,25 +12,33 @@ exports.login = async (req, res) => {
     const { username, password } = req.body;
 
     try {
-        // Find user by username
-        const [users] = await db.query(
+        // First check if username exists (regardless of status)
+        const [allUsers] = await db.query(
             `SELECT u.*, r.role_name 
              FROM users u 
              JOIN roles r ON u.role_id = r.role_id 
-             WHERE u.username = ? AND u.status = 'active'`,
+             WHERE u.username = ?`,
             [username]
         );
 
-        if (users.length === 0) {
+        if (allUsers.length === 0) {
+            // Generic message for security - don't reveal if username exists
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
-        const user = users[0];
+        const user = allUsers[0];
+
+        // Check if account is inactive - this is okay to be specific
+        // since it doesn't help with password guessing
+        if (user.status !== 'active') {
+            return res.status(401).json({ error: 'Account is inactive. Please contact admin.' });
+        }
 
         // Compare password
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
         if (!isPasswordValid) {
+            // Generic message for security - don't reveal that username was correct
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 

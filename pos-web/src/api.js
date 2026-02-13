@@ -16,14 +16,15 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Handle 401 errors (redirect to login) - but not for verify-admin
+// Handle 401 errors (redirect to login) - but not for login or verify-admin endpoints
 api.interceptors.response.use( 
     (response) => response,
     (error) => {
-        // Verify redirect for verify-admin endpoint - return 401 for wrong credentials
+        // Don't redirect for login or verify-admin endpoints - let them handle their own errors
+        const isLoginEndpoint = error.config?.url?.includes('/auth/login');
         const isVerifyAdmin = error.config?.url?.includes('verify-admin');
         
-        if (error.response?.status === 401 && !isVerifyAdmin) {
+        if (error.response?.status === 401 && !isVerifyAdmin && !isLoginEndpoint) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

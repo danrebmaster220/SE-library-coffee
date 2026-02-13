@@ -1,0 +1,154 @@
+/* ========================================
+   MODAL STYLES
+   Modal Overlay, Content, Header, Actions,
+   Delete Modal
+   ======================================== */
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(60, 36, 21, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+/* Modal Content */
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(60, 36, 21, 0.3);
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-large {
+  max-width: 650px;
+}
+
+.modal-small {
+  max-width: 400px;
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  background: linear-gradient(135deg, var(--foam) 0%, var(--cream) 100%);
+  border-bottom: 1px solid var(--latte);
+  border-radius: 20px 20px 0 0;
+}
+
+.modal-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--coffee-dark);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--coffee-light);
+  padding: 5px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--cream);
+  color: var(--coffee-dark);
+}
+
+.modal-content form {
+  padding: 25px 30px;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--latte);
+}
+
+/* Modal Body */
+.modal-body {
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Delete Modal Specific */
+.delete-modal {
+  max-width: 420px;
+}
+
+.delete-modal-body {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.delete-icon {
+  margin-bottom: 15px;
+}
+
+.delete-warning-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+  color: var(--danger);
+}
+
+.delete-message {
+  font-size: 15px;
+  color: var(--coffee-dark);
+  margin-bottom: 8px;
+}
+
+.delete-message strong {
+  color: var(--coffee-medium);
+}
+
+.delete-warning {
+  font-size: 13px;
+  color: var(--coffee-light);
+  margin: 0;
+}
+
+.delete-modal .delete-message {
+  font-size: 15px;
+  color: var(--coffee-dark);
+  margin-bottom: 10px;
+}
+
+.delete-modal .delete-warning {
+  font-size: 13px;
+  color: var(--coffee-light);
+  margin: 0;
+}

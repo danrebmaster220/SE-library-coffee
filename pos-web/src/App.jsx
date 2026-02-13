@@ -12,6 +12,7 @@ import MenuCategories from './pages/MenuCategories';
 import MenuItems from './pages/MenuItems';
 import Customizations from './pages/Customizations';
 import Discounts from './pages/Discounts';
+import Beepers from './pages/Beepers';
 import LibraryTables from './pages/LibraryTables';
 import LibraryTransactions from './pages/LibraryTransactions';
 import Users from './pages/Users';
@@ -163,6 +164,11 @@ function App() {
       <Route path="/discounts" element={
         <ProtectedRoute allowedRoles={['admin']}>
           <AdminLayout><Discounts /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/beepers" element={
+        <ProtectedRoute allowedRoles={['admin']}>
+          <AdminLayout><Beepers /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/library" element={<Navigate to="/library/transactions" replace />} />

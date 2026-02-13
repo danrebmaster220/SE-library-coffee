@@ -1,6 +1,6 @@
 // app/studyArea.jsx - Study Area Choice Screen
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { BookOpen, X } from "lucide-react-native";
+import { BookOpen, X, ArrowLeft } from "lucide-react-native";
 import { useEffect, useRef } from "react";
 import {
   Animated,
@@ -25,33 +25,39 @@ export default function StudyAreaChoice() {
   const cardsSlide = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
+    // Animation values from useRef are stable and don't need to be in deps
+    const fadeAnimation = fadeAnim;
+    const headerAnimation = headerSlide;
+    const cardsFadeAnimation = cardsFade;
+    const cardsSlideAnimation = cardsSlide;
+
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(fadeAnim, {
+        Animated.timing(fadeAnimation, {
           toValue: 1,
           duration: 600,
           useNativeDriver: true,
         }),
-        Animated.timing(headerSlide, {
+        Animated.timing(headerAnimation, {
           toValue: 0,
           duration: 600,
           useNativeDriver: true,
         }),
       ]),
       Animated.parallel([
-        Animated.timing(cardsFade, {
+        Animated.timing(cardsFadeAnimation, {
           toValue: 1,
           duration: 500,
           useNativeDriver: true,
         }),
-        Animated.timing(cardsSlide, {
+        Animated.timing(cardsSlideAnimation, {
           toValue: 0,
           duration: 500,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
-  }, []);
+  }, [fadeAnim, headerSlide, cardsFade, cardsSlide]);
 
   const handleYes = () => {
     // Navigate to library seat selection
@@ -69,6 +75,10 @@ export default function StudyAreaChoice() {
     });
   };
 
+  const handleBack = () => {
+    router.back();
+  };
+
   // Dynamic card sizing
   const phoneCardWidth = width * 0.8;
   const tabletCardWidth = width * 0.28;
@@ -77,6 +87,11 @@ export default function StudyAreaChoice() {
     <View style={styles.background}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <View style={[styles.container, isPhone && styles.containerPhone]}>
+          {/* Back Button */}
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <ArrowLeft color="#3d2417" size={isPhone ? 20 : 24} />
+          </TouchableOpacity>
+
           <Animated.View
             style={[
               styles.header,
@@ -294,5 +309,22 @@ const styles = StyleSheet.create({
   cardPricePhone: {
     fontSize: 12,
     marginTop: 6,
+  },
+  backButton: {
+    position: "absolute",
+    top: 20,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
   },
 });

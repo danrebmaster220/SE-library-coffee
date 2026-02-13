@@ -1,6 +1,6 @@
 ﻿// components/OrderDetails.jsx
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Alert,
   FlatList,
@@ -35,7 +35,7 @@ const OrderDetails = ({
   // Use prop if passed, otherwise use hook
   const isPhone = isPhoneProp !== undefined ? isPhoneProp : isPhoneHook;
 
-  const formattedOrderType = (() => {
+  const formattedOrderType = useMemo(() => {
     if (!orderType) return "";
     const lower = orderType.toLowerCase();
     if (lower === "dinein") return "Dine In";
@@ -43,30 +43,35 @@ const OrderDetails = ({
     if (lower === "dine-in") return "Dine In";
     if (lower === "take-out") return "Take Out";
     return orderType.charAt(0).toUpperCase() + orderType.slice(1);
-  })();
+  }, [orderType]);
 
-  const getTotal = () =>
-    orders.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2);
+  // Memoized calculations
+  const total = useMemo(() => {
+    return orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  }, [orders]);
 
-  const getGrandTotal = () => {
-    const itemsTotal = orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const grandTotal = useMemo(() => {
     const libraryTotal = libraryBooking ? libraryBooking.amount : 0;
-    return (itemsTotal + libraryTotal).toFixed(2);
-  };
+    return total + libraryTotal;
+  }, [total, libraryBooking]);
 
-  const formatDuration = (minutes) => {
+  // Keep old function names for compatibility
+  const getTotal = useCallback(() => total.toFixed(2), [total]);
+  const getGrandTotal = useCallback(() => grandTotal.toFixed(2), [grandTotal]);
+
+  const formatDuration = useCallback((minutes) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
     return `${hours}h ${mins}m`;
-  };
+  }, []);
 
   // Generate unique key for an item based on its ID and customizations
-  const getItemKey = (item) => {
+  const getItemKey = useCallback((item) => {
     return item.customizationSummary 
       ? (item.item_id + '-' + item.customizationSummary) 
       : (item.item_id + '-standard');
-  };
+  }, []);
 
   const renderOrderItem = ({ item }) => (
     <View style={styles.orderItem}>

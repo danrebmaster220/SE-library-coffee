@@ -1,0 +1,203 @@
+/* ========================================
+   CUSTOMIZATIONS PAGE STYLES
+   Customization Groups, Options Section,
+   Group Headers, Form Section
+   ======================================== */
+
+/* Customization Groups Container */
+.customization-groups-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Customization Group Card */
+.customization-group-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--latte);
+}
+
+/* Group Header */
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, var(--foam), var(--cream));
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.group-header:hover {
+  background: linear-gradient(135deg, var(--cream), var(--latte));
+}
+
+.group-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.expand-icon {
+  color: var(--coffee-medium);
+  transition: transform 0.2s ease;
+}
+
+.expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.group-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--coffee-dark);
+  margin: 0;
+}
+
+.group-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--latte);
+  color: var(--coffee-medium);
+}
+
+.meta-tag.required {
+  background: var(--warning);
+  color: white;
+}
+
+.meta-tag.options-count {
+  background: var(--coffee-light);
+  color: white;
+}
+
+.group-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Options Section */
+.group-options-section {
+  padding: 20px;
+  background: white;
+  border-top: 1px solid var(--latte);
+}
+
+.options-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.options-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--coffee-dark);
+  margin: 0;
+}
+
+/* ========================================
+   CUSTOMIZATION FORM SECTION (Menu Items)
+   ======================================== */
+
+.customization-form-section {
+  background: var(--cream);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 10px;
+  border: 1px solid var(--latte);
+}
+
+.customization-form-section .checkbox-group {
+  margin-top: 0;
+}
+
+.customization-groups-selection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--latte);
+}
+
+.customization-groups-selection .form-label {
+  margin-bottom: 4px;
+}
+
+.customization-groups-selection .form-hint {
+  margin-bottom: 12px;
+}
+
+.groups-checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.group-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid var(--latte);
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 0 0 calc(50% - 5px);
+}
+
+.group-checkbox-item:hover {
+  border-color: var(--coffee-medium);
+  background: var(--foam);
+}
+
+.group-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--coffee-medium);
+}
+
+.group-checkbox-item input[type="checkbox"]:checked + .group-checkbox-label strong {
+  color: var(--coffee-dark);
+}
+
+.group-checkbox-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-checkbox-label strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--coffee-medium);
+}
+
+.group-checkbox-label small {
+  font-size: 11px;
+  color: var(--coffee-light);
+}
+
+.no-groups-hint {
+  font-size: 13px;
+  color: var(--coffee-light);
+  font-style: italic;
+  padding: 10px 0;
+}

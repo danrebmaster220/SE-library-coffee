@@ -1,104 +1,393 @@
+/* ================================================================
+   LOGIN PAGE - Mobile-First Responsive Design
+   ================================================================
+   Breakpoints:
+   - Base: Mobile Small (320px+) - iPhone SE, small Android
+   - 375px: Mobile Medium - iPhone X/11/12/13/14, Pixel
+   - 414px: Mobile Large - iPhone Plus/Max, large Android
+   - 768px: Tablet Portrait - iPad, Android tablets
+   - 1024px: Tablet Landscape / Small Desktop
+   - 1280px+: Desktop
+   ================================================================ */
+
+/* === BASE STYLES (Mobile Small 320px+) === */
+
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  padding: 16px;
+  background: linear-gradient(135deg, #f5f0e8 0%, #e8ddd0 100%);
+  box-sizing: border-box;
+}
+
 .login-container {
-            background: white;
-            border-radius: 12px;
-            padding: 50px 60px;
-            box-shadow: 0 8px 30px rgba(61, 40, 23, 0.15), 
-                        0 4px 15px rgba(61, 40, 23, 0.1);
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-        }
+  background: white;
+  border-radius: 12px;
+  padding: 28px 20px;
+  box-shadow: 0 8px 30px rgba(61, 40, 23, 0.15),
+              0 4px 15px rgba(61, 40, 23, 0.1);
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
 
-        .logo-container {
-            margin-bottom: 30px;
-        }
+.logo-container {
+  margin-bottom: 16px;
+}
 
-        .logo {
-            width: 80px;
-            height: 80px;
-            object-fit: contain;
-            margin-bottom: 10px;
-        }
+.logo-container img {
+  height: 90px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
 
-        .logo-text {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-        }
+.login-container h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000;
+  margin: 0 0 6px 0;
+}
 
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            color: #000;
-            margin-bottom: 10px;
-        }
+.subtitle {
+  color: #666;
+  font-size: 13px;
+  margin: 0 0 18px 0;
+}
 
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 30px;
-        }
+.login-form {
+  width: 100%;
+}
 
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
+.input-group {
+  margin-bottom: 14px;
+  text-align: left;
+}
 
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-            background: white;
-        }
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 14px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px; /* 16px prevents iOS zoom on focus */
+  line-height: 1.4;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  background: white;
+  box-sizing: border-box;
+  -webkit-appearance: none; /* Remove iOS default styling */
+  -moz-appearance: none;
+  appearance: none;
+}
 
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #4a3728;
-        }
+input[type="text"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: #4a3728;
+  box-shadow: 0 0 0 3px rgba(74, 55, 40, 0.1);
+}
 
-        input::placeholder {
-            color: #999;
-        }
+input::placeholder {
+  color: #999;
+  opacity: 1; /* Firefox fix */
+}
 
-            .login-button {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background-color: #3d2817;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
-            text-align: center;
-            text-decoration: none;
-        }
+.login-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  min-height: 48px; /* Touch-friendly - WCAG recommends 44px minimum */
+  background-color: #3d2817;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+}
 
-        .login-button:hover {
-            background-color: #2d1f11;
-        }
+.login-button:hover {
+  background-color: #2d1f11;
+}
 
-        .login-button:active {
-            transform: translateY(1px);
-        }
+.login-button:active {
+  transform: translateY(1px);
+  background-color: #251a0d;
+}
 
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 40px 30px;
-            }
+.login-button:disabled {
+  background-color: #6b5a4d;
+  cursor: not-allowed;
+  transform: none;
+}
 
-            .dashboard-label {
-                top: 20px;
-                left: 20px;
-            }
-        }
+.error-message {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 12px 14px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  border: 1px solid #fecaca;
+}
+
+/* === MOBILE MEDIUM (375px+) - iPhone X/11/12/13/14, Pixel === */
+@media (min-width: 375px) {
+  .login-page {
+    padding: 20px;
+  }
+
+  .login-container {
+    padding: 32px 28px;
+  }
+
+  .logo-container {
+    margin-bottom: 20px;
+  }
+
+  .logo-container img {
+    height: 100px;
+    margin-bottom: 10px;
+  }
+
+  .login-container h1 {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .input-group {
+    margin-bottom: 16px;
+  }
+}
+
+/* === MOBILE LARGE (414px+) - iPhone Plus/Max, Large Android === */
+@media (min-width: 414px) {
+  .login-container {
+    padding: 36px 32px;
+    max-width: 400px;
+  }
+
+  .logo-container img {
+    height: 110px;
+  }
+
+  .input-group {
+    margin-bottom: 18px;
+  }
+
+  input[type="text"],
+  input[type="password"] {
+    padding: 15px 16px;
+  }
+}
+
+/* === TABLET PORTRAIT (768px+) - iPad, Android Tablets === */
+@media (min-width: 768px) {
+  .login-page {
+    padding: 40px;
+  }
+
+  .login-container {
+    padding: 44px 48px;
+    max-width: 420px;
+    border-radius: 16px;
+  }
+
+  .logo-container {
+    margin-bottom: 28px;
+  }
+
+  .logo-container img {
+    height: 125px;
+    margin-bottom: 14px;
+  }
+
+  .login-container h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    margin-bottom: 24px;
+  }
+
+  .input-group {
+    margin-bottom: 20px;
+  }
+
+  input[type="text"],
+  input[type="password"] {
+    padding: 14px 16px;
+    font-size: 15px; /* Can reduce slightly on larger screens */
+  }
+
+  .login-button {
+    padding: 15px 20px;
+    font-size: 15px;
+    margin-top: 10px;
+  }
+
+  .error-message {
+    font-size: 14px;
+    padding: 14px 16px;
+  }
+}
+
+/* === TABLET LANDSCAPE / SMALL DESKTOP (1024px+) === */
+@media (min-width: 1024px) {
+  .login-container {
+    padding: 50px 56px;
+    max-width: 440px;
+  }
+
+  .logo-container {
+    margin-bottom: 32px;
+  }
+
+  .logo-container img {
+    height: 135px;
+    margin-bottom: 16px;
+  }
+
+  .login-container h1 {
+    font-size: 26px;
+  }
+
+  .login-button {
+    padding: 16px 24px;
+    transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
+  }
+
+  .login-button:hover {
+    box-shadow: 0 4px 12px rgba(61, 40, 23, 0.25);
+  }
+}
+
+/* === DESKTOP (1280px+) === */
+@media (min-width: 1280px) {
+  .login-container {
+    padding: 50px 60px;
+    max-width: 450px;
+  }
+
+  .logo-container img {
+    height: 140px;
+  }
+
+  .login-container h1 {
+    font-size: 28px;
+  }
+
+  .subtitle {
+    font-size: 15px;
+  }
+}
+
+/* === LARGE DESKTOP (1440px+) === */
+@media (min-width: 1440px) {
+  .login-container {
+    max-width: 460px;
+    padding: 55px 65px;
+  }
+
+  .logo-container img {
+    height: 145px;
+  }
+}
+
+/* === LANDSCAPE MODE ON MOBILE === */
+@media (max-height: 500px) and (orientation: landscape) {
+  .login-page {
+    padding: 12px 20px;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .login-container {
+    padding: 20px 28px;
+    margin: auto 0;
+  }
+
+  .logo-container {
+    margin-bottom: 12px;
+  }
+
+  .logo-container img {
+    height: 60px;
+    margin-bottom: 8px;
+  }
+
+  .login-container h1 {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    margin-bottom: 12px;
+  }
+
+  .input-group {
+    margin-bottom: 10px;
+  }
+
+  input[type="text"],
+  input[type="password"] {
+    padding: 10px 12px;
+  }
+
+  .login-button {
+    min-height: 44px;
+    padding: 10px 16px;
+    margin-top: 6px;
+  }
+}
+
+/* === ACCESSIBILITY: Reduced Motion === */
+@media (prefers-reduced-motion: reduce) {
+  .login-button,
+  input[type="text"],
+  input[type="password"] {
+    transition: none;
+  }
+
+  .login-button:active {
+    transform: none;
+  }
+}
+
+/* === HIGH CONTRAST MODE === */
+@media (prefers-contrast: high) {
+  .login-container {
+    border: 2px solid #000;
+  }
+
+  input[type="text"],
+  input[type="password"] {
+    border: 2px solid #000;
+  }
+
+  .login-button {
+    border: 2px solid #000;
+  }
+}

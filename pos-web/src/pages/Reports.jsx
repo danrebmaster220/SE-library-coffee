@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import '../styles/reports.css';
 
@@ -11,6 +11,10 @@ export default function Reports() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Export dropdown state
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef(null);
   
   // Orders report state
   const [ordersData, setOrdersData] = useState([]);
@@ -45,7 +49,19 @@ export default function Reports() {
     if (startDate && endDate) {
       fetchReportData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, startDate, endDate]);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchReportData = async () => {
     setLoading(true);
@@ -160,9 +176,65 @@ export default function Reports() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      setShowExportDropdown(false);
     } catch (error) {
       console.error('Export error:', error);
       alert('Failed to export report. Please try again.');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        type: activeTab
+      });
+      
+      if (activeTab === 'orders') {
+        if (orderTypeFilter) params.append('orderType', orderTypeFilter);
+        if (orderStatusFilter) params.append('status', orderStatusFilter);
+      } else if (activeTab === 'library') {
+        if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+      }
+
+      // Use fetch with auth header to download the file
+      const response = await fetch(`${api.defaults.baseURL}/reports/export-pdf?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `report_${activeTab}_${startDate}_to_${endDate}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setShowExportDropdown(false);
+    } catch (error) {
+      console.error('PDF Export error:', error);
+      alert('Failed to export PDF. Please try again.');
     }
   };
 
@@ -323,14 +395,44 @@ export default function Reports() {
           </button>
         </div>
 
-        <button className="btn-export" onClick={handleExportExcel}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          Export Excel
-        </button>
+        <div className="export-dropdown-container" ref={exportDropdownRef}>
+          <button 
+            className="btn-export" 
+            onClick={() => setShowExportDropdown(!showExportDropdown)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="dropdown-arrow">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          {showExportDropdown && (
+            <div className="export-dropdown-menu">
+              <button className="export-dropdown-item" onClick={handleExportExcel}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button className="export-dropdown-item" onClick={handleExportPDF}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <path d="M9 15v-2h6v2"></path>
+                  <path d="M12 13v5"></path>
+                </svg>
+                <span>PDF (.pdf)</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Toolbar Section */}

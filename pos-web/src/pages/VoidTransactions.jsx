@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import '../styles/menu.css';
+import '../styles/menu-management-styles/index.css';
 import '../styles/void-transactions.css';
 
 export default function VoidTransactions() {
@@ -404,45 +404,47 @@ export default function VoidTransactions() {
               <div className="empty-state">{historySearch ? 'No voided transactions match your search' : 'No voided transactions'}</div>
             ) : (
               <>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Order #</th>
-                    <th>Items</th>
-                    <th>Date/Time</th>
-                    <th>Original Amount</th>
-                    <th>Voided By</th>
-                    <th>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedVoidedOrders.map(order => (
-                    <tr key={order.transaction_id || order.id}>
-                      <td>ORD-{String(order.order_number || order.transaction_id || order.id).padStart(6, '0')}</td>
-                      <td><strong>🔔 {order.beeper_number}</strong></td>
-                      <td className="items-cell">
-                        {order.items && order.items.length > 0 ? (
-                          <div className="items-list">
-                            {order.items.slice(0, 3).map((item, idx) => (
-                              <span key={idx} className="item-tag">
-                                {item.quantity}x {item.item_name}
-                              </span>
-                            ))}
-                            {order.items.length > 3 && (
-                              <span className="more-items">+{order.items.length - 3} more</span>
-                            )}
-                          </div>
-                        ) : '-'}
-                      </td>
-                      <td>{order.voided_at ? new Date(order.voided_at).toLocaleString() : '-'}</td>
-                      <td className="price-cell">₱{parseFloat(order.total_amount || order.total || 0).toFixed(2)}</td>
-                      <td>{order.voided_by_name || 'Admin'}</td>
-                      <td className="reason-cell">{order.void_reason || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                <div className="table-scroll-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Order #</th>
+                        <th>Items</th>
+                        <th>Date/Time</th>
+                        <th>Original Amount</th>
+                        <th>Voided By</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedVoidedOrders.map(order => (
+                        <tr key={order.transaction_id || order.id}>
+                          <td>ORD-{String(order.order_number || order.transaction_id || order.id).padStart(6, '0')}</td>
+                          <td><strong>🔔 {order.beeper_number}</strong></td>
+                          <td className="items-cell">
+                            {order.items && order.items.length > 0 ? (
+                              <div className="items-list">
+                                {order.items.slice(0, 3).map((item, idx) => (
+                                  <span key={idx} className="item-tag">
+                                    {item.quantity}x {item.item_name}
+                                  </span>
+                                ))}
+                                {order.items.length > 3 && (
+                                  <span className="more-items">+{order.items.length - 3} more</span>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td>{order.voided_at ? new Date(order.voided_at).toLocaleString() : '-'}</td>
+                          <td className="price-cell">₱{parseFloat(order.total_amount || order.total || 0).toFixed(2)}</td>
+                          <td>{order.voided_by_name || 'Admin'}</td>
+                          <td className="reason-cell">{order.void_reason || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               
               {historyTotalPages > 1 && (
                 <div className="pagination-container">

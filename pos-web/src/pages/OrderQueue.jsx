@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import '../styles/menu.css';
+import '../styles/menu-management-styles/index.css';
 import '../styles/orders.css';
 
 export default function OrderQueue() {

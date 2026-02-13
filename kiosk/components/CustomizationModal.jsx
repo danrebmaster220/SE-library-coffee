@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import {
   Modal,
   ScrollView,
@@ -25,13 +25,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
   const { isPhone } = useResponsive();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (visible && item) {
-      fetchItemCustomizations();
-    }
-  }, [visible, item]);
-
-  const fetchItemCustomizations = async () => {
+  const fetchItemCustomizations = useCallback(async () => {
     if (!item?.item_id) {
       setLoading(false);
       setIsCustomizable(false);
@@ -94,7 +88,13 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [item]);
+
+  useEffect(() => {
+    if (visible && item) {
+      fetchItemCustomizations();
+    }
+  }, [visible, item, fetchItemCustomizations]);
 
   const handleSingleSelect = (group, option) => {
     setSelections(prev => ({

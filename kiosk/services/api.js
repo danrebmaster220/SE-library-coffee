@@ -1,11 +1,14 @@
 // services/api.js
 // API service for connecting kiosk to backend
 
-// Change this to your backend server IP address
-// For local development on same machine: 'http://localhost:3000/api'
-// For device on same network: 'http://YOUR_COMPUTER_IP:3000/api'
-// Use 10.0.2.2 for Android emulator to access localhost
-export const API_BASE_URL = 'http://192.168.1.11:3000/api';
+import environment from '../config/environment';
+
+// API URL is now configured in config/environment.js
+// To change the URL, edit that file instead
+export const API_BASE_URL = environment.API_URL;
+
+// Log current environment on startup (helpful for debugging)
+console.log(`🔌 API connecting to: ${API_BASE_URL} (${environment.ENV_NAME})`);
 
 // Helper function for API calls
 const fetchAPI = async (endpoint, options = {}) => {

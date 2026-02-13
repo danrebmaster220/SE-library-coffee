@@ -42,6 +42,7 @@ exports.getAvailableSeatsPublic = async (req, res) => {
             SELECT 
                 s.seat_id,
                 s.table_number,
+                COALESCE(lt.table_name, CONCAT('Table ', s.table_number)) as table_name,
                 s.seat_number,
                 CASE 
                     WHEN s.status = 'maintenance' THEN 'maintenance'
@@ -49,6 +50,7 @@ exports.getAvailableSeatsPublic = async (req, res) => {
                     ELSE s.status
                 END as status
             FROM library_seats s
+            LEFT JOIN library_tables lt ON s.table_number = lt.table_number
             LEFT JOIN library_sessions ses ON s.seat_id = ses.seat_id AND ses.status = 'active'
             WHERE s.status != 'maintenance'
             ORDER BY s.table_number, s.seat_number
@@ -75,6 +77,7 @@ exports.getSeats = async (req, res) => {
             SELECT 
                 s.seat_id,
                 s.table_number,
+                COALESCE(lt.table_name, CONCAT('Table ', s.table_number)) as table_name,
                 s.seat_number,
                 s.status,
                 ses.session_id,
@@ -85,6 +88,7 @@ exports.getSeats = async (req, res) => {
                 TIMESTAMPDIFF(MINUTE, ses.start_time, NOW()) as elapsed_minutes,
                 GREATEST(0, ses.paid_minutes - TIMESTAMPDIFF(MINUTE, ses.start_time, NOW())) as remaining_minutes
             FROM library_seats s
+            LEFT JOIN library_tables lt ON s.table_number = lt.table_number
             LEFT JOIN library_sessions ses ON s.seat_id = ses.seat_id AND ses.status = 'active'
             ORDER BY s.table_number, s.seat_number
         `);
@@ -351,12 +355,16 @@ exports.getSession = async (req, res) => {
 
 exports.getConfig = async (req, res) => {
     try {
-        // Get table and seat counts
+        // Get table and seat counts with table names
         const [tables] = await db.query(`
-            SELECT table_number, COUNT(*) as seat_count
-            FROM library_seats
-            GROUP BY table_number
-            ORDER BY table_number
+            SELECT 
+                ls.table_number, 
+                COUNT(*) as seat_count,
+                COALESCE(lt.table_name, CONCAT('Table ', ls.table_number)) as table_name
+            FROM library_seats ls
+            LEFT JOIN library_tables lt ON ls.table_number = lt.table_number
+            GROUP BY ls.table_number, lt.table_name
+            ORDER BY ls.table_number
         `);
 
         const [total] = await db.query('SELECT COUNT(*) as total FROM library_seats');
@@ -365,6 +373,7 @@ exports.getConfig = async (req, res) => {
             total_seats: total[0].total,
             tables: tables.map(t => ({
                 table_number: t.table_number,
+                table_name: t.table_name,
                 seats: t.seat_count
             }))
         });
@@ -433,12 +442,23 @@ exports.configure = async (req, res) => {
 // ADD TABLE (Dynamic)
 
 exports.addTable = async (req, res) => {
-    const { seats = 8 } = req.body;
+    const { seats = 8, table_name } = req.body;
 
     try {
         // Get highest table number
         const [maxTable] = await db.query('SELECT MAX(table_number) as max FROM library_seats');
         const newTableNumber = (maxTable[0].max || 0) + 1;
+
+        // Determine table name (use provided or generate default)
+        const finalTableName = table_name && table_name.trim() !== '' 
+            ? table_name.trim() 
+            : `Table ${newTableNumber}`;
+
+        // Insert into library_tables first
+        await db.query(
+            'INSERT INTO library_tables (table_number, table_name) VALUES (?, ?)',
+            [newTableNumber, finalTableName]
+        );
 
         // Insert new seats
         const insertValues = [];
@@ -454,6 +474,7 @@ exports.addTable = async (req, res) => {
         res.json({ 
             message: 'Table added successfully',
             table_number: newTableNumber,
+            table_name: finalTableName,
             seats: seats
         });
 
@@ -485,6 +506,9 @@ exports.removeTable = async (req, res) => {
 
         // Delete seats for this table
         await db.query('DELETE FROM library_seats WHERE table_number = ?', [table_number]);
+
+        // Also delete from library_tables
+        await db.query('DELETE FROM library_tables WHERE table_number = ?', [table_number]);
 
         res.json({ 
             message: `Table ${table_number} removed successfully`
@@ -559,6 +583,46 @@ exports.updateTableSeats = async (req, res) => {
 };
 
 
+// UPDATE TABLE NAME
+
+exports.updateTableName = async (req, res) => {
+    const { table_number } = req.params;
+    const { table_name } = req.body;
+
+    if (!table_name || table_name.trim() === '') {
+        return res.status(400).json({ error: 'Table name is required' });
+    }
+
+    try {
+        // Check if table exists in library_seats
+        const [tableExists] = await db.query(
+            'SELECT DISTINCT table_number FROM library_seats WHERE table_number = ?',
+            [table_number]
+        );
+
+        if (tableExists.length === 0) {
+            return res.status(404).json({ error: 'Table not found' });
+        }
+
+        // Upsert into library_tables
+        await db.query(`
+            INSERT INTO library_tables (table_number, table_name)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE table_name = VALUES(table_name)
+        `, [table_number, table_name.trim()]);
+
+        res.json({ 
+            message: `Table name updated successfully`,
+            table_number: parseInt(table_number),
+            table_name: table_name.trim()
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 // SET SEAT MAINTENANCE STATUS
 
 exports.setMaintenance = async (req, res) => {
@@ -618,6 +682,7 @@ exports.getSessionHistory = async (req, res) => {
                 ses.session_id,
                 ses.seat_id,
                 s.table_number,
+                COALESCE(lt.table_name, CONCAT('Table ', s.table_number)) as table_name,
                 s.seat_number,
                 ses.customer_name,
                 ses.start_time,
@@ -632,6 +697,7 @@ exports.getSessionHistory = async (req, res) => {
                 u.full_name as voided_by_name
             FROM library_sessions ses
             JOIN library_seats s ON ses.seat_id = s.seat_id
+            LEFT JOIN library_tables lt ON s.table_number = lt.table_number
             LEFT JOIN users u ON ses.voided_by = u.user_id
             WHERE ${whereConditions.join(' AND ')}
             ORDER BY ses.start_time DESC

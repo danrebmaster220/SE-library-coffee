@@ -9,6 +9,13 @@ router.get('/quick-cash', posController.getQuickCashAmounts);
 // Beepers status
 router.get('/beepers', verifyToken, posController.getBeepers);
 
+// Beeper configuration (for settings page)
+router.get('/beepers/config', verifyToken, posController.getBeeperConfig);
+router.put('/beepers/config', verifyToken, posController.updateBeeperCount);
+
+// Release beeper manually
+router.put('/beepers/:beeperNumber/release', verifyToken, posController.releaseBeeperManually);
+
 // Orders
 router.get('/orders', verifyToken, posController.getOrders);
 router.get('/orders/pending', verifyToken, posController.getPendingOrders);

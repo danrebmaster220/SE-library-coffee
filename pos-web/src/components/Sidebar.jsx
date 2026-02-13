@@ -45,6 +45,14 @@ const Icons = {
       <rect x="2" y="2" width="20" height="20" rx="2"></rect>
     </svg>
   ),
+  beeper: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+      <circle cx="12" cy="18" r="1"></circle>
+      <path d="M9 8h6M9 12h6"></path>
+      <path d="M8 2v2M16 2v2"></path>
+    </svg>
+  ),
   library: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
@@ -174,6 +182,7 @@ export default function Sidebar() {
       ]
     },
     { id: 'discounts', label: 'Discounts', icon: 'discounts', path: '/discounts', type: 'link' },
+    { id: 'beepers', label: 'Beeper Management', icon: 'beeper', path: '/beepers', type: 'link' },
     {
       id: 'library', label: 'Library Management', icon: 'library', type: 'dropdown',
       paths: ['/library/tables', '/library/transactions'],
