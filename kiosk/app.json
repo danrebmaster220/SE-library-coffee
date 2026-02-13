@@ -44,9 +44,11 @@
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "59cbad96-0d9a-4c73-89ee-685c51a8f5d5"
       }
-    }
+    },
+    "owner": "danrebmaster220"
   }
 }
