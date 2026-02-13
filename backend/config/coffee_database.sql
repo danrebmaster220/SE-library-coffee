@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 02, 2026 at 05:03 AM
+-- Generation Time: Feb 13, 2026 at 03:37 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -53,7 +53,7 @@ CREATE TABLE `beepers` (
 --
 
 INSERT INTO `beepers` (`beeper_number`, `status`, `transaction_id`, `assigned_at`) VALUES
-(1, 'in-use', 48, '2026-02-02 11:37:07'),
+(1, 'available', NULL, NULL),
 (2, 'available', NULL, NULL),
 (3, 'available', NULL, NULL),
 (4, 'available', NULL, NULL),
@@ -352,7 +352,7 @@ INSERT INTO `library_seats` (`seat_id`, `table_number`, `seat_number`, `status`)
 (7, 1, 7, 'available'),
 (8, 1, 8, 'available'),
 (9, 2, 1, 'available'),
-(10, 2, 2, 'available'),
+(10, 2, 2, 'occupied'),
 (11, 2, 3, 'available'),
 (12, 2, 4, 'available'),
 (13, 2, 5, 'available'),
@@ -412,7 +412,31 @@ INSERT INTO `library_sessions` (`session_id`, `seat_id`, `customer_name`, `start
 (13, 1, 'Alshaik Hassan', '2025-12-04 03:14:37', '2025-12-04 03:48:27', 33, 0.00, 'completed', 120, 100.00, NULL, NULL, NULL, NULL, NULL),
 (14, 2, 'Adian Alfahad', '2025-12-04 03:48:13', '2025-12-04 03:48:32', 0, 0.00, 'completed', 120, 100.00, NULL, NULL, NULL, NULL, NULL),
 (15, 9, 'Marian Talaid', '2025-12-04 04:13:40', '2025-12-04 04:13:48', 0, 0.00, 'completed', 120, 100.00, NULL, NULL, NULL, NULL, NULL),
-(16, 2, '123123', '2026-01-19 20:02:55', '2026-01-19 20:42:32', 39, 0.00, 'completed', 120, 100.00, 200.00, 100.00, NULL, NULL, NULL);
+(16, 2, '123123', '2026-01-19 20:02:55', '2026-01-19 20:42:32', 39, 0.00, 'completed', 120, 100.00, 200.00, 100.00, NULL, NULL, NULL),
+(17, 10, 'Alshaik Hassan', '2026-02-13 10:18:01', NULL, 0, 0.00, 'active', 120, 100.00, NULL, NULL, NULL, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `library_tables`
+--
+
+CREATE TABLE `library_tables` (
+  `table_id` int(11) NOT NULL,
+  `table_number` int(11) NOT NULL,
+  `table_name` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `library_tables`
+--
+
+INSERT INTO `library_tables` (`table_id`, `table_number`, `table_name`, `created_at`, `updated_at`) VALUES
+(1, 1, 'Table 1', '2026-02-13 01:25:39', '2026-02-13 01:25:39'),
+(2, 2, 'Table 2', '2026-02-13 01:25:39', '2026-02-13 01:25:39'),
+(3, 3, 'Table 3', '2026-02-13 01:25:39', '2026-02-13 01:25:39');
 
 -- --------------------------------------------------------
 
@@ -622,7 +646,9 @@ INSERT INTO `transactions` (`transaction_id`, `order_number`, `beeper_number`, `
 (45, NULL, 10, '', 150.00, NULL, 0.00, NULL, NULL, 150.00, 500.00, 350.00, 'completed', '2026-01-26 08:01:36', 4, NULL, NULL, NULL, '2026-01-26 08:01:36', '2026-01-26 10:30:41'),
 (46, NULL, 2, 'dine-in', 150.00, NULL, 0.00, NULL, NULL, 150.00, 500.00, 350.00, 'completed', '2026-01-26 10:30:37', 4, NULL, NULL, NULL, '2026-01-26 08:39:36', '2026-01-26 10:30:41'),
 (47, NULL, 3, 'dine-in', 200.00, NULL, 0.00, NULL, NULL, 200.00, 1000.00, 800.00, 'completed', '2026-01-26 10:30:45', 4, NULL, NULL, NULL, '2026-01-26 09:11:09', '2026-01-26 10:30:48'),
-(48, NULL, 1, 'dine-in', 150.00, NULL, 0.00, NULL, NULL, 150.00, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, '2026-02-02 11:37:07', NULL);
+(48, NULL, 1, 'dine-in', 150.00, NULL, 0.00, NULL, NULL, 150.00, 500.00, 350.00, 'completed', '2026-02-10 17:12:25', 4, NULL, NULL, NULL, '2026-02-02 11:37:07', '2026-02-10 17:12:28'),
+(49, NULL, 1, 'dine-in', 270.00, NULL, 0.00, '{\"seat_id\":10,\"table_number\":2,\"seat_number\":2,\"customer_name\":\"Alshaik Hassan\",\"duration_minutes\":120,\"amount\":100}', NULL, 370.00, 500.00, 130.00, 'completed', '2026-02-13 10:18:01', 4, NULL, NULL, NULL, '2026-02-13 09:34:27', '2026-02-13 10:18:04'),
+(50, NULL, 2, 'dine-in', 170.00, NULL, 0.00, NULL, NULL, 170.00, 1000.00, 830.00, 'completed', '2026-02-13 10:18:07', 4, NULL, NULL, NULL, '2026-02-13 10:17:55', '2026-02-13 10:18:09');
 
 -- --------------------------------------------------------
 
@@ -694,7 +720,9 @@ INSERT INTO `transaction_items` (`transaction_item_id`, `transaction_id`, `item_
 (45, 45, 2, 'Americano', 1, 150.00, 150.00, NULL, '2026-01-26 08:01:36'),
 (46, 46, 2, 'Americano', 1, 150.00, 150.00, NULL, '2026-01-26 08:39:36'),
 (47, 47, 3, 'Caffe Latte', 1, 200.00, 200.00, NULL, '2026-01-26 09:11:09'),
-(48, 48, 2, 'Americano', 1, 150.00, 150.00, NULL, '2026-02-02 11:37:07');
+(48, 48, 2, 'Americano', 1, 150.00, 150.00, NULL, '2026-02-02 11:37:07'),
+(49, 49, 5, 'Cappucino', 1, 270.00, 270.00, NULL, '2026-02-13 09:34:27'),
+(50, 50, 2, 'Americano', 1, 170.00, 170.00, NULL, '2026-02-13 10:17:55');
 
 -- --------------------------------------------------------
 
@@ -848,7 +876,11 @@ INSERT INTO `transaction_item_customizations` (`id`, `transaction_item_id`, `opt
 (128, 38, 4, 'Large 22oz', 'Size', 1, 20.00, 20.00),
 (129, 39, 1, 'Hot', 'Temperature', 1, 0.00, 0.00),
 (130, 39, 3, 'Medium 16oz', 'Size', 1, 0.00, 0.00),
-(131, 40, 3, 'Medium 16oz', 'Size', 1, 0.00, 0.00);
+(131, 40, 3, 'Medium 16oz', 'Size', 1, 0.00, 0.00),
+(132, 49, 2, 'Iced', 'Temperature', 1, 0.00, 0.00),
+(133, 49, 4, 'Large 22oz', 'Size', 1, 20.00, 20.00),
+(134, 50, 2, 'Iced', 'Temperature', 1, 0.00, 0.00),
+(135, 50, 4, 'Large 22oz', 'Size', 1, 20.00, 20.00);
 
 -- --------------------------------------------------------
 
@@ -967,6 +999,13 @@ ALTER TABLE `library_seats`
 ALTER TABLE `library_sessions`
   ADD PRIMARY KEY (`session_id`),
   ADD KEY `seat_id` (`seat_id`);
+
+--
+-- Indexes for table `library_tables`
+--
+ALTER TABLE `library_tables`
+  ADD PRIMARY KEY (`table_id`),
+  ADD UNIQUE KEY `table_number` (`table_number`);
 
 --
 -- Indexes for table `orders`
@@ -1115,7 +1154,13 @@ ALTER TABLE `library_seats`
 -- AUTO_INCREMENT for table `library_sessions`
 --
 ALTER TABLE `library_sessions`
-  MODIFY `session_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `session_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+
+--
+-- AUTO_INCREMENT for table `library_tables`
+--
+ALTER TABLE `library_tables`
+  MODIFY `table_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `orders`
@@ -1157,19 +1202,19 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `transaction_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `transaction_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
 
 --
 -- AUTO_INCREMENT for table `transaction_items`
 --
 ALTER TABLE `transaction_items`
-  MODIFY `transaction_item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `transaction_item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
 
 --
 -- AUTO_INCREMENT for table `transaction_item_customizations`
 --
 ALTER TABLE `transaction_item_customizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=132;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=136;
 
 --
 -- AUTO_INCREMENT for table `users`
