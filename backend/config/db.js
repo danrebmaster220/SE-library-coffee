@@ -3,14 +3,14 @@ require('dotenv').config();
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Only log database config in development
-if (NODE_ENV === 'development') {
-    console.log("📦 Database Configuration:");
-    console.log("   Host:", process.env.DB_HOST);
-    console.log("   Port:", process.env.DB_PORT || 3306);
-    console.log("   User:", process.env.DB_USER);
-    console.log("   Database:", process.env.DB_NAME);
-}
+// Log database config to debug connection issues
+console.log("📦 Database Configuration:");
+console.log("   Host:", process.env.DB_HOST);
+console.log("   Port:", process.env.DB_PORT || 3306);
+console.log("   User:", process.env.DB_USER);
+console.log("   Database:", process.env.DB_NAME);
+console.log("   Password:", process.env.DB_PASS ? '***SET***' : 'MISSING');
+console.log("   SSL:", process.env.DB_SSL);
 
 // Build connection config
 const dbConfig = {
