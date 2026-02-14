@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
+import Toast from '../components/Toast';
 import '../styles/library.css';
 
 // Format minutes into hours:minutes display
@@ -192,18 +193,7 @@ export default function Library() {
       )}
 
       {/* Toast Notification */}
-      {toast.show && (
-        <div className={`toast-notification toast-${toast.type}`}>
-          <div className="toast-icon">
-            {toast.type === 'success' && '✓'}
-            {toast.type === 'error' && '✕'}
-            {toast.type === 'warning' && '⚠'}
-            {toast.type === 'info' && 'ℹ'}
-          </div>
-          <div className="toast-message">{toast.message}</div>
-          <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
-        </div>
-      )}
+      <Toast toast={toast} onClose={() => setToast({ show: false, message: '', type: 'info' })} />
     </div>
   );
 }

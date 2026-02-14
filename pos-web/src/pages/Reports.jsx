@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
+import Toast from '../components/Toast';
 import '../styles/reports.css';
 
 export default function Reports() {
@@ -841,18 +842,7 @@ export default function Reports() {
       </div>
 
       {/* Toast Notification */}
-      {toast.show && (
-        <div className={`toast-notification toast-${toast.type}`}>
-          <div className="toast-icon">
-            {toast.type === 'success' && '✓'}
-            {toast.type === 'error' && '✕'}
-            {toast.type === 'warning' && '⚠'}
-            {toast.type === 'info' && 'ℹ'}
-          </div>
-          <div className="toast-message">{toast.message}</div>
-          <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
-        </div>
-      )}
+      <Toast toast={toast} onClose={() => setToast({ show: false, message: '', type: 'info' })} />
     </div>
   );
 }

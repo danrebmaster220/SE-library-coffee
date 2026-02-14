@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api';
+import Toast from '../components/Toast';
 import '../styles/library.css';
 
 export default function LibraryTransactions() {
@@ -621,13 +622,7 @@ export default function LibraryTransactions() {
       {showWarningModal && warningSession && <WarningModal session={warningSession} onClose={function() { setShowWarningModal(false); setWarningSession(null); }} onExtend={function(minutes) { setSelectedSession(warningSession); handleExtend(minutes); setShowWarningModal(false); setWarningSession(null); }} onCheckout={function() { setSelectedSession(warningSession); setShowWarningModal(false); setShowCheckoutModal(true); }} />}
       {showVoidModal && voidingSession && <VoidSessionModal session={voidingSession} onClose={function() { setShowVoidModal(false); setVoidingSession(null); }} onSubmit={handleVoidSession} formatDateTime={formatDateTime} isAdmin={isAdmin} />}
 
-      {toast.show && (
-        <div className={'toast-notification toast-' + toast.type}>
-          <div className="toast-icon">{toast.type === 'success' ? 'V' : toast.type === 'error' ? 'X' : toast.type === 'warning' ? '!' : 'i'}</div>
-          <div className="toast-message">{toast.message}</div>
-          <button className="toast-close" onClick={function() { setToast({ show: false, message: '', type: 'info' }); }}>x</button>
-        </div>
-      )}
+      <Toast toast={toast} onClose={function() { setToast({ show: false, message: '', type: 'info' }); }} />
     </div>
   );
 }

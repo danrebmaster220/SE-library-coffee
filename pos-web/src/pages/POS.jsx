@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
+import Toast from '../components/Toast';
 import '../styles/pos.css';
 
 export default function POS() {
@@ -1556,20 +1557,7 @@ export default function POS() {
       )}
 
       {/* Toast Notification */}
-      {toast.show && (
-        <div className="toast-wrapper">
-          <div className={`toast-notification toast-${toast.type}`}>
-            <div className="toast-icon">
-              {toast.type === 'success' && '✓'}
-              {toast.type === 'error' && '✕'}
-              {toast.type === 'warning' && '⚠'}
-              {toast.type === 'info' && 'ℹ'}
-            </div>
-            <div className="toast-message">{toast.message}</div>
-            <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
-          </div>
-        </div>
-      )}
+      <Toast toast={toast} onClose={() => setToast({ show: false, message: '', type: 'info' })} />
 
       {/* Item Removal Authorization Modal (for Kiosk orders) */}
       {showItemRemovalModal && removingItem && (
