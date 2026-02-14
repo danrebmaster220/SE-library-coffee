@@ -108,15 +108,13 @@ export default function VoidTransactions() {
       displayAlert('Error', 'Please search for an order first', 'error');
       return;
     }
-    if (!voidReason.trim()) {
-      displayAlert('Error', 'Please enter a reason for voiding', 'error');
-      return;
-    }
     
-    // If admin, show simple confirmation. If cashier, require admin auth
+    // Open the appropriate modal - reason will be entered inside the modal
     if (currentUser?.role === 'admin') {
+      setVoidReason(''); // Reset reason for new void attempt
       setShowConfirmModal(true);
     } else {
+      setVoidReason(''); // Reset reason for new void attempt
       setShowAuthModal(true);
       setAdminUsername('');
       setAdminPassword('');
@@ -354,25 +352,11 @@ export default function VoidTransactions() {
               </div>
             )}
 
-            {/* Void Reason */}
-            {searchResult && (
-              <div className="void-form-group">
-                <label>Reason for Void <span className="required">*</span></label>
-                <textarea
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  placeholder="Enter the reason for voiding this order (e.g., Wrong order, Customer changed mind, Duplicate entry)..."
-                  rows={2}
-                />
-              </div>
-            )}
-
             {/* Void Button */}
             {searchResult && (
               <button 
                 className="void-submit-btn"
                 onClick={handleInitiateVoid}
-                disabled={!voidReason.trim()}
               >
                 🚫 Void This Order
               </button>
@@ -486,6 +470,18 @@ export default function VoidTransactions() {
               </p>
               
               <div className="form-group">
+                <label>Reason for Void <span style={{color: '#dc3545'}}>*</span></label>
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="Enter the reason for voiding this order..."
+                  rows={2}
+                  disabled={isProcessing}
+                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none'}}
+                />
+              </div>
+
+              <div className="form-group">
                 <label>Admin Username</label>
                 <input
                   type="text"
@@ -504,15 +500,11 @@ export default function VoidTransactions() {
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="Enter admin password"
                   disabled={isProcessing}
-                  onKeyPress={(e) => e.key === 'Enter' && handleCashierConfirmVoid()}
+                  onKeyPress={(e) => e.key === 'Enter' && voidReason.trim() && handleCashierConfirmVoid()}
                 />
               </div>
 
               {authError && <div className="auth-error">{authError}</div>}
-
-              <div className="void-reason-preview">
-                <strong>Void Reason:</strong> {voidReason}
-              </div>
             </div>
             <div className="modal-footer">
               <button 
@@ -525,7 +517,7 @@ export default function VoidTransactions() {
               <button 
                 className="btn-danger" 
                 onClick={handleCashierConfirmVoid}
-                disabled={isProcessing}
+                disabled={isProcessing || !voidReason.trim() || !adminUsername.trim() || !adminPassword.trim()}
               >
                 {isProcessing ? 'Processing...' : '🚫 Confirm Void'}
               </button>
@@ -553,8 +545,16 @@ export default function VoidTransactions() {
                 <strong>Amount: ₱{parseFloat(searchResult?.total || 0).toFixed(2)}</strong>
               </p>
               
-              <div className="void-reason-preview">
-                <strong>Void Reason:</strong> {voidReason}
+              <div className="form-group">
+                <label>Reason for Void <span style={{color: '#dc3545'}}>*</span></label>
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="Enter the reason for voiding this order..."
+                  rows={2}
+                  disabled={isProcessing}
+                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none'}}
+                />
               </div>
             </div>
             <div className="modal-footer">
@@ -568,7 +568,7 @@ export default function VoidTransactions() {
               <button 
                 className="btn-danger" 
                 onClick={handleAdminConfirmVoid}
-                disabled={isProcessing}
+                disabled={isProcessing || !voidReason.trim()}
               >
                 {isProcessing ? 'Processing...' : '🚫 Confirm Void'}
               </button>

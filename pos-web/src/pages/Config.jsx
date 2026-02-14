@@ -86,6 +86,17 @@ export default function Config() {
     setProfileMessage(null);
     try {
       await api.put('/users/me/profile', { full_name: profileData.fullName });
+      
+      // Update localStorage with new full name
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        userData.fullName = profileData.fullName;
+        localStorage.setItem('user', JSON.stringify(userData));
+        // Dispatch custom event to notify Sidebar
+        window.dispatchEvent(new Event('userUpdated'));
+      }
+      
       setProfileMessage({ success: true, message: 'Profile updated successfully!' });
     } catch (err) {
       setProfileMessage({ 

@@ -1,7 +1,9 @@
 import axios from 'axios';
+import environment from './config/environment';
 
-// Backend connection 
-const API_URL = 'http://localhost:3000/api';
+// API URL from environment configuration
+// To change the URL, edit src/config/environment.js or set VITE_API_URL env variable
+const API_URL = environment.API_URL;
 
 const api = axios.create({
     baseURL: API_URL,

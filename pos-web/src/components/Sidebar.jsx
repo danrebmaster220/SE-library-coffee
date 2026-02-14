@@ -115,12 +115,38 @@ export default function Sidebar() {
   const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager' });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  // Load user data initially and listen for changes
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser({ fullName: userData.fullName || 'Admin', role: userData.role || 'Manager' });
-    }
+    const loadUserData = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setUser({ fullName: userData.fullName || 'Admin', role: userData.role || 'Manager' });
+      }
+    };
+    
+    // Load initially
+    loadUserData();
+    
+    // Listen for storage changes (cross-tab updates)
+    const handleStorageChange = (e) => {
+      if (e.key === 'user') {
+        loadUserData();
+      }
+    };
+    
+    // Listen for custom event (same-tab updates)
+    const handleUserUpdate = () => {
+      loadUserData();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('userUpdated', handleUserUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userUpdated', handleUserUpdate);
+    };
   }, []);
 
   useEffect(() => {

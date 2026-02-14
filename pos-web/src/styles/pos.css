@@ -886,19 +886,20 @@
 
 .quick-cash-btn {
   padding: 6px 4px;
-  background: var(--cream, #f5f0e8);
-  border: 1px solid var(--coffee-light, #a67c52);
+  background: #efebe9;
+  border: 2px solid #5d4037;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--coffee-dark, #3e2723);
+  color: #3e2723;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .quick-cash-btn:hover {
-  background: var(--coffee-light, #a67c52);
+  background: #5d4037;
   color: white;
+  border-color: #5d4037;
 }
 
 .change-display {

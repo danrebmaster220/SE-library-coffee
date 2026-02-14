@@ -1,6 +1,8 @@
 import { io } from 'socket.io-client';
+import environment from '../config/environment';
 
-const SOCKET_URL = 'http://localhost:3000';
+// Socket URL from environment configuration
+const SOCKET_URL = environment.SOCKET_URL;
 
 class SocketService {
   socket = null;

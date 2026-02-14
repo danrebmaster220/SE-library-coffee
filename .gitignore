@@ -1,14 +1,19 @@
 # Dependencies
 node_modules/
+*/node_modules/
+**/node_modules/
 .pnp/
 .pnp.js
 
-# Environment files
+# Environment files (NEVER commit actual .env files!)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env
+pos-web/.env
+kiosk/.env
 
 # Build outputs
 dist/
@@ -34,6 +39,10 @@ Thumbs.db
 # Test cases folder
 test-cases/
 
+# MariaDB local data (portable database)
+mariadb/
+backend/data/
+
 # Implementation/Documentation MD files (auto-generated)
 backend/API_DOCUMENTATION.md
 backend/BACKEND_COMPLETE.md
@@ -47,3 +56,4 @@ pos-web/ROUTES_MAP.md
 # Temporary files
 *.bin
 temp/
+backend/temp/

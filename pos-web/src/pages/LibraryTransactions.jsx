@@ -837,6 +837,9 @@ function VoidSessionModal(props) {
   var _passwordState = useState('');
   var adminPassword = _passwordState[0];
   var setAdminPassword = _passwordState[1];
+  var _errorState = useState('');
+  var errorMessage = _errorState[0];
+  var setErrorMessage = _errorState[1];
   
   // Handle both active sessions (session_id) and history sessions (id)
   var sessionId = session.session_id || session.id;
@@ -845,12 +848,13 @@ function VoidSessionModal(props) {
   var needsAdminAuth = !isAdmin;
 
   async function handleSubmit() {
+    setErrorMessage('');
     if (!voidReason.trim()) {
-      alert('Please enter a reason for voiding this session.');
+      setErrorMessage('Please enter a reason for voiding this session.');
       return;
     }
     if (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim())) {
-      alert('Please enter admin credentials to authorize this void.');
+      setErrorMessage('Please enter admin credentials to authorize this void.');
       return;
     }
     setIsVoiding(true);
@@ -967,6 +971,13 @@ function VoidSessionModal(props) {
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {errorMessage && (
+          <div style={{background: '#ffebee', color: '#c62828', padding: '10px 12px', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', border: '1px solid #ef9a9a'}}>
+            {errorMessage}
           </div>
         )}
 

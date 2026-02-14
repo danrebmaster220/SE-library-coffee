@@ -1054,13 +1054,12 @@ exports.exportPDF = async (req, res) => {
                     t.subtotal,
                     t.discount_amount,
                     t.total_amount,
-                    t.payment_method,
                     t.status,
                     t.created_at,
                     u.full_name as cashier_name,
                     (SELECT COUNT(*) FROM transaction_items ti WHERE ti.transaction_id = t.transaction_id) as item_count
                 FROM transactions t
-                LEFT JOIN users u ON t.cashier_id = u.user_id
+                LEFT JOIN users u ON t.processed_by = u.user_id
                 WHERE ${whereConditions.join(' AND ')}
                 ORDER BY t.created_at DESC
             `, params);

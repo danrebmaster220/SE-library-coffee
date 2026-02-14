@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
 import '../styles/reports.css';
 
@@ -15,6 +15,9 @@ export default function Reports() {
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const exportDropdownRef = useRef(null);
+  
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   
   // Orders report state
   const [ordersData, setOrdersData] = useState([]);
@@ -35,6 +38,12 @@ export default function Reports() {
   const [salesPage, setSalesPage] = useState(1);
   const [libraryPage, setLibraryPage] = useState(1);
   const rowsPerPage = 10;
+
+  // Toast helper function
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
+  }, []);
 
   // Set default dates to today
   useEffect(() => {
@@ -179,7 +188,7 @@ export default function Reports() {
       setShowExportDropdown(false);
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export report. Please try again.');
+      showToast('Failed to export report. Please try again.', 'error');
     }
   };
 
@@ -234,7 +243,7 @@ export default function Reports() {
       setShowExportDropdown(false);
     } catch (error) {
       console.error('PDF Export error:', error);
-      alert('Failed to export PDF. Please try again.');
+      showToast('Failed to export PDF. Please try again.', 'error');
     }
   };
 
@@ -830,6 +839,20 @@ export default function Reports() {
           </>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`toast-notification toast-${toast.type}`}>
+          <div className="toast-icon">
+            {toast.type === 'success' && '✓'}
+            {toast.type === 'error' && '✕'}
+            {toast.type === 'warning' && '⚠'}
+            {toast.type === 'info' && 'ℹ'}
+          </div>
+          <div className="toast-message">{toast.message}</div>
+          <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
+        </div>
+      )}
     </div>
   );
 }

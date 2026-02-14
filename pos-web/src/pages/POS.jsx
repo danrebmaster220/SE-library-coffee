@@ -569,7 +569,7 @@ export default function POS() {
   // Memoized filtered menu items by category
   const filteredMenuItems = useMemo(() => {
     return menuItems.filter(item => 
-      item.category_id === selectedCategory && item.status === 'active'
+      item.category_id === selectedCategory && item.status === 'available'
     );
   }, [menuItems, selectedCategory]);
 
@@ -667,7 +667,7 @@ export default function POS() {
         }));
 
         const response = await api.post('/pos/transactions', {
-          order_type: orderType,
+          order_type: orderType === 'dine_in' ? 'dine-in' : 'takeout',
           beeper_id: selectedBeeper,
           items,
           subtotal: subtotal,

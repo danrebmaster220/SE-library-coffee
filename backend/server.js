@@ -4,25 +4,51 @@ const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// Load environment variables
+// Load environment variables FIRST
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Parse CORS origins from environment variable
+const getAllowedOrigins = () => {
+    const origins = process.env.CORS_ORIGINS || 'http://localhost:5173';
+    return origins.split(',').map(origin => origin.trim());
+};
+
+const allowedOrigins = getAllowedOrigins();
+
+console.log(`🌍 Environment: ${NODE_ENV}`);
+console.log(`🔗 Allowed CORS origins: ${allowedOrigins.join(', ')}`);
 
 // Create HTTP server
 const server = http.createServer(app);
 
-// Setup Socket.IO with CORS
+// Setup Socket.IO with dynamic CORS
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // React app URL
-        methods: ["GET", "POST"]
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     }
 });
 
-// Middleware
-app.use(cors());
+// CORS middleware with dynamic origins
+app.use(cors({
+    origin: function(origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.warn(`⚠️ CORS blocked origin: ${origin}`);
+            callback(null, true); // In development, allow anyway but warn
+        }
+    },
+    credentials: true
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -44,11 +70,41 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 
 // Basic Route
 app.get('/', (req, res) => {
-    res.json({ message: "Welcome to Library Coffee + Study API" });
+    res.json({ 
+        message: "Welcome to Library Coffee + Study API",
+        version: "1.0.0",
+        environment: NODE_ENV,
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Test Database Route
+// Health Check Endpoint (for hosting platforms like Railway, Render, etc.)
+app.get('/health', async (req, res) => {
+    try {
+        // Test database connection
+        await db.query('SELECT 1');
+        res.status(200).json({ 
+            status: 'healthy',
+            database: 'connected',
+            environment: NODE_ENV,
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            status: 'unhealthy',
+            database: 'disconnected',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Test Database Route (development only)
 app.get('/test-db', async (req, res) => {
+    if (NODE_ENV === 'production') {
+        return res.status(403).json({ error: 'Not available in production' });
+    }
     try {
         const [rows] = await db.query(`
             SELECT u.user_id, u.username, u.full_name, r.role_name 
@@ -80,6 +136,9 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // SOCKET.IO REAL-TIME EVENTS
 
+// Track connected print agents
+const printAgents = new Map();
+
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
 
@@ -92,6 +151,33 @@ io.on('connection', (socket) => {
     socket.on('join:library', () => {
         socket.join('library-room');
         console.log('Client joined Library room');
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // PRINT AGENT EVENTS (for cloud deployment with local printing)
+    // ═══════════════════════════════════════════════════════════════
+    
+    socket.on('register-print-agent', (data) => {
+        printAgents.set(socket.id, {
+            location: data.location,
+            capabilities: data.capabilities,
+            printerName: data.printerName,
+            connectedAt: new Date(),
+        });
+        socket.join('print-agents');
+        console.log(`🖨️ Print Agent registered: ${data.location} (${data.printerName})`);
+        
+        // Notify POS clients that a printer is available
+        io.to('pos-room').emit('printer:status', { 
+            available: true, 
+            location: data.location 
+        });
+    });
+    
+    socket.on('print-job-complete', (data) => {
+        console.log(`📄 Print job ${data.jobId} ${data.success ? 'completed' : 'failed'}`);
+        // Notify the POS about print status
+        io.to('pos-room').emit('print:result', data);
     });
 
     // Order events
@@ -128,9 +214,37 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        // Check if this was a print agent
+        if (printAgents.has(socket.id)) {
+            const agent = printAgents.get(socket.id);
+            console.log(`🖨️ Print Agent disconnected: ${agent.location}`);
+            printAgents.delete(socket.id);
+            
+            // Notify POS if no print agents remaining
+            if (printAgents.size === 0) {
+                io.to('pos-room').emit('printer:status', { available: false });
+            }
+        }
         console.log('❌ Client disconnected:', socket.id);
     });
 });
+
+// Helper function to send print job to agents (used by controllers)
+const sendPrintJob = (type, data) => {
+    if (printAgents.size === 0) {
+        console.log('⚠️ No print agents connected, skipping print job');
+        return false;
+    }
+    
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    io.to('print-agents').emit(type, { ...data, jobId });
+    console.log(`📤 Print job sent: ${type} (${jobId})`);
+    return jobId;
+};
+
+// Make print function accessible to routes
+app.set('sendPrintJob', sendPrintJob);
+app.set('printAgents', printAgents);
 
 // Make io accessible to routes (optional, for emitting from controllers)
 app.set('io', io);
@@ -138,7 +252,16 @@ app.set('io', io);
 
 // START SERVER
 
-server.listen(PORT, () => {
-    console.log(`✅ Server is running on http://localhost:${PORT}`);
-    console.log(`📡 Socket.IO is ready for connections`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('');
+    console.log('╔════════════════════════════════════════════════════════════╗');
+    console.log('║        🚀 Library Coffee + Study API Server                ║');
+    console.log('╠════════════════════════════════════════════════════════════╣');
+    console.log(`║  ✅ Status:      Running                                    ║`);
+    console.log(`║  🌍 Environment: ${NODE_ENV.padEnd(41)}║`);
+    console.log(`║  🔗 Port:        ${String(PORT).padEnd(41)}║`);
+    console.log(`║  📡 Socket.IO:   Ready                                      ║`);
+    console.log(`║  💾 Health:      http://localhost:${PORT}/health`.padEnd(62) + '║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+    console.log('');
 });
