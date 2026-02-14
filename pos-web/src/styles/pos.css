@@ -1755,24 +1755,43 @@
 /* ==========================================
    Toast Notification Styles
    ========================================== */
-.toast-notification {
+.toast-wrapper {
   position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  pointer-events: none !important;
+  z-index: 10000 !important;
+  display: block !important;
+  background: transparent !important;
+}
+
+.toast-notification {
+  position: absolute !important;
   top: 20px !important;
   left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
   transform: translateX(-50%) !important;
   display: flex !important;
+  flex-direction: row !important;
   align-items: center !important;
+  justify-content: flex-start !important;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 16px 24px !important;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  z-index: 10000 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+  z-index: 10001 !important;
   animation: toastSlideIn 0.3s ease-out;
   min-width: 300px;
   max-width: 500px;
   width: auto !important;
   height: auto !important;
   margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  pointer-events: auto !important;
 }
 
 @keyframes toastSlideIn {

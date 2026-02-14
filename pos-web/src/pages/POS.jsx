@@ -1555,17 +1555,19 @@ export default function POS() {
         </div>
       )}
 
-      {/* Toast Notification Modal */}
+      {/* Toast Notification */}
       {toast.show && (
-        <div className={`toast-notification toast-${toast.type}`}>
-          <div className="toast-icon">
-            {toast.type === 'success' && '✓'}
-            {toast.type === 'error' && '✕'}
-            {toast.type === 'warning' && '⚠'}
-            {toast.type === 'info' && 'ℹ'}
+        <div className="toast-wrapper">
+          <div className={`toast-notification toast-${toast.type}`}>
+            <div className="toast-icon">
+              {toast.type === 'success' && '✓'}
+              {toast.type === 'error' && '✕'}
+              {toast.type === 'warning' && '⚠'}
+              {toast.type === 'info' && 'ℹ'}
+            </div>
+            <div className="toast-message">{toast.message}</div>
+            <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
           </div>
-          <div className="toast-message">{toast.message}</div>
-          <button className="toast-close" onClick={() => setToast({ show: false, message: '', type: 'info' })}>×</button>
         </div>
       )}
 
