@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+
 const toastColors = {
   success: { bg: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)', border: '#28a745', color: '#155724', icon: '#28a745' },
   error: { bg: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)', border: '#dc3545', color: '#721c24', icon: '#dc3545' },
@@ -11,13 +13,13 @@ export default function Toast({ toast, onClose }) {
   if (!toast.show) return null;
   const colors = toastColors[toast.type] || toastColors.info;
 
-  return (
+  const toastElement = (
     <div style={{
       position: 'fixed',
       top: '20px',
       left: '50%',
       transform: 'translateX(-50%)',
-      zIndex: 99999,
+      zIndex: 999999,
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
@@ -29,7 +31,8 @@ export default function Toast({ toast, onClose }) {
       background: colors.bg,
       border: `1px solid ${colors.border}`,
       color: colors.color,
-      animation: 'toastSlideIn 0.3s ease-out',
+      fontFamily: 'Poppins, sans-serif',
+      pointerEvents: 'auto',
     }}>
       <div style={{
         width: '32px',
@@ -59,4 +62,6 @@ export default function Toast({ toast, onClose }) {
       }} onClick={onClose}>×</button>
     </div>
   );
+
+  return createPortal(toastElement, document.body);
 }
