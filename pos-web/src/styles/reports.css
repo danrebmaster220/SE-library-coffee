@@ -1089,19 +1089,23 @@
    Toast Notification Styles
    ========================================== */
 .toast-notification {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  align-items: center;
+  position: fixed !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  display: flex !important;
+  align-items: center !important;
   gap: 12px;
   padding: 14px 20px;
   background: white;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  z-index: 9999;
+  z-index: 9999 !important;
   animation: toastSlideIn 0.3s ease;
   max-width: 400px;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  transform: none !important;
 }
 
 @keyframes toastSlideIn {
