@@ -52,6 +52,7 @@ pos-web/FEATURES.md
 pos-web/PROJECT_COMPLETE.md
 pos-web/QUICKSTART.md
 pos-web/ROUTES_MAP.md
+DEPLOYMENT_GUIDE.md
 
 # Temporary files
 *.bin
