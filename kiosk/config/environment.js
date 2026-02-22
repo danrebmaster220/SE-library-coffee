@@ -24,7 +24,7 @@ const ENV = {
     // API_URL: 'https://your-backend.render.com/api',
     
     // Current setting (update when you deploy):
-    API_URL: 'http://192.168.1.11:3000/api',
+    API_URL: 'https://library-coffee-api.onrender.com/api',
     ENV_NAME: 'production',
   },
 };
@@ -32,7 +32,7 @@ const ENV = {
 // ===========================================
 // CHANGE THIS TO SWITCH ENVIRONMENTS
 // ===========================================
-const CURRENT_ENV = 'development';
+const CURRENT_ENV = 'production';
 // Options: 'development' | 'production'
 // ===========================================
 
