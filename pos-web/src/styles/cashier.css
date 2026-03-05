@@ -24,6 +24,14 @@
   gap: 12px;
 }
 
+.topbar-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
 .topbar-logo .logo-icon {
   font-size: 28px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
@@ -274,26 +282,24 @@
   overflow: hidden;
 }
 
-/* Cart body scrolls as one unit so Pay button is always reachable */
+/* Cart body scrolls as one unit so Pay button is always reachable.
+   Use explicit max-height so overflow-y: auto actually engages. */
 .cashier-layout .cart-body {
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  overflow-x: hidden;
+  display: block; /* NOT flex — let content flow naturally and scroll */
 }
 
-/* In cashier mode, cart-scrollable-content doesn't independently scroll;
-   it participates in the cart-body scroll instead */
+/* In cashier mode, cart-scrollable-content is a regular block in the scroll */
 .cashier-layout .cart-scrollable-content {
-  flex: 0 1 auto;
   overflow: visible;
-  min-height: 0;
 }
 
 /* Payment section flows naturally in the scroll */
 .cashier-layout .cart-payment-section {
-  flex-shrink: 0;
+  border-top: 2px solid #e0e0e0;
 }
 
 /* Make the scrollable areas within panels */
@@ -316,11 +322,9 @@
   min-height: 0;
 }
 
-/* Ensure cart scrollable content also shrinks properly */
+/* Cart scrollable content — no independent scroll, part of cart-body scroll */
 .cashier-layout .cart-scrollable-content {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  overflow: visible;
 }
 
 /* Keep fixed elements at their positions */

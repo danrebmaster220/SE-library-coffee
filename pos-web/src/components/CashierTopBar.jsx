@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 import '../styles/cashier.css';
 
 // SVG Icons
@@ -92,7 +93,7 @@ export default function CashierTopBar() {
       <header className="cashier-topbar">
         {/* Logo Section */}
         <div className="topbar-logo">
-          <span className="logo-icon">☕</span>
+          <img src={logoImg} alt="Library Coffee Logo" className="topbar-logo-img" />
           <div className="logo-text">
             <span className="logo-title">LIBRARY</span>
             <span className="logo-subtitle">Coffee + Study</span>
