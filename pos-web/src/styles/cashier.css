@@ -254,14 +254,46 @@
 
 /* Adjust the panels to fit within the container */
 .cashier-layout .pos-orders-panel,
-.cashier-layout .pos-menu-panel,
-.cashier-layout .pos-cart-panel {
+.cashier-layout .pos-menu-panel {
   height: 100%;
   max-height: 100%;
   min-height: 0; /* Critical: allows flex/grid children to shrink below content size */
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* Cart panel in cashier mode: the 60px topbar eats viewport height,
+   so we need the cart body to scroll as one unit (items + payment) */
+.cashier-layout .pos-cart-panel {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cart body scrolls as one unit so Pay button is always reachable */
+.cashier-layout .cart-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* In cashier mode, cart-scrollable-content doesn't independently scroll;
+   it participates in the cart-body scroll instead */
+.cashier-layout .cart-scrollable-content {
+  flex: 0 1 auto;
+  overflow: visible;
+  min-height: 0;
+}
+
+/* Payment section flows naturally in the scroll */
+.cashier-layout .cart-payment-section {
+  flex-shrink: 0;
 }
 
 /* Make the scrollable areas within panels */

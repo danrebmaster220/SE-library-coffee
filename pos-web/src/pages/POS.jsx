@@ -1100,6 +1100,8 @@ export default function POS() {
           )}
         </div>
 
+        {/* Cart Body - wraps scrollable content + payment for proper overflow handling */}
+        <div className="cart-body">
         {/* Scrollable Cart Content */}
         <div className="cart-scrollable-content">
           {/* Order Type Selection - FIRST STEP */}
@@ -1288,6 +1290,7 @@ export default function POS() {
 
           {error && <div className="error-message">{error}</div>}
         </div>{/* End of cart-payment-section */}
+        </div>{/* End of cart-body */}
       </div>
 
       {/* Customization Modal */}
