@@ -34,7 +34,7 @@ const Header = ({ customerName, orderType, isPhone: isPhoneProp }) => {
         style={[styles.logo, isPhone && styles.logoPhone]} 
       />
 
-      <Text style={[styles.title, isPhone && styles.titlePhone]}>Library Café</Text>
+      <Text style={[styles.title, isPhone && styles.titlePhone]}>Library Coffee + Study</Text>
 
       <Text style={[styles.subtitle, isPhone && styles.subtitlePhone]}>
         <Text style={styles.orderType}>{formattedOrderType}</Text>
