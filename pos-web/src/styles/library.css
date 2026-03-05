@@ -1388,11 +1388,12 @@ button.btn-void-small:disabled {
   display: flex;
   gap: 8px;
   margin: 12px 0;
+  overflow: hidden;
 }
 
 .quick-cash-btn {
   flex: 1;
-  padding: 10px 8px;
+  padding: 10px 4px;
   background: var(--cream);
   border: 2px solid var(--coffee-light);
   border-radius: 8px;
@@ -1401,6 +1402,12 @@ button.btn-void-small:disabled {
   color: var(--coffee-dark);
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .quick-cash-btn:hover {
