@@ -1398,16 +1398,14 @@ button.btn-void-small:disabled {
   border: 2px solid var(--coffee-light);
   border-radius: 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--coffee-dark);
   cursor: pointer;
   transition: all 0.2s;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: center;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .quick-cash-btn:hover {
@@ -2309,15 +2307,19 @@ button.btn-void-small:disabled {
 
 /* Quick Cash Buttons - Darker Color */
 .quick-cash-btn {
-  padding: 10px 20px;
+  padding: 10px 4px;
   border: 2px solid #5d4037;
   border-radius: 8px;
   background: #efebe9;
   color: #3e2723;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 0;
+  text-align: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .quick-cash-btn:hover {
