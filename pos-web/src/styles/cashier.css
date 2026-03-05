@@ -258,6 +258,7 @@
 .cashier-layout .pos-cart-panel {
   height: 100%;
   max-height: 100%;
+  min-height: 0; /* Critical: allows flex/grid children to shrink below content size */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -267,17 +268,27 @@
 .cashier-layout .order-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .cashier-layout .menu-items-grid {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .cashier-layout .cart-items {
   flex: 1;
   overflow-y: auto;
   max-height: none !important;
+  min-height: 0;
+}
+
+/* Ensure cart scrollable content also shrinks properly */
+.cashier-layout .cart-scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* Keep fixed elements at their positions */
@@ -285,6 +296,7 @@
 .cashier-layout .cart-summary,
 .cashier-layout .cart-totals,
 .cashier-layout .payment-section,
+.cashier-layout .cart-payment-section,
 .cashier-layout .categories-bar {
   flex-shrink: 0;
 }
@@ -463,5 +475,74 @@
   
   .cashier-layout .main-content {
     padding: 10px;
+  }
+}
+
+/* === CASHIER SHORT VIEWPORT: Laptops with browser chrome === */
+@media (max-height: 700px) {
+  .cashier-topbar {
+    height: 50px;
+  }
+
+  .cashier-layout {
+    top: 50px;
+  }
+
+  .topbar-logo .logo-title {
+    font-size: 16px;
+  }
+
+  .topbar-logo .logo-subtitle {
+    font-size: 10px;
+  }
+
+  .topbar-nav-item {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .user-name {
+    font-size: 12px;
+  }
+
+  /* Cashier POS overrides for short screens */
+  .cashier-layout .pos-container {
+    padding: 8px !important;
+    gap: 8px;
+  }
+}
+
+/* === CASHIER VERY SHORT VIEWPORT === */
+@media (max-height: 600px) {
+  .cashier-topbar {
+    height: 44px;
+  }
+
+  .cashier-layout {
+    top: 44px;
+  }
+
+  .topbar-logo .logo-icon {
+    font-size: 22px;
+  }
+
+  .topbar-logo .logo-title {
+    font-size: 14px;
+  }
+
+  .topbar-logo .logo-subtitle {
+    display: none;
+  }
+
+  .topbar-nav-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
   }
 }

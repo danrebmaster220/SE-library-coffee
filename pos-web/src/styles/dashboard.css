@@ -30,6 +30,7 @@
   margin-left: 0;
   transition: margin-left 0.3s ease, margin-right 0.3s ease;
   min-height: 100vh;
+  min-height: 100dvh;
   box-sizing: border-box;
 }
 
@@ -259,6 +260,7 @@
     right: -420px;
     width: 420px;
     height: 100vh;
+    height: 100dvh;
     background: white;
     box-shadow: -4px 0 20px rgba(0,0,0,0.15);
     transition: right 0.3s ease;
@@ -621,6 +623,7 @@
   padding: 24px 32px;
   background: #f8f6f4;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Header */
@@ -1384,6 +1387,7 @@
 .dashboard-simple {
   padding: 70px 16px 20px 16px; /* Top padding for hamburger menu */
   min-height: 100vh;
+  min-height: 100dvh;
   box-sizing: border-box;
 }
 
