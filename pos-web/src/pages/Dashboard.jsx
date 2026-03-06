@@ -288,6 +288,9 @@ export default function Dashboard() {
 
   const donutSegments = generateDonutSegments();
 
+  // APK download URL from latest EAS build
+  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/h58Fd29oYjANsoj4i21sgU.apk';
+
   if (loading) {
     return (
       <div className="main-content dashboard-simple">
@@ -305,6 +308,22 @@ export default function Dashboard() {
         <h1 className="page-title">Dashboard</h1>
         <p className="page-subtitle">Overview of your business</p>
       </div>
+
+      {/* APK Download Banner */}
+      <a 
+        href={APK_DOWNLOAD_URL} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="apk-download-banner"
+      >
+        <div className="apk-banner-marquee">
+          <span className="apk-banner-text">
+            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp; 
+            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp; 
+            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp;
+          </span>
+        </div>
+      </a>
 
       <div className="stats-row">
         <div className="stat-card">

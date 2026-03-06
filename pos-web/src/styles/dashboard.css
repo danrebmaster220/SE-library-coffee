@@ -2275,3 +2275,78 @@
     min-width: 38px;
   }
 }
+
+/* ====================================
+   APK Download Banner (Marquee)
+   ==================================== */
+.apk-download-banner {
+  display: block;
+  background: linear-gradient(135deg, #3D2415 0%, #6F4E37 50%, #3D2415 100%);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  padding: 12px 0;
+  overflow: hidden;
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  transition: all 0.3s ease;
+}
+
+.apk-download-banner:hover {
+  border-color: rgba(212, 175, 55, 0.6);
+  box-shadow: 0 4px 15px rgba(61, 36, 21, 0.3);
+  transform: translateY(-1px);
+}
+
+.apk-banner-marquee {
+  display: flex;
+  white-space: nowrap;
+  animation: apk-marquee-scroll 20s linear infinite;
+}
+
+.apk-banner-text {
+  display: inline-block;
+  color: #F5E6D3;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  font-family: 'Poppins', sans-serif;
+}
+
+@keyframes apk-marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.33%);
+  }
+}
+
+.apk-download-banner:hover .apk-banner-marquee {
+  animation-play-state: paused;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .apk-download-banner {
+    border-radius: 8px;
+    padding: 10px 0;
+    margin-bottom: 12px;
+  }
+
+  .apk-banner-text {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .apk-download-banner {
+    border-radius: 6px;
+    padding: 8px 0;
+  }
+
+  .apk-banner-text {
+    font-size: 11px;
+  }
+}
