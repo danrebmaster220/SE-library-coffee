@@ -2,6 +2,7 @@ import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { Animated, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useResponsive } from "../hooks/useResponsive";
 
 const WelcomeScreen = () => {
@@ -33,7 +34,7 @@ const WelcomeScreen = () => {
             >
           
               <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill}>
-                <View style={styles.textContainer}>
+                <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.textContainer}>
                   <Text style={[styles.title, isPhone && styles.titlePhone]}>
                     Welcome to The Library
                   </Text>
@@ -46,7 +47,7 @@ const WelcomeScreen = () => {
                       Touch to Start
                     </Text>
                   </View>
-                </View>
+                </SafeAreaView>
               </BlurView>
             </ImageBackground>
           </TouchableOpacity>

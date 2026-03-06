@@ -164,14 +164,9 @@ export default function Users() {
     return "role-barista";
   };
 
-  // Filter out admin users - they manage themselves in Settings, not here
-  // This page is for managing staff (Cashiers, Baristas, etc.)
+  // Filter users based on search, role, and status
   const filteredUsers = users
     .filter((user) => {
-      // Exclude admin accounts from the list
-      const roleName = getRoleName(user)?.toLowerCase() || "";
-      if (roleName.includes("admin")) return false;
-      
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         user.full_name?.toLowerCase().includes(searchLower) ||
@@ -186,7 +181,7 @@ export default function Users() {
       <div className="page-header-section">
         <div className="page-title-group">
           <h1 className="page-title">Staff Management</h1>
-          <p className="page-subtitle">Manage cashier and barista accounts</p>
+          <p className="page-subtitle">Manage admin, cashier, and barista accounts</p>
         </div>
       </div>
 
@@ -211,9 +206,7 @@ export default function Users() {
             onChange={(e) => setFilterRole(e.target.value)}
           >
             <option value="">All Roles</option>
-            {roles
-              .filter(role => !role.role_name?.toLowerCase().includes('admin'))
-              .map((role) => (
+            {roles.map((role) => (
               <option key={role.role_id} value={role.role_id}>
                 {role.role_name}
               </option>
@@ -364,14 +357,26 @@ export default function Users() {
                   required
                 >
                   <option value="">Select Role</option>
-                  {roles
-                    .filter(role => !role.role_name?.toLowerCase().includes('admin'))
-                    .map((role) => (
+                  {roles.map((role) => (
                     <option key={role.role_id} value={role.role_id}>
                       {role.role_name}
                     </option>
                   ))}
                 </select>
+                {roles.find(r => r.role_id?.toString() === formData.role_id)?.role_name?.toLowerCase().includes('admin') && (
+                  <p style={{ 
+                    margin: '8px 0 0', 
+                    padding: '8px 12px', 
+                    backgroundColor: '#fff3e0', 
+                    border: '1px solid #ffe0b2', 
+                    borderRadius: '6px', 
+                    fontSize: '12px', 
+                    color: '#e65100',
+                    lineHeight: '1.4'
+                  }}>
+                    ⚠️ Admin accounts have full system access. Create only as needed (e.g., backup account for password recovery).
+                  </p>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
