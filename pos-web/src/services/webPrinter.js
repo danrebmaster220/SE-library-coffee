@@ -1,7 +1,7 @@
 /**
  * Web-Based Printer Service
  * 
- * Generates styled HTML receipts and triggers the browser's print dialog.
+ * Generates styled HTML receipts and shows them in a preview modal overlay.
  * Used as an alternative to physical thermal printing when the backend
  * is hosted in the cloud and can't reach a USB printer.
  * 
@@ -14,150 +14,32 @@
  */
 
 // ============================================
-// Receipt Styles (58mm thermal receipt look)
+// Receipt Styles (used inside the modal paper & print popup)
 // ============================================
 const RECEIPT_STYLES = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  
-  body {
-    font-family: 'Courier New', 'Consolas', monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    color: #000;
-    background: #fff;
-    width: 58mm;
-    margin: 0 auto;
-    padding: 4mm 2mm;
-  }
-
-  .receipt { 
-    width: 100%; 
-    page-break-after: always;
-  }
-
-  .receipt:last-child {
-    page-break-after: avoid;
-  }
-
-  .receipt-header {
-    text-align: center;
-    margin-bottom: 6px;
-  }
-
-  .store-name {
-    font-size: 16px;
-    font-weight: bold;
-    letter-spacing: 1px;
-  }
-
-  .store-sub {
-    font-size: 11px;
-  }
-
-  .separator {
-    text-align: center;
-    margin: 4px 0;
-    letter-spacing: 1px;
-    font-size: 11px;
-  }
-
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-  }
-
+  .receipt { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px dashed #ccc; }
+  .receipt:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .receipt-header { text-align: center; margin-bottom: 6px; }
+  .store-name { font-size: 16px; font-weight: bold; letter-spacing: 1px; }
+  .store-sub { font-size: 11px; }
+  .separator { text-align: center; margin: 4px 0; font-size: 11px; color: #888; }
+  .info-row { display: flex; justify-content: space-between; font-size: 11px; padding: 1px 0; }
   .info-label { font-weight: normal; }
   .info-value { text-align: right; }
-
-  .section-title {
-    font-weight: bold;
-    font-size: 12px;
-    margin-top: 4px;
-  }
-
-  .item-row { margin: 4px 0; }
-
-  .item-name {
-    font-size: 12px;
-    font-weight: bold;
-  }
-
-  .item-detail {
-    font-size: 10px;
-    padding-left: 12px;
-    color: #333;
-  }
-
-  .item-price {
-    font-size: 11px;
-    padding-left: 12px;
-  }
-
-  .totals {
-    text-align: right;
-    margin-top: 4px;
-  }
-
-  .totals .row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-  }
-
-  .totals .total-final {
-    font-weight: bold;
-    font-size: 13px;
-    border-top: 1px dashed #000;
-    padding-top: 2px;
-    margin-top: 2px;
-  }
-
-  .footer {
-    text-align: center;
-    margin-top: 8px;
-    font-size: 10px;
-  }
-
+  .section-title { font-weight: bold; font-size: 12px; margin-top: 4px; }
+  .item-row { margin: 5px 0; }
+  .item-name { font-size: 12px; font-weight: bold; }
+  .item-detail { font-size: 10px; padding-left: 12px; color: #444; }
+  .item-price { font-size: 11px; padding-left: 12px; }
+  .totals { margin-top: 4px; }
+  .totals .row { display: flex; justify-content: space-between; font-size: 11px; }
+  .totals .total-final { font-weight: bold; font-size: 13px; border-top: 1px dashed #000; padding-top: 3px; margin-top: 3px; }
+  .footer { text-align: center; margin-top: 8px; font-size: 10px; }
   .footer p { margin: 2px 0; }
-
-  .ticket-header {
-    text-align: center;
-    font-size: 16px;
-    font-weight: bold;
-    border: 2px solid #000;
-    padding: 4px;
-    margin-bottom: 6px;
-  }
-
-  .order-number {
-    text-align: center;
-    font-size: 20px;
-    font-weight: bold;
-    margin: 4px 0;
-  }
-
-  .booking-section {
-    border: 1px dashed #000;
-    padding: 4px;
-    margin: 6px 0;
-  }
-
-  .booking-section .title {
-    font-weight: bold;
-    font-size: 12px;
-  }
-
-  @media print {
-    @page {
-      size: 58mm auto;
-      margin: 0;
-    }
-    body {
-      width: 58mm;
-      padding: 2mm;
-    }
-  }
+  .ticket-header { text-align: center; font-size: 15px; font-weight: bold; border: 2px solid #000; padding: 4px; margin-bottom: 6px; }
+  .order-number { text-align: center; font-size: 18px; font-weight: bold; margin: 4px 0; }
+  .booking-section { border: 1px dashed #000; padding: 4px; margin: 6px 0; }
+  .booking-section .title { font-weight: bold; font-size: 12px; }
 `;
 
 // ============================================
@@ -475,50 +357,141 @@ function buildLibraryExtensionReceiptHTML(session) {
 }
 
 // ============================================
-// Print Trigger (opens browser print dialog)
+// Modal Overlay (shows receipt preview in-app)
 // ============================================
 
-function triggerPrint(htmlContent) {
+function showReceiptModal(htmlContent, title = 'Receipt Preview') {
   return new Promise((resolve) => {
-    // Create a hidden iframe for printing
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-10000px';
-    iframe.style.left = '-10000px';
-    iframe.style.width = '58mm';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    
-    document.body.appendChild(iframe);
-    
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Receipt</title>
-        <style>${RECEIPT_STYLES}</style>
-      </head>
-      <body>${htmlContent}</body>
-      </html>
-    `);
-    doc.close();
-    
-    // Wait for content to render, then print
-    iframe.onload = () => {
-      setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        
-        // Clean up after printing
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          resolve(true);
-        }, 1000);
-      }, 300);
+    // Remove any existing modal
+    const existing = document.getElementById('receipt-preview-overlay');
+    if (existing) existing.remove();
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'receipt-preview-overlay';
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.6); display: flex; align-items: center;
+      justify-content: center; z-index: 99999; backdrop-filter: blur(3px);
+    `;
+
+    // Modal container
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-height: 90vh; width: 380px; max-width: 95vw;
+      display: flex; flex-direction: column; overflow: hidden;
+    `;
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; background: #3D2415; color: #F5E6D3;
+      font-family: 'Poppins', sans-serif;
+    `;
+    header.innerHTML = `
+      <span style="font-size:15px;font-weight:600;">🧾 ${title}</span>
+      <span id="rp-close-x" style="cursor:pointer;font-size:22px;line-height:1;padding:2px 6px;border-radius:4px;transition:background 0.2s;">&times;</span>
+    `;
+
+    // Receipt content (scrollable)
+    const content = document.createElement('div');
+    content.style.cssText = `
+      flex: 1; overflow-y: auto; padding: 20px; background: #f9f5f0;
+    `;
+
+    // Receipt paper
+    const paper = document.createElement('div');
+    paper.style.cssText = `
+      background: #fff; border: 1px solid #e0d5ca; border-radius: 4px;
+      padding: 16px 14px; font-family: 'Courier New', 'Consolas', monospace;
+      font-size: 12px; line-height: 1.5; color: #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 300px; margin: 0 auto;
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = RECEIPT_STYLES;
+    paper.appendChild(style);
+    paper.innerHTML += htmlContent;
+
+    content.appendChild(paper);
+
+    // Footer buttons
+    const footer = document.createElement('div');
+    footer.style.cssText = `
+      display: flex; gap: 10px; padding: 14px 20px; background: #fff;
+      border-top: 1px solid #eee; justify-content: flex-end;
+    `;
+    footer.innerHTML = `
+      <button id="rp-print-btn" style="
+        padding:8px 20px; border:1px solid #3D2415; background:#fff; color:#3D2415;
+        border-radius:6px; cursor:pointer; font-size:13px; font-family:'Poppins',sans-serif;
+        font-weight:500; transition:all 0.2s;
+      ">🖨️ Print</button>
+      <button id="rp-done-btn" style="
+        padding:8px 24px; border:none; background:#3D2415; color:#F5E6D3;
+        border-radius:6px; cursor:pointer; font-size:13px; font-family:'Poppins',sans-serif;
+        font-weight:500; transition:all 0.2s;
+      ">✓ Done</button>
+    `;
+
+    // Assemble
+    modal.appendChild(header);
+    modal.appendChild(content);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Close helper
+    const closeModal = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', handleEsc);
+      resolve(true);
     };
+
+    // Event listeners
+    document.getElementById('rp-close-x').onclick = closeModal;
+    document.getElementById('rp-done-btn').onclick = closeModal;
+    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+    // Print button — opens a small popup with the receipt and triggers print
+    document.getElementById('rp-print-btn').onclick = () => {
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html><head><title>Receipt</title>
+          <style>
+            * { margin:0; padding:0; box-sizing:border-box; }
+            body { font-family:'Courier New',monospace; font-size:12px; line-height:1.5; color:#000; width:58mm; margin:0 auto; padding:4mm 2mm; }
+            ${RECEIPT_STYLES}
+            @media print { @page { size:58mm auto; margin:0; } body { width:58mm; padding:2mm; } }
+          </style></head>
+          <body>${htmlContent}</body></html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); }, 500);
+      }
+    };
+
+    // Hover effects
+    const closeX = document.getElementById('rp-close-x');
+    closeX.onmouseenter = () => { closeX.style.background = 'rgba(255,255,255,0.15)'; };
+    closeX.onmouseleave = () => { closeX.style.background = 'transparent'; };
+    const printBtn = document.getElementById('rp-print-btn');
+    printBtn.onmouseenter = () => { printBtn.style.background = '#f5efe8'; };
+    printBtn.onmouseleave = () => { printBtn.style.background = '#fff'; };
+    const doneBtn = document.getElementById('rp-done-btn');
+    doneBtn.onmouseenter = () => { doneBtn.style.background = '#5a3520'; };
+    doneBtn.onmouseleave = () => { doneBtn.style.background = '#3D2415'; };
+
+    // ESC to close
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', handleEsc);
   });
 }
 
@@ -527,51 +500,43 @@ function triggerPrint(htmlContent) {
 // ============================================
 
 /**
- * Print order receipts (customer + barista + kitchen tickets)
- * @param {Object} receiptData - Receipt data from /printer/receipt-data/:id
+ * Show order receipt preview (customer + barista + kitchen tickets)
  */
 export async function printOrderReceipt(receiptData) {
   let html = '';
-  
-  // Customer receipt
   html += buildCustomerReceiptHTML(receiptData);
   
-  // Barista ticket (if has barista items)
   const baristaHTML = buildBaristaTicketHTML(receiptData);
   if (baristaHTML) html += baristaHTML;
   
-  // Kitchen ticket (if has kitchen items)
   const kitchenHTML = buildKitchenTicketHTML(receiptData);
   if (kitchenHTML) html += kitchenHTML;
   
-  return triggerPrint(html);
+  return showReceiptModal(html, 'Order Receipt');
 }
 
 /**
- * Print customer receipt only (for reprints)
- * @param {Object} receiptData - Receipt data from /printer/receipt-data/:id
+ * Show customer receipt preview only (for reprints)
  */
 export async function printCustomerReceipt(receiptData) {
   const html = buildCustomerReceiptHTML(receiptData);
-  return triggerPrint(html);
+  return showReceiptModal(html, 'Customer Receipt');
 }
 
 /**
- * Print library check-in receipt
- * @param {Object} session - Session data with table_number, seat_number, customer_name, etc.
+ * Show library check-in receipt preview
  */
 export async function printLibraryCheckinReceipt(session) {
   const html = buildLibraryCheckinReceiptHTML(session);
-  return triggerPrint(html);
+  return showReceiptModal(html, 'Check-in Receipt');
 }
 
 /**
- * Print library extension receipt
- * @param {Object} session - Session data with added_minutes, extension_fee, etc.
+ * Show library extension receipt preview
  */
 export async function printLibraryExtensionReceipt(session) {
   const html = buildLibraryExtensionReceiptHTML(session);
-  return triggerPrint(html);
+  return showReceiptModal(html, 'Extension Receipt');
 }
 
 export default {
