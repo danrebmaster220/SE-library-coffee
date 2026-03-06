@@ -417,22 +417,17 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
 
     content.appendChild(paper);
 
-    // Footer buttons
+    // Footer button
     const footer = document.createElement('div');
     footer.style.cssText = `
       display: flex; gap: 10px; padding: 14px 20px; background: #fff;
-      border-top: 1px solid #eee; justify-content: flex-end;
+      border-top: 1px solid #eee; justify-content: center;
     `;
     footer.innerHTML = `
-      <button id="rp-print-btn" style="
-        padding:8px 20px; border:1px solid #3D2415; background:#fff; color:#3D2415;
-        border-radius:6px; cursor:pointer; font-size:13px; font-family:'Poppins',sans-serif;
-        font-weight:500; transition:all 0.2s;
-      ">🖨️ Print</button>
       <button id="rp-done-btn" style="
-        padding:8px 24px; border:none; background:#3D2415; color:#F5E6D3;
-        border-radius:6px; cursor:pointer; font-size:13px; font-family:'Poppins',sans-serif;
-        font-weight:500; transition:all 0.2s;
+        padding:10px 40px; border:none; background:#3D2415; color:#F5E6D3;
+        border-radius:6px; cursor:pointer; font-size:14px; font-family:'Poppins',sans-serif;
+        font-weight:600; transition:all 0.2s;
       ">✓ Done</button>
     `;
 
@@ -455,34 +450,10 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
     document.getElementById('rp-done-btn').onclick = closeModal;
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
-    // Print button — opens a small popup with the receipt and triggers print
-    document.getElementById('rp-print-btn').onclick = () => {
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html><head><title>Receipt</title>
-          <style>
-            * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:'Courier New',monospace; font-size:12px; line-height:1.5; color:#000; width:58mm; margin:0 auto; padding:4mm 2mm; }
-            ${RECEIPT_STYLES}
-            @media print { @page { size:58mm auto; margin:0; } body { width:58mm; padding:2mm; } }
-          </style></head>
-          <body>${htmlContent}</body></html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => { printWindow.print(); }, 500);
-      }
-    };
-
     // Hover effects
     const closeX = document.getElementById('rp-close-x');
     closeX.onmouseenter = () => { closeX.style.background = 'rgba(255,255,255,0.15)'; };
     closeX.onmouseleave = () => { closeX.style.background = 'transparent'; };
-    const printBtn = document.getElementById('rp-print-btn');
-    printBtn.onmouseenter = () => { printBtn.style.background = '#f5efe8'; };
-    printBtn.onmouseleave = () => { printBtn.style.background = '#fff'; };
     const doneBtn = document.getElementById('rp-done-btn');
     doneBtn.onmouseenter = () => { doneBtn.style.background = '#5a3520'; };
     doneBtn.onmouseleave = () => { doneBtn.style.background = '#3D2415'; };
