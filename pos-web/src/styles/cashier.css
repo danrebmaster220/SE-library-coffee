@@ -253,11 +253,14 @@
 .cashier-layout .pos-container {
   margin-left: 0 !important;
   width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
+  height: calc(100vh - 60px) !important;
+  height: calc(100dvh - 60px) !important;
+  max-height: calc(100vh - 60px) !important;
+  max-height: calc(100dvh - 60px) !important;
   overflow: hidden;
   padding: 12px;
   box-sizing: border-box;
+  display: grid !important;
 }
 
 /* Adjust the panels to fit within the container */
@@ -540,6 +543,10 @@
   .cashier-layout .pos-container {
     padding: 8px !important;
     gap: 8px;
+    height: calc(100vh - 50px) !important;
+    height: calc(100dvh - 50px) !important;
+    max-height: calc(100vh - 50px) !important;
+    max-height: calc(100dvh - 50px) !important;
   }
 }
 
@@ -569,5 +576,12 @@
     padding: 6px 10px;
     font-size: 12px;
     gap: 4px;
+  }
+
+  .cashier-layout .pos-container {
+    height: calc(100vh - 44px) !important;
+    height: calc(100dvh - 44px) !important;
+    max-height: calc(100vh - 44px) !important;
+    max-height: calc(100dvh - 44px) !important;
   }
 }
