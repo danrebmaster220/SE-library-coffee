@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
+import { printOrderReceipt } from '../services/webPrinter';
 import Toast from '../components/Toast';
 import '../styles/pos.css';
 
@@ -708,11 +709,12 @@ export default function POS() {
         showToast('Payment successful!', 'success');
       }
 
-      // Print receipt after successful payment
+      // Print receipt after successful payment (web-based)
       if (transactionId) {
         try {
-          await api.post(`/printer/receipt/${transactionId}`);
-          console.log('Receipt printed successfully');
+          const receiptRes = await api.get(`/printer/receipt-data/${transactionId}`);
+          await printOrderReceipt(receiptRes.data);
+          console.log('Receipt printed via browser');
         } catch (printError) {
           console.error('Failed to print receipt:', printError);
           // Don't fail the payment if printing fails

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import { printCustomerReceipt } from '../services/webPrinter';
 import '../styles/menu-management-styles/index.css';
 import '../styles/orders.css';
 
@@ -74,11 +75,11 @@ export default function CompletedOrders() {
   const handleReprintReceipt = async (transactionId) => {
     try {
       setPrinting(transactionId);
-      await api.post(`/printer/reprint/${transactionId}`);
-      alert('Receipt sent to printer!');
+      const receiptRes = await api.get(`/printer/receipt-data/${transactionId}`);
+      await printCustomerReceipt(receiptRes.data);
     } catch (error) {
       console.error('Print error:', error);
-      alert('Failed to print receipt. Check printer connection.');
+      alert('Failed to generate receipt. Please try again.');
     } finally {
       setPrinting(null);
     }

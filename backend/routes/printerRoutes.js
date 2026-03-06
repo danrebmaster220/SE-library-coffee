@@ -95,6 +95,90 @@ router.post('/receipt/:transactionId', verifyToken, async (req, res) => {
     }
 });
 
+// Get receipt data as JSON (for web-based printing)
+router.get('/receipt-data/:transactionId', verifyToken, async (req, res) => {
+    try {
+        const { transactionId } = req.params;
+        
+        // Get transaction details with cashier name
+        const [transactions] = await db.query(`
+            SELECT t.*, d.name as discount_name, d.percentage as discount_percentage,
+                   u.full_name as cashier_name
+            FROM transactions t
+            LEFT JOIN discounts d ON t.discount_id = d.discount_id
+            LEFT JOIN users u ON t.processed_by = u.user_id
+            WHERE t.transaction_id = ?
+        `, [transactionId]);
+        
+        if (transactions.length === 0) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+        
+        const transaction = transactions[0];
+        
+        // Get transaction items with customizations
+        const [items] = await db.query(`
+            SELECT ti.*, i.station
+            FROM transaction_items ti
+            LEFT JOIN items i ON ti.item_id = i.item_id
+            WHERE ti.transaction_id = ?
+        `, [transactionId]);
+        
+        // Get customizations for each item
+        for (let item of items) {
+            const [customizations] = await db.query(`
+                SELECT * FROM transaction_item_customizations
+                WHERE transaction_item_id = ?
+            `, [item.transaction_item_id]);
+            item.customizations = customizations;
+        }
+        
+        // Parse library booking
+        let libraryBooking = null;
+        if (transaction.library_booking) {
+            try {
+                libraryBooking = typeof transaction.library_booking === 'string'
+                    ? JSON.parse(transaction.library_booking)
+                    : transaction.library_booking;
+            } catch (e) {}
+        }
+        
+        // Return structured JSON for web-based receipt rendering
+        res.json({
+            transaction_id: transaction.transaction_id,
+            beeper_number: transaction.beeper_number,
+            order_type: transaction.order_type,
+            subtotal: parseFloat(transaction.subtotal),
+            discount_name: transaction.discount_name,
+            discount_percentage: transaction.discount_percentage,
+            discount_amount: parseFloat(transaction.discount_amount || 0),
+            total_amount: parseFloat(transaction.total_amount),
+            cash_tendered: parseFloat(transaction.cash_tendered || 0),
+            change_due: parseFloat(transaction.change_due || 0),
+            cashier_name: transaction.cashier_name,
+            created_at: transaction.created_at,
+            library_booking: libraryBooking,
+            items: items.map(item => ({
+                name: item.item_name,
+                quantity: item.quantity,
+                unit_price: parseFloat(item.unit_price),
+                total_price: parseFloat(item.total_price),
+                station: item.station || 'barista',
+                customizations: (item.customizations || []).map(c => ({
+                    group_name: c.group_name,
+                    option_name: c.option_name,
+                    quantity: c.quantity || 1,
+                    unit_price: parseFloat(c.unit_price || 0),
+                    total_price: parseFloat(c.total_price || 0)
+                }))
+            }))
+        });
+    } catch (error) {
+        console.error('Receipt data error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Print customer receipt only (reprint)
 router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
     try {

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api';
+import { printLibraryCheckinReceipt, printLibraryExtensionReceipt } from '../services/webPrinter';
 import Toast from '../components/Toast';
 import '../styles/library.css';
 
@@ -210,14 +211,24 @@ export default function LibraryTransactions() {
     if (!selectedSeat) return;
     const fee = 100; // ₱100 for first 2 hours
     try {
-      await api.post('/library/checkin', {
+      const response = await api.post('/library/checkin', {
         seat_id: selectedSeat.seat_id,
         customer_name: customerName,
         duration_minutes: 120,  // Initial 2 hours
         amount_paid: fee,
         cash_tendered: cashTendered
       });
-      showToast('Check-in successful! Receipt printed.', 'success');
+      showToast('Check-in successful!', 'success');
+      
+      // Print check-in receipt via browser
+      if (response.data.receipt_data) {
+        try {
+          await printLibraryCheckinReceipt(response.data.receipt_data);
+        } catch (printErr) {
+          console.error('Receipt print failed:', printErr);
+        }
+      }
+      
       setShowCheckinModal(false);
       setSelectedSeat(null);
       fetchData();
@@ -229,11 +240,21 @@ export default function LibraryTransactions() {
   const handleExtend = async (minutes) => {
     if (!selectedSession) return;
     try {
-      await api.post('/library/extend', {
+      const response = await api.post('/library/extend', {
         session_id: selectedSession.session_id,
         minutes
       });
       showToast('Session extended by ' + minutes + ' minutes', 'success');
+      
+      // Print extension receipt via browser
+      if (response.data.receipt_data) {
+        try {
+          await printLibraryExtensionReceipt(response.data.receipt_data);
+        } catch (printErr) {
+          console.error('Extension receipt print failed:', printErr);
+        }
+      }
+      
       setShowSessionModal(false);
       setSelectedSession(null);
       fetchData();

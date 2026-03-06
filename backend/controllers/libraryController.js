@@ -175,7 +175,19 @@ exports.checkin = async (req, res) => {
             message: 'Check-in successful! Timer started.', 
             session_id: result.insertId,
             paid_minutes: duration_minutes,
-            amount_paid: amount_paid
+            amount_paid: amount_paid,
+            receipt_data: {
+                session_id: result.insertId,
+                table_number: seat[0].table_number,
+                seat_number: seat[0].seat_number,
+                customer_name: customer_name,
+                paid_minutes: duration_minutes,
+                duration_minutes: duration_minutes,
+                amount_paid: amount_paid,
+                cash_tendered: actualCashTendered,
+                change_due: changeDue,
+                cashier_name: cashierName
+            }
         });
 
     } catch (error) {
@@ -266,7 +278,20 @@ exports.extend = async (req, res) => {
             message: 'Time extended successfully!',
             added_minutes: minutes,
             new_total_minutes: newPaidMinutes,
-            extension_fee: extensionFee
+            extension_fee: extensionFee,
+            receipt_data: {
+                session_id: session_id,
+                table_number: session[0].table_number,
+                seat_number: session[0].seat_number,
+                customer_name: session[0].customer_name,
+                added_minutes: minutes,
+                extension_fee: extensionFee,
+                new_total_minutes: newPaidMinutes,
+                remaining_minutes: newRemainingMinutes,
+                cash_tendered: cash_tendered || extensionFee,
+                change_due: (cash_tendered || extensionFee) - extensionFee,
+                cashier_name: cashierName
+            }
         });
 
     } catch (error) {
