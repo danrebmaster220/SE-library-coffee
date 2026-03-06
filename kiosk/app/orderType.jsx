@@ -54,12 +54,21 @@ export default function OrderTypeSelection() {
 
   const handleOptionPress = (option) => {
     setSelectedOption(option);
-    router.push({
-      pathname: "/studyArea",
-      params: {
-        orderType: option === "dinein" ? "Dine-In" : "Take-Out",
-      },
-    });
+    const orderTypeValue = option === "dinein" ? "Dine-In" : "Take-Out";
+
+    if (option === "takeout") {
+      // Take-Out: skip study area, go straight to menu
+      router.push({
+        pathname: "/menu",
+        params: { orderType: orderTypeValue },
+      });
+    } else {
+      // Dine-In: ask if they want to book a study area
+      router.push({
+        pathname: "/studyArea",
+        params: { orderType: orderTypeValue },
+      });
+    }
   };
 
   // Dynamic card sizes for phone

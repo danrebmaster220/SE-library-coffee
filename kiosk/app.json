@@ -16,7 +16,7 @@
       "package": "com.librarycafe.kiosk",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#3D2415",
+        "backgroundColor": "#F5E6D3",
         "foregroundImage": "./assets/images/logo/logo.png"
       },
       "permissions": [
