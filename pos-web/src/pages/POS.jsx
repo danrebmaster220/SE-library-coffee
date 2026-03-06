@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
 import Toast from '../components/Toast';
@@ -49,6 +49,9 @@ export default function POS() {
   
   // Order search state
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  
+  // Ref for pos-container to force correct height in cashier mode
+  const posContainerRef = useRef(null);
   
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
@@ -136,6 +139,28 @@ export default function POS() {
       socketService.removeListener('beepers:update');
     };
   }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts]);
+
+  // Force correct height for cashier mode on resize
+  useEffect(() => {
+    const el = posContainerRef.current;
+    if (!el) return;
+    
+    const isCashier = !!el.closest('.cashier-layout');
+    if (!isCashier) return;
+    
+    const setHeight = () => {
+      const topbar = document.querySelector('.cashier-topbar');
+      const topbarH = topbar ? topbar.getBoundingClientRect().height : 60;
+      const h = window.innerHeight - topbarH;
+      el.style.height = h + 'px';
+      el.style.maxHeight = h + 'px';
+      el.style.minHeight = '0';
+    };
+    
+    setHeight();
+    window.addEventListener('resize', setHeight);
+    return () => window.removeEventListener('resize', setHeight);
+  }, []);
 
   // Fetch barista defaults (Size/Temp) + any add-on groups
   const fetchBaristaDefaults = async (itemId) => {
@@ -882,7 +907,7 @@ export default function POS() {
   };
 
   return (
-    <div className="pos-container">
+    <div className="pos-container" ref={posContainerRef}>
       {/* Left Panel - Order Queue */}
       <div className="pos-orders-panel">
         <h2>Order Queue</h2>
@@ -1073,6 +1098,7 @@ export default function POS() {
         </div>
       </div>
 
+      {/* Right Panel - Cart */}
       {/* Right Panel - Cart */}
       <div className="pos-cart-panel">
         <div className="cart-header">
@@ -1279,7 +1305,9 @@ export default function POS() {
           </div>
         </div>
 
-          {/* Pay Button */}
+        </div>{/* End of cart-payment-section */}
+
+          {/* Pay Button - outside payment section so it's always pinned at bottom */}
           <button
             onClick={handlePayment}
             disabled={loading || (cart.length === 0 && !pendingOrderId && !pendingLibraryBooking) || !orderType}
@@ -1289,7 +1317,6 @@ export default function POS() {
           </button>
 
           {error && <div className="error-message">{error}</div>}
-        </div>{/* End of cart-payment-section */}
         </div>{/* End of cart-body */}
       </div>
 

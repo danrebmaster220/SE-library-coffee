@@ -4,13 +4,26 @@
   grid-template-columns: 250px 1fr 320px;
   gap: 12px;
   height: 100vh;
-  height: 100dvh; /* Dynamic viewport height — accounts for browser chrome */
+  height: 100dvh;
   padding: 12px;
   background: #f0f2f5;
   box-sizing: border-box;
   overflow: hidden;
   margin-left: 260px;
   width: calc(100vw - 260px);
+}
+
+/* Cashier mode: topbar takes 60px, so subtract it */
+.cashier-layout .pos-container {
+  height: calc(100vh - 60px) !important;
+  height: calc(100dvh - 60px) !important;
+  max-height: calc(100vh - 60px) !important;
+  max-height: calc(100dvh - 60px) !important;
+  min-height: 0 !important;
+  margin-left: 0 !important;
+  width: 100% !important;
+  grid-template-columns: 250px 1fr 320px !important;
+  grid-template-rows: 1fr !important;
 }
 
 /* Left Panel - Order Queue */
@@ -483,33 +496,38 @@
   font-weight: 600;
 }
 
-/* Cart Body - wraps scrollable content + payment section.
-   Uses CSS grid to pin payment at bottom when space allows,
-   and scrolls when content overflows. */
+/* Cart Body - wraps scrollable content + payment section + pay button.
+   Uses flex column: scrollable-content fills remaining space,
+   payment-section can shrink and scroll, btn-pay is always pinned at bottom. */
 .cart-body {
   flex: 1 1 0%;
   min-height: 0;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* cart-body itself does NOT scroll */
 }
 
-/* Scrollable Cart Content — takes remaining space above payment */
+/* Scrollable Cart Content — fills remaining space, scrolls internally */
 .cart-scrollable-content {
+  flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Payment Section — auto-sized, pinned at bottom of grid */
+/* Payment Section — CAN shrink and scrolls when viewport is tight.
+   This keeps the pay button always visible below it. */
 .cart-payment-section {
+  flex: 0 1 auto;
+  min-height: 0;
   background: white;
   border-top: 2px solid #e0e0e0;
   padding: 0;
   font-family: 'Poppins', sans-serif;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
 }
 
@@ -2222,6 +2240,7 @@
   flex-direction: column;
   grid-template-columns: none;
   height: auto;
+  max-height: none;
   min-height: 100vh;
   padding: 8px;
   margin-left: 0;
@@ -2540,6 +2559,7 @@
     grid-template-rows: auto 1fr;
     height: 100vh;
     height: 100dvh;
+    min-height: 0;
     padding: 12px;
     gap: 12px;
     overflow: hidden;
@@ -2638,6 +2658,7 @@
     grid-template-rows: 1fr;
     height: 100vh;
     height: 100dvh;
+    min-height: 0;
     margin-left: 260px;
     width: calc(100vw - 260px);
   }

@@ -257,10 +257,13 @@
   height: calc(100dvh - 60px) !important;
   max-height: calc(100vh - 60px) !important;
   max-height: calc(100dvh - 60px) !important;
+  min-height: 0 !important;
   overflow: hidden;
   padding: 12px;
   box-sizing: border-box;
   display: grid !important;
+  grid-template-columns: 250px 1fr 320px !important;
+  grid-template-rows: 1fr !important;
 }
 
 /* Adjust the panels to fit within the container */
@@ -284,20 +287,35 @@
   overflow: hidden;
 }
 
-/* Cart body in cashier: if payment section exceeds available space,
-   the grid container scrolls so Pay button is always reachable.
-   The 1fr row for cart items may shrink to 0, that's fine. */
+/* Cart body in cashier: flex column that fills the cart panel.
+   The scrollable-content takes remaining space, payment-section is fixed. */
 .cashier-layout .cart-body {
+  flex: 1 1 0%;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* Cart items scroll independently within their grid row */
+/* Cart items scroll independently */
 .cashier-layout .cart-scrollable-content {
+  flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* Payment section in cashier — no special override needed */
+/* Payment section: CAN shrink and scroll, btn-pay is separate and always visible */
+.cashier-layout .cart-payment-section {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: 55%;
+}
+
+/* Pay button: always pinned at bottom of cart-body, never hidden */
+.cashier-layout .btn-pay {
+  flex-shrink: 0;
+}
 
 /* Make the scrollable areas within panels */
 .cashier-layout .order-list {
@@ -324,7 +342,6 @@
 .cashier-layout .cart-summary,
 .cashier-layout .cart-totals,
 .cashier-layout .payment-section,
-.cashier-layout .cart-payment-section,
 .cashier-layout .categories-bar {
   flex-shrink: 0;
 }
@@ -547,6 +564,7 @@
     height: calc(100dvh - 50px) !important;
     max-height: calc(100vh - 50px) !important;
     max-height: calc(100dvh - 50px) !important;
+    min-height: 0 !important;
   }
 }
 
@@ -583,5 +601,6 @@
     height: calc(100dvh - 44px) !important;
     max-height: calc(100vh - 44px) !important;
     max-height: calc(100dvh - 44px) !important;
+    min-height: 0 !important;
   }
 }
