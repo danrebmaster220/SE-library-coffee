@@ -282,17 +282,10 @@
   overflow: hidden;
 }
 
-/* Cart body scrolls as one unit so Pay button is always reachable.
-   Use explicit max-height so overflow-y: auto actually engages. */
-.cashier-layout .cart-body {
-  flex: 1 1 0%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: block; /* NOT flex — let content flow naturally and scroll */
-}
+/* Cart body: inherits flex column + overflow-y: auto from base.
+   No special override needed — base styles handle it. */
 
-/* In cashier mode, cart-scrollable-content is a regular block in the scroll */
+/* In cashier mode, cart-scrollable-content participates in cart-body scroll */
 .cashier-layout .cart-scrollable-content {
   overflow: visible;
 }
