@@ -670,8 +670,11 @@ while ($listener.IsListening) {
                 # 2. Barista ticket (if any barista items exist)
                 $bd = Build-BaristaTicket $rd
                 if ($bd -ne $null) {
-                    Start-Sleep -Milliseconds 300
-                    $w2 = [USBPrinter]::SendData($pp, $bd)
+                    Start-Sleep -Milliseconds 1500
+                    $pp2 = [USBPrinter]::FindPrinter()
+                    if ($pp2) {
+                        $w2 = [USBPrinter]::SendData($pp2, $bd)
+                    } else { $w2 = -1 }
                     if ($w2 -gt 0) {
                         Write-Host "  [$ts] Barista ticket$orderLabel OK ($w2 bytes)" -ForegroundColor Green
                     } else {
@@ -683,8 +686,11 @@ while ($listener.IsListening) {
                 # 3. Kitchen ticket (if any kitchen items exist)
                 $kd = Build-KitchenTicket $rd
                 if ($kd -ne $null) {
-                    Start-Sleep -Milliseconds 300
-                    $w3 = [USBPrinter]::SendData($pp, $kd)
+                    Start-Sleep -Milliseconds 1500
+                    $pp3 = [USBPrinter]::FindPrinter()
+                    if ($pp3) {
+                        $w3 = [USBPrinter]::SendData($pp3, $kd)
+                    } else { $w3 = -1 }
                     if ($w3 -gt 0) {
                         Write-Host "  [$ts] Kitchen ticket$orderLabel OK ($w3 bytes)" -ForegroundColor Green
                     } else {
