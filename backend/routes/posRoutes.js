@@ -16,6 +16,9 @@ router.put('/beepers/config', verifyToken, posController.updateBeeperCount);
 // Release beeper manually
 router.put('/beepers/:beeperNumber/release', verifyToken, posController.releaseBeeperManually);
 
+// Reset all stuck beepers (admin cleanup)
+router.post('/beepers/reset', verifyToken, posController.resetAllBeepers);
+
 // Orders
 router.get('/orders', verifyToken, posController.getOrders);
 router.get('/orders/pending', verifyToken, posController.getPendingOrders);

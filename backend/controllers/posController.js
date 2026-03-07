@@ -629,6 +629,19 @@ exports.getCompletedTransactions = async (req, res) => {
 // Get beepers status
 exports.getBeepers = async (req, res) => {
     try {
+        // Auto-cleanup: release beepers stuck on completed/voided/old transactions
+        await db.query(`
+            UPDATE beepers b
+            LEFT JOIN transactions t ON b.transaction_id = t.transaction_id
+            SET b.status = 'available', b.transaction_id = NULL, b.assigned_at = NULL
+            WHERE b.status = 'in-use'
+            AND (
+                t.transaction_id IS NULL
+                OR t.status IN ('completed', 'voided')
+                OR DATE(t.created_at) < CURDATE()
+            )
+        `);
+
         const [beepers] = await db.query('SELECT beeper_number, beeper_number as beeper_id, status, transaction_id, assigned_at FROM beepers ORDER BY beeper_number');
         res.json(beepers);
     } catch (error) {
@@ -730,6 +743,52 @@ exports.releaseBeeperManually = async (req, res) => {
         res.json({ 
             success: true,
             message: `Beeper ${beeperNumber} has been released`
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Reset all beepers — release any stuck beepers (tied to completed/voided/old orders)
+exports.resetAllBeepers = async (req, res) => {
+    try {
+        // Release beepers whose linked transaction is already completed or voided
+        const [stuckCompleted] = await db.query(`
+            UPDATE beepers b
+            JOIN transactions t ON b.transaction_id = t.transaction_id
+            SET b.status = 'available', b.transaction_id = NULL, b.assigned_at = NULL
+            WHERE b.status = 'in-use'
+            AND t.status IN ('completed', 'voided')
+        `);
+
+        // Release beepers whose linked transaction no longer exists
+        const [stuckOrphan] = await db.query(`
+            UPDATE beepers b
+            LEFT JOIN transactions t ON b.transaction_id = t.transaction_id
+            SET b.status = 'available', b.transaction_id = NULL, b.assigned_at = NULL
+            WHERE b.status = 'in-use'
+            AND t.transaction_id IS NULL
+        `);
+
+        // Release beepers assigned to orders from previous days (stale)
+        const [stuckOld] = await db.query(`
+            UPDATE beepers b
+            JOIN transactions t ON b.transaction_id = t.transaction_id
+            SET b.status = 'available', b.transaction_id = NULL, b.assigned_at = NULL
+            WHERE b.status = 'in-use'
+            AND DATE(t.created_at) < CURDATE()
+        `);
+
+        const totalReleased = (stuckCompleted.affectedRows || 0) + (stuckOrphan.affectedRows || 0) + (stuckOld.affectedRows || 0);
+
+        res.json({
+            success: true,
+            message: `Released ${totalReleased} stuck beeper(s)`,
+            details: {
+                completed_voided: stuckCompleted.affectedRows || 0,
+                orphaned: stuckOrphan.affectedRows || 0,
+                stale_old_days: stuckOld.affectedRows || 0
+            }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
