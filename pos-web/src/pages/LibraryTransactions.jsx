@@ -220,7 +220,7 @@ export default function LibraryTransactions() {
       });
       showToast('Check-in successful!', 'success');
       
-      // Print check-in receipt via browser
+      // Print check-in receipt via print server
       if (response.data.receipt_data) {
         try {
           await printLibraryCheckinReceipt(response.data.receipt_data);
@@ -246,7 +246,7 @@ export default function LibraryTransactions() {
       });
       showToast('Session extended by ' + minutes + ' minutes', 'success');
       
-      // Print extension receipt via browser
+      // Print extension receipt via print server
       if (response.data.receipt_data) {
         try {
           await printLibraryExtensionReceipt(response.data.receipt_data);

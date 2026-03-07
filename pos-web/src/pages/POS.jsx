@@ -709,12 +709,12 @@ export default function POS() {
         showToast('Payment successful!', 'success');
       }
 
-      // Print receipt after successful payment (web-based)
+      // Print receipt after successful payment (via print server)
       if (transactionId) {
         try {
           const receiptRes = await api.get(`/printer/receipt-data/${transactionId}`);
           await printOrderReceipt(receiptRes.data);
-          console.log('Receipt printed via browser');
+          console.log('Receipt sent to print server');
         } catch (printError) {
           console.error('Failed to print receipt:', printError);
           // Don't fail the payment if printing fails
