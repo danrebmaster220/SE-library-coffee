@@ -458,21 +458,43 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
     // Print button — opens a popup with receipt and triggers browser print dialog
     document.getElementById('rp-print-btn').onclick = () => {
       const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html><head><title>Receipt</title>
-          <style>
-            * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:'Courier New',monospace; font-size:12px; line-height:1.5; color:#000; width:58mm; margin:0 auto; padding:4mm 2mm; }
-            ${RECEIPT_STYLES}
-            @media print { @page { size:58mm auto; margin:0; } body { width:58mm; padding:2mm; } }
-          </style></head>
-          <body>${htmlContent}</body></html>
-        `);
-        printWindow.document.close();
+      if (!printWindow || printWindow.closed) {
+        alert('Popup blocked! Please allow popups for this site, then try again.');
+        return;
+      }
+      const printDoc = `<!DOCTYPE html>
+<html><head><title>Receipt</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Courier New',monospace; font-size:12px; line-height:1.5; color:#000; width:58mm; margin:0 auto; padding:4mm 2mm; }
+  ${RECEIPT_STYLES}
+  @media print { @page { size:58mm auto; margin:0; } body { width:58mm; padding:2mm; } }
+</style></head>
+<body>${htmlContent}</body></html>`;
+      printWindow.document.write(printDoc);
+      printWindow.document.close();
+
+      // Wait for content to fully load, then print
+      const triggerPrint = () => {
         printWindow.focus();
-        setTimeout(() => { printWindow.print(); }, 500);
+        try {
+          printWindow.print();
+        } catch (err) {
+          console.error('Print failed:', err);
+        }
+        // Close print window after a short delay (gives time for print dialog)
+        setTimeout(() => {
+          try { printWindow.close(); } catch { /* ignore */ }
+        }, 1000);
+      };
+
+      // Use onload if available, otherwise fallback to timeout
+      if (printWindow.document.readyState === 'complete') {
+        setTimeout(triggerPrint, 300);
+      } else {
+        printWindow.onload = triggerPrint;
+        // Safety fallback if onload doesn't fire
+        setTimeout(triggerPrint, 1500);
       }
     };
 

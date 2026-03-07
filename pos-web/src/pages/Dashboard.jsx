@@ -318,9 +318,9 @@ export default function Dashboard() {
       >
         <div className="apk-banner-marquee">
           <span className="apk-banner-text">
-            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp; 
-            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp; 
-            📱 Download the Kiosk App (APK) — Install on your tablet for customer self-ordering &nbsp;&nbsp;•&nbsp;&nbsp;
+            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp; 
+            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp; 
+            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp;
           </span>
         </div>
       </a>
