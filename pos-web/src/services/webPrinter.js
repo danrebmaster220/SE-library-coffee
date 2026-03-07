@@ -366,9 +366,9 @@ const PRINT_SERVER_URL = 'http://localhost:9100';
  * Try to print via the local print server.
  * Returns true if successful, false if server is unreachable.
  */
-async function tryLocalPrint(receiptData) {
+async function tryLocalPrint(receiptData, endpoint = '/print') {
   try {
-    const res = await fetch(`${PRINT_SERVER_URL}/print`, {
+    const res = await fetch(`${PRINT_SERVER_URL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(receiptData),
@@ -385,7 +385,7 @@ async function tryLocalPrint(receiptData) {
 // Modal Overlay (shows receipt preview in-app)
 // ============================================
 
-function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = null) {
+function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = null, printEndpoint = '/print') {
   return new Promise((resolve) => {
     // Remove any existing modal
     const existing = document.getElementById('receipt-preview-overlay');
@@ -486,7 +486,7 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
       if (receiptData) {
         btn.innerHTML = '⏳ Printing...';
         btn.style.pointerEvents = 'none';
-        const ok = await tryLocalPrint(receiptData);
+        const ok = await tryLocalPrint(receiptData, printEndpoint);
         if (ok) {
           btn.innerHTML = '✅ Printed!';
           btn.style.background = '#e8f5e9';
@@ -663,7 +663,7 @@ export async function printCustomerReceipt(receiptData) {
  */
 export async function printLibraryCheckinReceipt(session) {
   const html = buildLibraryCheckinReceiptHTML(session);
-  return showReceiptModal(html, 'Check-in Receipt', session);
+  return showReceiptModal(html, 'Check-in Receipt', session, '/library-checkin');
 }
 
 /**
@@ -671,7 +671,7 @@ export async function printLibraryCheckinReceipt(session) {
  */
 export async function printLibraryExtensionReceipt(session) {
   const html = buildLibraryExtensionReceiptHTML(session);
-  return showReceiptModal(html, 'Extension Receipt', session);
+  return showReceiptModal(html, 'Extension Receipt', session, '/library-extension');
 }
 
 export default {
