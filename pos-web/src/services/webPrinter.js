@@ -2,8 +2,8 @@
  * Web-Based Printer Service
  * 
  * Generates styled HTML receipts and shows them in a preview modal overlay.
- * Used as an alternative to physical thermal printing when the backend
- * is hosted in the cloud and can't reach a USB printer.
+ * When "Print" is clicked, opens a popup with plain-text receipt optimized
+ * for 58mm POS thermal printers and triggers browser print dialog.
  * 
  * Receipt types:
  * - Customer receipt (order details + payment)
@@ -455,52 +455,9 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
     document.getElementById('rp-done-btn').onclick = closeModal;
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
-    // Print button — opens a popup with receipt and triggers browser print dialog
+    // Print button — opens plain-text receipt in popup for POS-58 thermal printing
     document.getElementById('rp-print-btn').onclick = () => {
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (!printWindow || printWindow.closed) {
-        alert('Popup blocked! Please allow popups for this site, then try again.');
-        return;
-      }
-      const printDoc = `<!DOCTYPE html>
-<html><head><title>Receipt</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Courier New',monospace; font-size:12px; line-height:1.5; color:#000; width:58mm; margin:0 auto; padding:4mm 2mm; }
-  ${RECEIPT_STYLES}
-  @media print { @page { size:58mm auto; margin:0; } body { width:58mm; padding:2mm; } }
-</style></head>
-<body>${htmlContent}</body></html>`;
-      printWindow.document.write(printDoc);
-      printWindow.document.close();
-
-      // Wait for content to fully load, then print
-      const triggerPrint = () => {
-        printWindow.focus();
-        try {
-          printWindow.print();
-        } catch (err) {
-          console.error('Print failed:', err);
-        }
-        // Don't auto-close — let the user close the window after printing.
-        // The afterprint event will close it automatically once the print dialog is dismissed.
-        try {
-          printWindow.onafterprint = () => {
-            setTimeout(() => {
-              try { printWindow.close(); } catch { /* ignore */ }
-            }, 500);
-          };
-        } catch { /* ignore if onafterprint not supported */ }
-      };
-
-      // Use onload if available, otherwise fallback to timeout
-      if (printWindow.document.readyState === 'complete') {
-        setTimeout(triggerPrint, 300);
-      } else {
-        printWindow.onload = triggerPrint;
-        // Safety fallback if onload doesn't fire
-        setTimeout(triggerPrint, 1500);
-      }
+      openThermalPrint(htmlContent);
     };
 
     // Hover effects
@@ -520,6 +477,109 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
     };
     document.addEventListener('keydown', handleEsc);
   });
+}
+
+/**
+ * Open a print-optimized popup for POS-58 thermal printer.
+ * Uses simple monospace text with minimal CSS — no flexbox, no grid, no images.
+ * Thermal printers handle plain text much better than complex HTML.
+ */
+function openThermalPrint(htmlContent) {
+  const printWindow = window.open('', '_blank', 'width=360,height=600');
+  if (!printWindow || printWindow.closed) {
+    alert('Popup blocked! Please allow popups for this site, then try again.');
+    return;
+  }
+
+  // Build a plain-text-friendly receipt page
+  // Key: use ONLY monospace font, simple text-align, no flexbox/grid
+  const printDoc = `<!DOCTYPE html>
+<html><head><title>Receipt</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
+    width: 48mm;
+    margin: 0 auto;
+    padding: 2mm 1mm;
+  }
+  /* Override receipt styles for thermal print — no flexbox */
+  .receipt { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #000; }
+  .receipt:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .receipt-header { text-align: center; margin-bottom: 4px; }
+  .store-name { font-size: 14px; font-weight: bold; }
+  .store-sub { font-size: 10px; }
+  .separator { text-align: center; margin: 2px 0; font-size: 10px; letter-spacing: -0.5px; }
+  .info-row { font-size: 10px; padding: 0; overflow: hidden; }
+  .info-row span:first-child { float: left; }
+  .info-row span:last-child { float: right; }
+  .info-row::after { content: ''; display: table; clear: both; }
+  .section-title { font-weight: bold; font-size: 11px; margin-top: 2px; }
+  .item-row { margin: 3px 0; }
+  .item-name { font-size: 11px; font-weight: bold; }
+  .item-detail { font-size: 9px; padding-left: 8px; }
+  .item-price { font-size: 10px; padding-left: 8px; }
+  .totals { margin-top: 2px; }
+  .totals .row { font-size: 10px; overflow: hidden; }
+  .totals .row span:first-child { float: left; }
+  .totals .row span:last-child { float: right; }
+  .totals .row::after { content: ''; display: table; clear: both; }
+  .totals .total-final { font-weight: bold; font-size: 12px; border-top: 1px dashed #000; padding-top: 2px; margin-top: 2px; }
+  .footer { text-align: center; margin-top: 4px; font-size: 9px; }
+  .footer p { margin: 1px 0; }
+  .ticket-header { text-align: center; font-size: 13px; font-weight: bold; border: 1px solid #000; padding: 2px; margin-bottom: 4px; }
+  .order-number { text-align: center; font-size: 16px; font-weight: bold; margin: 2px 0; }
+  .booking-section { border: 1px dashed #000; padding: 3px; margin: 4px 0; }
+  .booking-section .title { font-weight: bold; font-size: 11px; }
+
+  @media print {
+    @page {
+      size: 58mm auto;
+      margin: 0mm;
+    }
+    html, body {
+      width: 58mm;
+      margin: 0;
+      padding: 1mm;
+    }
+  }
+  @media screen {
+    body { padding: 10px; width: 58mm; }
+  }
+</style></head>
+<body>${htmlContent}</body></html>`;
+
+  printWindow.document.write(printDoc);
+  printWindow.document.close();
+
+  const triggerPrint = () => {
+    printWindow.focus();
+    try {
+      printWindow.print();
+    } catch (err) {
+      console.error('Print failed:', err);
+    }
+    // Close after print dialog is dismissed
+    try {
+      printWindow.onafterprint = () => {
+        setTimeout(() => {
+          try { printWindow.close(); } catch { /* ignore */ }
+        }, 500);
+      };
+    } catch { /* ignore */ }
+  };
+
+  if (printWindow.document.readyState === 'complete') {
+    setTimeout(triggerPrint, 500);
+  } else {
+    printWindow.onload = () => setTimeout(triggerPrint, 300);
+    // Safety fallback
+    setTimeout(triggerPrint, 2000);
+  }
 }
 
 // ============================================

@@ -2291,7 +2291,6 @@
   position: relative;
   border: 1px solid rgba(212, 175, 55, 0.3);
   transition: all 0.3s ease;
-  max-width: 100%;
 }
 
 .apk-download-banner:hover {
@@ -2321,7 +2320,7 @@
     transform: translateX(0);
   }
   100% {
-    transform: translateX(-33.33%);
+    transform: translateX(-50%);
   }
 }
 

@@ -69,28 +69,25 @@ export default function Config() {
     setLoading(true);
     setTestResult(null);
     try {
-      // Use web-based print (opens browser print dialog for the thermal printer)
+      // Web-based test print — uses browser print dialog to POS-58
       const testData = {
-        transaction: {
-          transaction_id: 'TEST-001',
-          order_number: '001',
-          order_type: 'dine-in',
-          beeper_number: 1,
-          subtotal: 150.00,
-          discount_amount: 0,
-          total_amount: 150.00,
-          cash_tendered: 200.00,
-          change_due: 50.00,
-          created_at: new Date().toISOString(),
-          processed_by_name: 'Test Cashier'
-        },
+        transaction_id: 999,
+        beeper_number: 1,
+        order_type: 'dine-in',
+        subtotal: 150.00,
+        discount_amount: 0,
+        total_amount: 150.00,
+        cash_tendered: 200.00,
+        change_due: 50.00,
+        created_at: new Date().toISOString(),
+        cashier_name: 'Test Cashier',
         items: [
-          { item_name: 'Americano (Hot)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] },
-          { item_name: 'Cafe Latte (Iced)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] }
+          { name: 'Americano (Hot)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] },
+          { name: 'Cafe Latte (Iced)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] }
         ]
       };
       await printCustomerReceipt(testData);
-      setTestResult({ success: true, message: 'Test receipt sent to printer!' });
+      setTestResult({ success: true, message: 'Test receipt generated! Click Print in the dialog.' });
     } catch (err) {
       setTestResult({ success: false, error: err.message || 'Test print failed' });
     }
