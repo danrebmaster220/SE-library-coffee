@@ -1,0 +1,13 @@
+PRINTER TEST
+================================
+THE LIBRARY
+Coffee + Study
+================================
+This is a test receipt.
+If you can read this, the
+printer is working!
+================================
+
+
+
+
