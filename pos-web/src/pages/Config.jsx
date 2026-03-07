@@ -69,7 +69,26 @@ export default function Config() {
     setLoading(true);
     setTestResult(null);
     try {
-      // Web-based test print — uses browser print dialog to POS-58
+      // Try local print server first (localhost:9100)
+      try {
+        const res = await fetch('http://localhost:9100/test', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          signal: AbortSignal.timeout(5000)
+        });
+        const json = await res.json();
+        if (json.success) {
+          setTestResult({ success: true, message: 'Test receipt printed on POS-58!' });
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Print server not running — fall back to web preview
+        console.log('Local print server not available, using web preview');
+      }
+
+      // Fallback: Web-based test print preview
       const testData = {
         transaction_id: 999,
         beeper_number: 1,

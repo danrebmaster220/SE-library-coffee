@@ -357,10 +357,35 @@ function buildLibraryExtensionReceiptHTML(session) {
 }
 
 // ============================================
+// Local Print Server (localhost:9100)
+// ============================================
+
+const PRINT_SERVER_URL = 'http://localhost:9100';
+
+/**
+ * Try to print via the local print server.
+ * Returns true if successful, false if server is unreachable.
+ */
+async function tryLocalPrint(receiptData) {
+  try {
+    const res = await fetch(`${PRINT_SERVER_URL}/print`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receiptData),
+    });
+    const json = await res.json();
+    return json.success === true;
+  } catch (err) {
+    console.warn('Local print server not available:', err.message);
+    return false;
+  }
+}
+
+// ============================================
 // Modal Overlay (shows receipt preview in-app)
 // ============================================
 
-function showReceiptModal(htmlContent, title = 'Receipt Preview') {
+function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = null) {
   return new Promise((resolve) => {
     // Remove any existing modal
     const existing = document.getElementById('receipt-preview-overlay');
@@ -455,8 +480,31 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
     document.getElementById('rp-done-btn').onclick = closeModal;
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
-    // Print button — opens plain-text receipt in popup for POS-58 thermal printing
-    document.getElementById('rp-print-btn').onclick = () => {
+    // Print button — try local print server first, fallback to browser print
+    document.getElementById('rp-print-btn').onclick = async () => {
+      const btn = document.getElementById('rp-print-btn');
+      if (receiptData) {
+        btn.innerHTML = '⏳ Printing...';
+        btn.style.pointerEvents = 'none';
+        const ok = await tryLocalPrint(receiptData);
+        if (ok) {
+          btn.innerHTML = '✅ Printed!';
+          btn.style.background = '#e8f5e9';
+          btn.style.color = '#2e7d32';
+          btn.style.borderColor = '#2e7d32';
+          setTimeout(() => {
+            btn.innerHTML = '🖨️ Print';
+            btn.style.background = '#fff';
+            btn.style.color = '#3D2415';
+            btn.style.borderColor = '#3D2415';
+            btn.style.pointerEvents = 'auto';
+          }, 2000);
+          return;
+        }
+        // Print server not available — fall back to browser print
+        btn.innerHTML = '🖨️ Print';
+        btn.style.pointerEvents = 'auto';
+      }
       openThermalPrint(htmlContent);
     };
 
@@ -599,7 +647,7 @@ export async function printOrderReceipt(receiptData) {
   const kitchenHTML = buildKitchenTicketHTML(receiptData);
   if (kitchenHTML) html += kitchenHTML;
   
-  return showReceiptModal(html, 'Order Receipt');
+  return showReceiptModal(html, 'Order Receipt', receiptData);
 }
 
 /**
@@ -607,7 +655,7 @@ export async function printOrderReceipt(receiptData) {
  */
 export async function printCustomerReceipt(receiptData) {
   const html = buildCustomerReceiptHTML(receiptData);
-  return showReceiptModal(html, 'Customer Receipt');
+  return showReceiptModal(html, 'Customer Receipt', receiptData);
 }
 
 /**
@@ -615,7 +663,7 @@ export async function printCustomerReceipt(receiptData) {
  */
 export async function printLibraryCheckinReceipt(session) {
   const html = buildLibraryCheckinReceiptHTML(session);
-  return showReceiptModal(html, 'Check-in Receipt');
+  return showReceiptModal(html, 'Check-in Receipt', session);
 }
 
 /**
@@ -623,7 +671,7 @@ export async function printLibraryCheckinReceipt(session) {
  */
 export async function printLibraryExtensionReceipt(session) {
   const html = buildLibraryExtensionReceiptHTML(session);
-  return showReceiptModal(html, 'Extension Receipt');
+  return showReceiptModal(html, 'Extension Receipt', session);
 }
 
 export default {
