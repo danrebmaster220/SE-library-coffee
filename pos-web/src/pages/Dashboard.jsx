@@ -318,8 +318,12 @@ export default function Dashboard() {
       >
         <div className="apk-banner-marquee">
           <span className="apk-banner-text">
-            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp; 
-            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp; 
+            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp;
+          </span>
+          <span className="apk-banner-text">
+            📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp;
+          </span>
+          <span className="apk-banner-text">
             📱 Download the Kiosk App (APK) &nbsp;&nbsp;•&nbsp;&nbsp;
           </span>
         </div>

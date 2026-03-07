@@ -2291,6 +2291,7 @@
   position: relative;
   border: 1px solid rgba(212, 175, 55, 0.3);
   transition: all 0.3s ease;
+  max-width: 100%;
 }
 
 .apk-download-banner:hover {
@@ -2300,9 +2301,9 @@
 }
 
 .apk-banner-marquee {
-  display: flex;
+  display: inline-flex;
   white-space: nowrap;
-  animation: apk-marquee-scroll 20s linear infinite;
+  animation: apk-marquee-scroll 12s linear infinite;
 }
 
 .apk-banner-text {
@@ -2312,6 +2313,7 @@
   font-weight: 600;
   letter-spacing: 0.3px;
   font-family: 'Poppins', sans-serif;
+  flex-shrink: 0;
 }
 
 @keyframes apk-marquee-scroll {

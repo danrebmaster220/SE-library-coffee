@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import { printCustomerReceipt } from '../services/webPrinter';
 import '../styles/settings.css';
 
 export default function Config() {
@@ -68,10 +69,30 @@ export default function Config() {
     setLoading(true);
     setTestResult(null);
     try {
-      const response = await api.post('/printer/test');
-      setTestResult(response.data);
+      // Use web-based print (opens browser print dialog for the thermal printer)
+      const testData = {
+        transaction: {
+          transaction_id: 'TEST-001',
+          order_number: '001',
+          order_type: 'dine-in',
+          beeper_number: 1,
+          subtotal: 150.00,
+          discount_amount: 0,
+          total_amount: 150.00,
+          cash_tendered: 200.00,
+          change_due: 50.00,
+          created_at: new Date().toISOString(),
+          processed_by_name: 'Test Cashier'
+        },
+        items: [
+          { item_name: 'Americano (Hot)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] },
+          { item_name: 'Cafe Latte (Iced)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] }
+        ]
+      };
+      await printCustomerReceipt(testData);
+      setTestResult({ success: true, message: 'Test receipt sent to printer!' });
     } catch (err) {
-      setTestResult({ success: false, error: err.response?.data?.error || err.message });
+      setTestResult({ success: false, error: err.message || 'Test print failed' });
     }
     setLoading(false);
   };

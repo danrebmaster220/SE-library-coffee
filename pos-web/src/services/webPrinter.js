@@ -482,10 +482,15 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview') {
         } catch (err) {
           console.error('Print failed:', err);
         }
-        // Close print window after a short delay (gives time for print dialog)
-        setTimeout(() => {
-          try { printWindow.close(); } catch { /* ignore */ }
-        }, 1000);
+        // Don't auto-close — let the user close the window after printing.
+        // The afterprint event will close it automatically once the print dialog is dismissed.
+        try {
+          printWindow.onafterprint = () => {
+            setTimeout(() => {
+              try { printWindow.close(); } catch { /* ignore */ }
+            }, 500);
+          };
+        } catch { /* ignore if onafterprint not supported */ }
       };
 
       // Use onload if available, otherwise fallback to timeout
