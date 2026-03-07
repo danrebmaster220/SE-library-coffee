@@ -1,9 +1,0 @@
-{
-  "name": "pos-print-server",
-  "version": "1.0.0",
-  "description": "Local print server for POS-58 thermal printer",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  }
-}
