@@ -508,7 +508,7 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
       // 2. Print server not available — fall back to browser print (window.print)
       btn.innerHTML = '🖨️ Print';
       btn.style.pointerEvents = 'auto';
-      openThermalPrint(htmlContent);
+      openThermalPrint(receiptData, printEndpoint);
     };
 
     // Hover effects
@@ -531,12 +531,258 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
 }
 
 // ============================================
-// Browser Print Fallback (window.print)
-// Opens a print-optimized popup for POS-58 thermal printer.
-// Used when the local print server (localhost:9100) is not available.
-// Requires the printer to be recognized by Windows (Devices and Printers).
+// Plain-Text Receipt Builders (for window.print fallback)
+// These build structured monospace text that looks identical
+// to the ESC/POS print server output on thermal printers.
+// Width: 32 characters (58mm paper)
 // ============================================
-function openThermalPrint(htmlContent) {
+const W = 32;
+const TXT_SEP = '-'.repeat(W);
+const TXT_DBL_SEP = '='.repeat(W);
+
+function txtCenter(text) {
+  const pad = Math.max(0, Math.floor((W - text.length) / 2));
+  return ' '.repeat(pad) + text;
+}
+
+function txtLR(left, right) {
+  const gap = Math.max(1, W - left.length - right.length);
+  return left + ' '.repeat(gap) + right;
+}
+
+function txtMoney(amount) {
+  return 'P' + parseFloat(amount || 0).toFixed(2);
+}
+
+function buildPlainTextCustomerReceipt(data) {
+  const lines = [];
+  lines.push(txtCenter('THE LIBRARY'));
+  lines.push(txtCenter('Coffee + Study'));
+  lines.push(txtCenter('Pavilion, Nunez St.'));
+  lines.push(txtCenter('Zamboanga City'));
+  lines.push(TXT_SEP);
+
+  const txnId = 'ORD-' + String(data.transaction_id).padStart(6, '0');
+  const dateStr = formatDateTime(data.created_at);
+  lines.push(txtLR('Date:', dateStr));
+  lines.push(txtLR('Txn #:', txnId));
+  if (data.beeper_number) lines.push(txtLR('Order #:', String(data.beeper_number)));
+  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  lines.push(TXT_SEP);
+
+  lines.push('ITEMS:');
+  (data.items || []).forEach(item => {
+    const customs = parseCustomizations(item.customizations);
+    let nameStr = `${item.quantity}x ${item.name}`;
+    if (customs.size) nameStr += ` ${getSizeAbbrev(customs.size)}`;
+    lines.push(nameStr);
+    if (customs.temp) lines.push(`  [${customs.temp}]`);
+    customs.addons.forEach(addon => {
+      const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
+      const price = addon.price > 0 ? ` (+${txtMoney(addon.price)})` : '';
+      lines.push(`  + ${qty}${addon.name}${price}`);
+    });
+    let itemTotal = item.unit_price * item.quantity;
+    customs.addons.forEach(a => { itemTotal += a.price; });
+    lines.push(`  @ ${txtMoney(item.unit_price)} = ${txtMoney(itemTotal)}`);
+    lines.push('');
+  });
+
+  if (data.library_booking) {
+    const lb = data.library_booking;
+    lines.push(TXT_SEP);
+    lines.push('STUDY AREA BOOKING:');
+    lines.push(`Table ${lb.table_number}, Seat ${lb.seat_number}`);
+    const dur = lb.duration_minutes;
+    const h = Math.floor(dur / 60);
+    const m = dur % 60;
+    lines.push(`Duration: ${h}h${m > 0 ? ` ${m}m` : ''}`);
+    lines.push(txtLR('Study Area:', txtMoney(lb.amount)));
+  }
+
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Subtotal:', txtMoney(data.subtotal)));
+  if (data.discount_amount > 0) {
+    const dl = data.discount_name ? `Disc (${data.discount_name}):` : 'Discount:';
+    lines.push(txtLR(dl, '-' + txtMoney(data.discount_amount)));
+  }
+  lines.push(TXT_DBL_SEP);
+  lines.push(txtLR('TOTAL:', txtMoney(data.total_amount)));
+  if (data.cash_tendered) {
+    lines.push(txtLR('Cash:', txtMoney(data.cash_tendered)));
+    lines.push(txtLR('Change:', txtMoney(data.change_due || 0)));
+  }
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Thank you for visiting!'));
+  lines.push(txtCenter('Please wait for your order'));
+  lines.push(txtCenter('number to be called.'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
+
+  return lines.join('\n');
+}
+
+function buildPlainTextBaristaTicket(data) {
+  const baristaItems = (data.items || []).filter(i => i.station === 'barista' || !i.station);
+  if (baristaItems.length === 0) return '';
+
+  const lines = [];
+  lines.push(txtCenter('*** BARISTA ***'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter(`ORDER #${data.beeper_number}`));
+  lines.push(txtLR('Time:', formatDateTime(data.created_at)));
+  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  lines.push(TXT_SEP);
+
+  baristaItems.forEach(item => {
+    const customs = parseCustomizations(item.customizations);
+    let nameStr = `${item.quantity}x ${item.name}`;
+    if (customs.size) nameStr += ` ${getSizeAbbrev(customs.size)}`;
+    lines.push(nameStr);
+    if (customs.temp) lines.push(`  >> ${customs.temp.toUpperCase()}`);
+    customs.addons.forEach(addon => {
+      const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
+      lines.push(`  + ${qty}${addon.name}`);
+    });
+    lines.push('');
+  });
+
+  if (data.library_booking) {
+    const lb = data.library_booking;
+    lines.push(TXT_SEP);
+    lines.push(txtCenter(`STUDY AREA: T${lb.table_number}-S${lb.seat_number}`));
+  }
+  lines.push(TXT_SEP);
+
+  return lines.join('\n');
+}
+
+function buildPlainTextKitchenTicket(data) {
+  const kitchenItems = (data.items || []).filter(i => i.station === 'kitchen');
+  if (kitchenItems.length === 0) return '';
+
+  const lines = [];
+  lines.push(txtCenter('*** KITCHEN ***'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter(`ORDER #${data.beeper_number}`));
+  lines.push(txtLR('Time:', formatDateTime(data.created_at)));
+  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  lines.push(TXT_SEP);
+
+  kitchenItems.forEach(item => {
+    const customs = parseCustomizations(item.customizations);
+    lines.push(`${item.quantity}x ${item.name}`);
+    customs.addons.forEach(addon => {
+      const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
+      lines.push(`  + ${qty}${addon.name}`);
+    });
+    lines.push('');
+  });
+  lines.push(TXT_SEP);
+
+  return lines.join('\n');
+}
+
+function buildPlainTextLibraryCheckin(session) {
+  const durationMins = session.paid_minutes || session.duration_minutes || 120;
+  const hours = Math.floor(durationMins / 60);
+  const mins = durationMins % 60;
+  let durationStr = `${hours} hour${hours > 1 ? 's' : ''}`;
+  if (mins > 0) durationStr += ` ${mins} mins`;
+
+  const lines = [];
+  lines.push(txtCenter('THE LIBRARY'));
+  lines.push(txtCenter('Study Space Check-in'));
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Date:', formatDateTime()));
+  if (session.session_id) lines.push(txtLR('Session #:', 'LIB-' + String(session.session_id).padStart(6, '0')));
+  lines.push(txtLR('Table:', String(session.table_number)));
+  lines.push(txtLR('Seat:', String(session.seat_number)));
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Customer:', session.customer_name));
+  if (session.cashier_name) lines.push(txtLR('Cashier:', session.cashier_name));
+  lines.push(TXT_SEP);
+  lines.push('SESSION DETAILS:');
+  lines.push(txtLR('Start Time:', formatDateTime()));
+  lines.push(txtLR('Duration:', durationStr));
+  lines.push(TXT_DBL_SEP);
+  lines.push(txtLR('AMOUNT PAID:', txtMoney(session.amount_paid || 100)));
+  if (session.cash_tendered) {
+    lines.push(txtLR('Cash:', txtMoney(session.cash_tendered)));
+    lines.push(txtLR('Change:', txtMoney(session.change_due || 0)));
+  }
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Extension: P50.00 per 30 mins'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Thank you!'));
+  lines.push(txtCenter('Enjoy your study session.'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
+
+  return lines.join('\n');
+}
+
+function buildPlainTextLibraryExtension(session) {
+  const lines = [];
+  lines.push(txtCenter('THE LIBRARY'));
+  lines.push(txtCenter('Session Extension'));
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Date:', formatDateTime()));
+  if (session.session_id) lines.push(txtLR('Session #:', 'LIB-' + String(session.session_id).padStart(6, '0')));
+  lines.push(txtLR('Table:', String(session.table_number)));
+  lines.push(txtLR('Seat:', String(session.seat_number)));
+  lines.push(txtLR('Customer:', session.customer_name));
+  if (session.cashier_name) lines.push(txtLR('Cashier:', session.cashier_name));
+  lines.push(TXT_SEP);
+  lines.push('EXTENSION:');
+  lines.push(txtLR('Added Time:', `+${session.added_minutes} minutes`));
+  lines.push(txtLR('Extension Fee:', txtMoney(session.extension_fee)));
+  lines.push(TXT_SEP);
+  lines.push('UPDATED SESSION:');
+  lines.push(txtLR('Total Time:', `${session.new_total_minutes} minutes`));
+  lines.push(txtLR('Remaining:', `${session.remaining_minutes} minutes`));
+  lines.push(TXT_DBL_SEP);
+  lines.push(txtLR('PAID:', txtMoney(session.extension_fee)));
+  if (session.cash_tendered) {
+    lines.push(txtLR('Cash:', txtMoney(session.cash_tendered)));
+    lines.push(txtLR('Change:', txtMoney(session.change_due || 0)));
+  }
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Thank you for extending!'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
+
+  return lines.join('\n');
+}
+
+// ============================================
+// Browser Print Fallback (window.print)
+// Builds plain-text receipts that look structured on any thermal printer
+// via Windows spooler. Used when localhost:9100 print server is offline.
+// ============================================
+function openThermalPrint(receiptData, printEndpoint) {
+  // Build plain-text receipt based on the endpoint type
+  let plainText = '';
+
+  if (printEndpoint === '/library-checkin') {
+    plainText = buildPlainTextLibraryCheckin(receiptData);
+  } else if (printEndpoint === '/library-extension') {
+    plainText = buildPlainTextLibraryExtension(receiptData);
+  } else {
+    // Order receipt — customer + barista + kitchen
+    plainText = buildPlainTextCustomerReceipt(receiptData);
+    const baristaText = buildPlainTextBaristaTicket(receiptData);
+    if (baristaText) plainText += '\n\n' + baristaText;
+    const kitchenText = buildPlainTextKitchenTicket(receiptData);
+    if (kitchenText) plainText += '\n\n' + kitchenText;
+  }
+
+  // Escape HTML entities in plainText for safe embedding
+  const escaped = plainText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
   const printWindow = window.open('', '_blank', 'width=360,height=600');
   if (!printWindow || printWindow.closed) {
     alert('Popup blocked! Please allow popups for this site, then try again.');
@@ -549,43 +795,17 @@ function openThermalPrint(htmlContent) {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
-    font-size: 11px; line-height: 1.4; color: #000; background: #fff;
+    font-size: 11px; line-height: 1.3; color: #000; background: #fff;
     width: 48mm; margin: 0 auto; padding: 2mm 1mm;
+    white-space: pre; word-wrap: break-word;
   }
-  .receipt { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #000; }
-  .receipt:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-  .receipt-header { text-align: center; margin-bottom: 4px; }
-  .store-name { font-size: 14px; font-weight: bold; }
-  .store-sub { font-size: 10px; }
-  .separator { text-align: center; margin: 2px 0; font-size: 10px; letter-spacing: -0.5px; }
-  .info-row { font-size: 10px; padding: 0; overflow: hidden; }
-  .info-row span:first-child { float: left; }
-  .info-row span:last-child { float: right; }
-  .info-row::after { content: ''; display: table; clear: both; }
-  .section-title { font-weight: bold; font-size: 11px; margin-top: 2px; }
-  .item-row { margin: 3px 0; }
-  .item-name { font-size: 11px; font-weight: bold; }
-  .item-detail { font-size: 9px; padding-left: 8px; }
-  .item-price { font-size: 10px; padding-left: 8px; }
-  .totals { margin-top: 2px; }
-  .totals .row { font-size: 10px; overflow: hidden; }
-  .totals .row span:first-child { float: left; }
-  .totals .row span:last-child { float: right; }
-  .totals .row::after { content: ''; display: table; clear: both; }
-  .totals .total-final { font-weight: bold; font-size: 12px; border-top: 1px dashed #000; padding-top: 2px; margin-top: 2px; }
-  .footer { text-align: center; margin-top: 4px; font-size: 9px; }
-  .footer p { margin: 1px 0; }
-  .ticket-header { text-align: center; font-size: 13px; font-weight: bold; border: 1px solid #000; padding: 2px; margin-bottom: 4px; }
-  .order-number { text-align: center; font-size: 16px; font-weight: bold; margin: 2px 0; }
-  .booking-section { border: 1px dashed #000; padding: 3px; margin: 4px 0; }
-  .booking-section .title { font-weight: bold; font-size: 11px; }
   @media print {
     @page { size: 58mm auto; margin: 0mm; }
     html, body { width: 58mm; margin: 0; padding: 1mm; }
   }
   @media screen { body { padding: 10px; width: 58mm; } }
 </style></head>
-<body>${htmlContent}</body></html>`;
+<body>${escaped}</body></html>`;
 
   printWindow.document.write(printDoc);
   printWindow.document.close();
