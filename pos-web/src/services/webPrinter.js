@@ -480,12 +480,13 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
     document.getElementById('rp-done-btn').onclick = closeModal;
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
-    // Print button — send to local print server (localhost:9100) only
+    // Print button — try print server first, fall back to browser window.print()
     document.getElementById('rp-print-btn').onclick = async () => {
       const btn = document.getElementById('rp-print-btn');
       btn.innerHTML = '⏳ Printing...';
       btn.style.pointerEvents = 'none';
 
+      // 1. Try local print server (localhost:9100)
       if (receiptData) {
         const ok = await tryLocalPrint(receiptData, printEndpoint);
         if (ok) {
@@ -504,18 +505,10 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
         }
       }
 
-      // Print server not available — show error, do NOT fall back to browser print
-      btn.innerHTML = '❌ Print Server Offline';
-      btn.style.background = '#ffebee';
-      btn.style.color = '#c62828';
-      btn.style.borderColor = '#c62828';
-      setTimeout(() => {
-        btn.innerHTML = '🖨️ Print';
-        btn.style.background = '#fff';
-        btn.style.color = '#3D2415';
-        btn.style.borderColor = '#3D2415';
-        btn.style.pointerEvents = 'auto';
-      }, 3000);
+      // 2. Print server not available — fall back to browser print (window.print)
+      btn.innerHTML = '🖨️ Print';
+      btn.style.pointerEvents = 'auto';
+      openThermalPrint(htmlContent);
     };
 
     // Hover effects
@@ -535,6 +528,84 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
     };
     document.addEventListener('keydown', handleEsc);
   });
+}
+
+// ============================================
+// Browser Print Fallback (window.print)
+// Opens a print-optimized popup for POS-58 thermal printer.
+// Used when the local print server (localhost:9100) is not available.
+// Requires the printer to be recognized by Windows (Devices and Printers).
+// ============================================
+function openThermalPrint(htmlContent) {
+  const printWindow = window.open('', '_blank', 'width=360,height=600');
+  if (!printWindow || printWindow.closed) {
+    alert('Popup blocked! Please allow popups for this site, then try again.');
+    return;
+  }
+
+  const printDoc = `<!DOCTYPE html>
+<html><head><title>Receipt</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
+    font-size: 11px; line-height: 1.4; color: #000; background: #fff;
+    width: 48mm; margin: 0 auto; padding: 2mm 1mm;
+  }
+  .receipt { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #000; }
+  .receipt:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .receipt-header { text-align: center; margin-bottom: 4px; }
+  .store-name { font-size: 14px; font-weight: bold; }
+  .store-sub { font-size: 10px; }
+  .separator { text-align: center; margin: 2px 0; font-size: 10px; letter-spacing: -0.5px; }
+  .info-row { font-size: 10px; padding: 0; overflow: hidden; }
+  .info-row span:first-child { float: left; }
+  .info-row span:last-child { float: right; }
+  .info-row::after { content: ''; display: table; clear: both; }
+  .section-title { font-weight: bold; font-size: 11px; margin-top: 2px; }
+  .item-row { margin: 3px 0; }
+  .item-name { font-size: 11px; font-weight: bold; }
+  .item-detail { font-size: 9px; padding-left: 8px; }
+  .item-price { font-size: 10px; padding-left: 8px; }
+  .totals { margin-top: 2px; }
+  .totals .row { font-size: 10px; overflow: hidden; }
+  .totals .row span:first-child { float: left; }
+  .totals .row span:last-child { float: right; }
+  .totals .row::after { content: ''; display: table; clear: both; }
+  .totals .total-final { font-weight: bold; font-size: 12px; border-top: 1px dashed #000; padding-top: 2px; margin-top: 2px; }
+  .footer { text-align: center; margin-top: 4px; font-size: 9px; }
+  .footer p { margin: 1px 0; }
+  .ticket-header { text-align: center; font-size: 13px; font-weight: bold; border: 1px solid #000; padding: 2px; margin-bottom: 4px; }
+  .order-number { text-align: center; font-size: 16px; font-weight: bold; margin: 2px 0; }
+  .booking-section { border: 1px dashed #000; padding: 3px; margin: 4px 0; }
+  .booking-section .title { font-weight: bold; font-size: 11px; }
+  @media print {
+    @page { size: 58mm auto; margin: 0mm; }
+    html, body { width: 58mm; margin: 0; padding: 1mm; }
+  }
+  @media screen { body { padding: 10px; width: 58mm; } }
+</style></head>
+<body>${htmlContent}</body></html>`;
+
+  printWindow.document.write(printDoc);
+  printWindow.document.close();
+
+  const triggerPrint = () => {
+    printWindow.focus();
+    try { printWindow.print(); } catch (err) { console.error('Print failed:', err); }
+    try {
+      printWindow.onafterprint = () => {
+        setTimeout(() => { try { printWindow.close(); } catch { /* ignore */ } }, 500);
+      };
+    } catch { /* ignore */ }
+  };
+
+  if (printWindow.document.readyState === 'complete') {
+    setTimeout(triggerPrint, 500);
+  } else {
+    printWindow.onload = () => setTimeout(triggerPrint, 300);
+    setTimeout(triggerPrint, 2000);
+  }
 }
 
 // ============================================
