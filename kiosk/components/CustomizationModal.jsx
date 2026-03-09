@@ -22,8 +22,9 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
   const [isCustomizable, setIsCustomizable] = useState(false);
   const [activeAddonTab, setActiveAddonTab] = useState(null);
   
-  const { isPhone } = useResponsive();
+  const { isPhone, isLandscape, width, height } = useResponsive();
   const insets = useSafeAreaInsets();
+  const isTabletLandscape = !isPhone && isLandscape;
 
   const fetchItemCustomizations = useCallback(async () => {
     if (!item?.item_id) {
@@ -524,213 +525,281 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
     );
   }
 
-  // ============ TABLET: MODAL LAYOUT (existing) ============
+  // ============ TABLET: MODAL LAYOUT ============
+  // Helper to render customization options (shared between portrait and landscape)
+  const renderCustomizationOptions = (s) => (
+    <ScrollView 
+      style={s.scrollContent} 
+      showsVerticalScrollIndicator={true}
+      contentContainerStyle={{ paddingBottom: 12 }}
+    >
+      {/* SIZE SECTION */}
+      {sizeGroup && (
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>{sizeGroup.name}</Text>
+            {sizeGroup.is_required && <Text style={s.requiredBadge}>Required</Text>}
+          </View>
+          <View style={s.optionRow}>
+            {sizeGroup.options?.map((option) => (
+              <TouchableOpacity
+                key={option.option_id}
+                style={[s.optionButton, isOptionSelected(sizeGroup.group_id, option) && s.selectedOption]}
+                onPress={() => handleSingleSelect(sizeGroup, option)}
+              >
+                <Text style={[s.optionText, isOptionSelected(sizeGroup.group_id, option) && s.selectedText]}>
+                  {option.name}
+                </Text>
+                {parseFloat(option.price) > 0 && (
+                  <Text style={[s.optionPrice, isOptionSelected(sizeGroup.group_id, option) && s.selectedText]}>
+                    +{peso}{parseFloat(option.price).toFixed(0)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* TEMPERATURE SECTION */}
+      {temperatureGroup && (
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>{temperatureGroup.name}</Text>
+            {temperatureGroup.is_required && <Text style={s.requiredBadge}>Required</Text>}
+          </View>
+          <View style={s.optionRow}>
+            {temperatureGroup.options?.map((option) => (
+              <TouchableOpacity
+                key={option.option_id}
+                style={[s.optionButton, isOptionSelected(temperatureGroup.group_id, option) && s.selectedOption]}
+                onPress={() => handleSingleSelect(temperatureGroup, option)}
+              >
+                <Text style={[s.optionText, isOptionSelected(temperatureGroup.group_id, option) && s.selectedText]}>
+                  {option.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ADD-ONS SECTION WITH TABS */}
+      {addonTabGroups.length > 0 && (
+        <View style={s.addonSection}>
+          <Text style={s.addonSectionTitle}>Add-ons</Text>
+          
+          {/* Tab Bar */}
+          <View style={s.addonTabBar}>
+            {addonTabGroups.map((group) => {
+              const count = getAddonCount(group.name);
+              return (
+                <TouchableOpacity
+                  key={group.group_id}
+                  style={[s.addonTab, activeAddonTab === group.name && s.activeAddonTab]}
+                  onPress={() => setActiveAddonTab(group.name)}
+                >
+                  <Text style={[s.addonTabText, activeAddonTab === group.name && s.activeAddonTabText]}>
+                    {group.name}
+                  </Text>
+                  {count > 0 && (
+                    <View style={s.addonBadge}>
+                      <Text style={s.addonBadgeText}>{count}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Tab Content */}
+          {currentAddonGroup && (
+            <View style={s.addonContent}>
+              {currentAddonGroup.input_type === "quantity" ? (
+                currentAddonGroup.options?.map((option) => (
+                  <View key={option.option_id} style={s.addonRow}>
+                    <View style={s.addonInfo}>
+                      <Text style={s.addonName}>{option.name}</Text>
+                      <Text style={s.addonPrice}>
+                        {peso}{parseFloat(option.price_per_unit || option.price).toFixed(0)}/pump
+                      </Text>
+                    </View>
+                    <View style={s.quantityControls}>
+                      <TouchableOpacity
+                        style={s.quantityButton}
+                        onPress={() => handleQuantityChange(currentAddonGroup, option, -1)}
+                      >
+                        <Text style={s.quantityButtonText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={s.quantityValue}>
+                        {getQuantity(currentAddonGroup.group_id, option.option_id)}
+                      </Text>
+                      <TouchableOpacity
+                        style={s.quantityButton}
+                        onPress={() => handleQuantityChange(currentAddonGroup, option, 1)}
+                      >
+                        <Text style={s.quantityButtonText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={s.addonOptionsGrid}>
+                  {currentAddonGroup.options?.map((option) => (
+                    <TouchableOpacity
+                      key={option.option_id}
+                      style={[s.addonOptionButton, isOptionSelected(currentAddonGroup.group_id, option) && s.selectedOption]}
+                      onPress={() => handleToggleSelect(currentAddonGroup, option)}
+                    >
+                      <Text style={[s.addonOptionText, isOptionSelected(currentAddonGroup.group_id, option) && s.selectedText]}>
+                        {option.name}
+                      </Text>
+                      {parseFloat(option.price) > 0 && (
+                        <Text style={[s.addonOptionPrice, isOptionSelected(currentAddonGroup.group_id, option) && s.selectedText]}>
+                          +{peso}{parseFloat(option.price).toFixed(0)}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  // Pick the right style set based on orientation
+  const s = isTabletLandscape ? landscapeStyles : styles;
+
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>X</Text>
+      <View style={s.overlay}>
+        <View style={[s.modalContainer, isTabletLandscape && { width: width * 0.88, maxWidth: 960, height: height * 0.9 }]}>
+          <TouchableOpacity style={s.closeButton} onPress={onClose}>
+            <Text style={s.closeButtonText}>X</Text>
           </TouchableOpacity>
 
           {loading ? (
-            <View style={styles.loadingContainer}>
+            <View style={s.loadingContainer}>
               <ActivityIndicator size="large" color="#5D4037" />
-              <Text style={styles.loadingText}>Loading customizations...</Text>
+              <Text style={s.loadingText}>Loading customizations...</Text>
             </View>
           ) : !isCustomizable ? (
-            <View style={styles.noCustomizationContainer}>
-              <View style={styles.productHeader}>
+            <View style={isTabletLandscape ? s.landscapeBody : s.noCustomizationContainer}>
+              {isTabletLandscape ? (
+                <>
+                  <View style={s.leftPanel}>
+                    {imageUri ? (
+                      <Image source={{ uri: imageUri }} style={s.productImage} />
+                    ) : (
+                      <View style={s.imageContainer}>
+                        <Text style={s.imagePlaceholder}>...</Text>
+                      </View>
+                    )}
+                    <Text style={s.title}>{item.name || item.item_name}</Text>
+                    <Text style={s.noCustomizationText}>
+                      This item does not have customization options.
+                    </Text>
+                  </View>
+                  <View style={s.rightPanel}>
+                    <View style={{ flex: 1 }} />
+                    <View style={s.footer}>
+                      <View style={s.priceContainer}>
+                        <Text style={s.totalLabel}>Total:</Text>
+                        <Text style={s.totalPrice}>{peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
+                      </View>
+                      <TouchableOpacity style={s.confirmButton} onPress={handleAddWithoutCustomization}>
+                        <Text style={s.confirmButtonText}>Add to Order</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={s.productHeader}>
+                    {imageUri ? (
+                      <Image source={{ uri: imageUri }} style={s.productImage} />
+                    ) : (
+                      <View style={s.imageContainer}>
+                        <Text style={s.imagePlaceholder}>...</Text>
+                      </View>
+                    )}
+                    <Text style={s.title}>{item.name || item.item_name}</Text>
+                    <Text style={s.noCustomizationText}>
+                      This item does not have customization options.
+                    </Text>
+                  </View>
+                  <View style={s.footer}>
+                    <View style={s.priceContainer}>
+                      <Text style={s.totalLabel}>Total:</Text>
+                      <Text style={s.totalPrice}>{peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
+                    </View>
+                    <TouchableOpacity style={s.confirmButton} onPress={handleAddWithoutCustomization}>
+                      <Text style={s.confirmButtonText}>Add to Order</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : isTabletLandscape ? (
+            /* ======= LANDSCAPE TABLET: HORIZONTAL LAYOUT ======= */
+            <View style={s.landscapeBody}>
+              {/* LEFT PANEL - Product Info */}
+              <View style={s.leftPanel}>
                 {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.productImage} />
+                  <Image source={{ uri: imageUri }} style={s.productImage} />
                 ) : (
-                  <View style={styles.imageContainer}>
-                    <Text style={styles.imagePlaceholder}>...</Text>
+                  <View style={s.imageContainer}>
+                    <Text style={s.imagePlaceholder}>...</Text>
                   </View>
                 )}
-                <Text style={styles.title}>{item.name || item.item_name}</Text>
-                <Text style={styles.noCustomizationText}>
-                  This item does not have customization options.
-                </Text>
-              </View>
-              
-              <View style={styles.footer}>
-                <View style={styles.priceContainer}>
-                  <Text style={styles.totalLabel}>Total:</Text>
-                  <Text style={styles.totalPrice}>{peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
+                <Text style={s.title}>{item.name || item.item_name}</Text>
+                <Text style={s.basePrice}>Base: {peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
+                
+                {/* Price + Add button in left panel bottom */}
+                <View style={s.leftPanelFooter}>
+                  <Text style={s.totalLabel}>Total</Text>
+                  <Text style={s.totalPrice}>{peso}{calculatePrice().toFixed(2)}</Text>
+                  <TouchableOpacity style={s.confirmButton} onPress={handleConfirm}>
+                    <Text style={s.confirmButtonText}>Add to Order</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.confirmButton} onPress={handleAddWithoutCustomization}>
-                  <Text style={styles.confirmButtonText}>Add to Order</Text>
-                </TouchableOpacity>
+              </View>
+
+              {/* RIGHT PANEL - Customization Options */}
+              <View style={s.rightPanel}>
+                {renderCustomizationOptions(s)}
               </View>
             </View>
           ) : (
-            <View style={styles.contentWrapper}>
+            /* ======= PORTRAIT TABLET: VERTICAL LAYOUT (original) ======= */
+            <View style={s.contentWrapper}>
               {/* FIXED HEADER */}
-              <View style={styles.fixedHeader}>
+              <View style={s.fixedHeader}>
                 {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.productImage} />
+                  <Image source={{ uri: imageUri }} style={s.productImage} />
                 ) : (
-                  <View style={styles.imageContainer}>
-                    <Text style={styles.imagePlaceholder}>...</Text>
+                  <View style={s.imageContainer}>
+                    <Text style={s.imagePlaceholder}>...</Text>
                   </View>
                 )}
-                <Text style={styles.title}>{item.name || item.item_name}</Text>
-                <Text style={styles.basePrice}>Base Price: {peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
+                <Text style={s.title}>{item.name || item.item_name}</Text>
+                <Text style={s.basePrice}>Base Price: {peso}{parseFloat(item.price || item.item_price).toFixed(2)}</Text>
               </View>
 
               {/* SCROLLABLE CONTENT */}
-              <ScrollView 
-                style={styles.scrollContent} 
-                showsVerticalScrollIndicator={true}
-              >
-                
-                {/* SIZE SECTION */}
-                {sizeGroup && (
-                  <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>{sizeGroup.name}</Text>
-                      {sizeGroup.is_required && <Text style={styles.requiredBadge}>Required</Text>}
-                    </View>
-                    <View style={styles.optionRow}>
-                      {sizeGroup.options?.map((option) => (
-                        <TouchableOpacity
-                          key={option.option_id}
-                          style={[styles.optionButton, isOptionSelected(sizeGroup.group_id, option) && styles.selectedOption]}
-                          onPress={() => handleSingleSelect(sizeGroup, option)}
-                        >
-                          <Text style={[styles.optionText, isOptionSelected(sizeGroup.group_id, option) && styles.selectedText]}>
-                            {option.name}
-                          </Text>
-                          {parseFloat(option.price) > 0 && (
-                            <Text style={[styles.optionPrice, isOptionSelected(sizeGroup.group_id, option) && styles.selectedText]}>
-                              +{peso}{parseFloat(option.price).toFixed(0)}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                {/* TEMPERATURE SECTION */}
-                {temperatureGroup && (
-                  <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>{temperatureGroup.name}</Text>
-                      {temperatureGroup.is_required && <Text style={styles.requiredBadge}>Required</Text>}
-                    </View>
-                    <View style={styles.optionRow}>
-                      {temperatureGroup.options?.map((option) => (
-                        <TouchableOpacity
-                          key={option.option_id}
-                          style={[styles.optionButton, isOptionSelected(temperatureGroup.group_id, option) && styles.selectedOption]}
-                          onPress={() => handleSingleSelect(temperatureGroup, option)}
-                        >
-                          <Text style={[styles.optionText, isOptionSelected(temperatureGroup.group_id, option) && styles.selectedText]}>
-                            {option.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                {/* ADD-ONS SECTION WITH TABS */}
-                {addonTabGroups.length > 0 && (
-                  <View style={styles.addonSection}>
-                    <Text style={styles.addonSectionTitle}>Add-ons</Text>
-                    
-                    {/* Tab Bar */}
-                    <View style={styles.addonTabBar}>
-                      {addonTabGroups.map((group) => {
-                        const count = getAddonCount(group.name);
-                        return (
-                          <TouchableOpacity
-                            key={group.group_id}
-                            style={[styles.addonTab, activeAddonTab === group.name && styles.activeAddonTab]}
-                            onPress={() => setActiveAddonTab(group.name)}
-                          >
-                            <Text style={[styles.addonTabText, activeAddonTab === group.name && styles.activeAddonTabText]}>
-                              {group.name}
-                            </Text>
-                            {count > 0 && (
-                              <View style={styles.addonBadge}>
-                                <Text style={styles.addonBadgeText}>{count}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    {/* Tab Content */}
-                    {currentAddonGroup && (
-                      <View style={styles.addonContent}>
-                        {currentAddonGroup.input_type === "quantity" ? (
-                          // Quantity-based options (Syrup, Sauces)
-                          currentAddonGroup.options?.map((option) => (
-                            <View key={option.option_id} style={styles.addonRow}>
-                              <View style={styles.addonInfo}>
-                                <Text style={styles.addonName}>{option.name}</Text>
-                                <Text style={styles.addonPrice}>
-                                  {peso}{parseFloat(option.price_per_unit || option.price).toFixed(0)}/pump
-                                </Text>
-                              </View>
-                              <View style={styles.quantityControls}>
-                                <TouchableOpacity
-                                  style={styles.quantityButton}
-                                  onPress={() => handleQuantityChange(currentAddonGroup, option, -1)}
-                                >
-                                  <Text style={styles.quantityButtonText}>-</Text>
-                                </TouchableOpacity>
-                                <Text style={styles.quantityValue}>
-                                  {getQuantity(currentAddonGroup.group_id, option.option_id)}
-                                </Text>
-                                <TouchableOpacity
-                                  style={styles.quantityButton}
-                                  onPress={() => handleQuantityChange(currentAddonGroup, option, 1)}
-                                >
-                                  <Text style={styles.quantityButtonText}>+</Text>
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          ))
-                        ) : (
-                          // Single-select options (Espresso, Milk)
-                          <View style={styles.addonOptionsGrid}>
-                            {currentAddonGroup.options?.map((option) => (
-                              <TouchableOpacity
-                                key={option.option_id}
-                                style={[styles.addonOptionButton, isOptionSelected(currentAddonGroup.group_id, option) && styles.selectedOption]}
-                                onPress={() => handleToggleSelect(currentAddonGroup, option)}
-                              >
-                                <Text style={[styles.addonOptionText, isOptionSelected(currentAddonGroup.group_id, option) && styles.selectedText]}>
-                                  {option.name}
-                                </Text>
-                                {parseFloat(option.price) > 0 && (
-                                  <Text style={[styles.addonOptionPrice, isOptionSelected(currentAddonGroup.group_id, option) && styles.selectedText]}>
-                                    +{peso}{parseFloat(option.price).toFixed(0)}
-                                  </Text>
-                                )}
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                )}
-              </ScrollView>
+              {renderCustomizationOptions(s)}
 
               {/* FIXED FOOTER */}
-              <View style={styles.footer}>
-                <View style={styles.priceContainer}>
-                  <Text style={styles.totalLabel}>Total:</Text>
-                  <Text style={styles.totalPrice}>{peso}{calculatePrice().toFixed(2)}</Text>
+              <View style={s.footer}>
+                <View style={s.priceContainer}>
+                  <Text style={s.totalLabel}>Total:</Text>
+                  <Text style={s.totalPrice}>{peso}{calculatePrice().toFixed(2)}</Text>
                 </View>
-                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                  <Text style={styles.confirmButtonText}>Add to Order</Text>
+                <TouchableOpacity style={s.confirmButton} onPress={handleConfirm}>
+                  <Text style={s.confirmButtonText}>Add to Order</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1063,6 +1132,364 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 17,
     fontWeight: "700",
+  },
+});
+
+// ============ TABLET LANDSCAPE STYLES ============
+const landscapeStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    overflow: "hidden",
+    flexDirection: "column",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    padding: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#8D6E63",
+    fontSize: 14,
+  },
+  noCustomizationContainer: {
+    padding: 20,
+  },
+  noCustomizationText: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginTop: 12,
+  },
+  // Horizontal layout container
+  landscapeBody: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  // Left panel: product info
+  leftPanel: {
+    width: 240,
+    backgroundColor: "#FAF7F4",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderRightWidth: 1,
+    borderRightColor: "#F0E6DC",
+  },
+  productImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 12,
+  },
+  imageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F5E6D3",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  imagePlaceholder: {
+    fontSize: 40,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#3E2723",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  basePrice: {
+    fontSize: 14,
+    color: "#8D6E63",
+    marginBottom: 8,
+  },
+  leftPanelFooter: {
+    marginTop: "auto",
+    alignItems: "center",
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E8E0D8",
+    width: "100%",
+  },
+  // Right panel: scrollable options
+  rightPanel: {
+    flex: 1,
+    flexDirection: "column",
+  },
+  scrollContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  section: {
+    marginBottom: 14,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#5D4037",
+    flex: 1,
+  },
+  requiredBadge: {
+    fontSize: 11,
+    color: "#FFF",
+    backgroundColor: "#FF9800",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    overflow: "hidden",
+    fontWeight: "600",
+  },
+  optionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  optionButton: {
+    flex: 1,
+    minWidth: "30%",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    alignItems: "center",
+  },
+  selectedOption: {
+    backgroundColor: "#5D4037",
+    borderColor: "#5D4037",
+  },
+  optionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3E2723",
+  },
+  optionPrice: {
+    fontSize: 12,
+    color: "#8D6E63",
+    marginTop: 2,
+  },
+  selectedText: {
+    color: "#FFF",
+  },
+  addonSection: {
+    marginBottom: 14,
+  },
+  addonSectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#5D4037",
+    marginBottom: 10,
+  },
+  addonTabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 2,
+    borderBottomColor: "#E8E0D8",
+    marginBottom: 12,
+  },
+  addonTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    position: "relative",
+  },
+  activeAddonTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: "#5D4037",
+    marginBottom: -2,
+  },
+  addonTabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#A0A0A0",
+  },
+  activeAddonTabText: {
+    color: "#5D4037",
+  },
+  addonBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    backgroundColor: "#FF9800",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 5,
+  },
+  addonBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  addonContent: {
+    gap: 8,
+  },
+  addonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FAF7F4",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E8E0D8",
+  },
+  addonInfo: {
+    flex: 1,
+  },
+  addonName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3E2723",
+  },
+  addonPrice: {
+    fontSize: 12,
+    color: "#8D6E63",
+    marginTop: 2,
+  },
+  addonOptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  addonOptionButton: {
+    flex: 1,
+    minWidth: "30%",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    alignItems: "center",
+  },
+  addonOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#3E2723",
+    textAlign: "center",
+  },
+  addonOptionPrice: {
+    fontSize: 11,
+    color: "#8D6E63",
+    marginTop: 2,
+  },
+  quantityControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#5D4037",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quantityButtonText: {
+    color: "#FFF",
+    fontSize: 20,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  quantityValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3E2723",
+    minWidth: 28,
+    textAlign: "center",
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E8E0D8",
+    backgroundColor: "#FFF",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  totalLabel: {
+    fontSize: 13,
+    color: "#8D6E63",
+  },
+  totalPrice: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#3E2723",
+  },
+  confirmButton: {
+    backgroundColor: "#5D4037",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    marginTop: 10,
+    alignSelf: "stretch",
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  productHeader: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  contentWrapper: {
+    flex: 1,
+  },
+  fixedHeader: {
+    alignItems: "center",
+    paddingTop: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0E6DC",
+    backgroundColor: "#FFF",
   },
 });
 
