@@ -54,6 +54,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Import Database Connection
 const db = require('./config/db');
+const runMigrations = require('./config/migrations');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -250,9 +251,9 @@ app.set('printAgents', printAgents);
 app.set('io', io);
 
 
-// START SERVER
-
-server.listen(PORT, '0.0.0.0', () => {
+// START SERVER — Run migrations first, then listen
+runMigrations().then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('╔════════════════════════════════════════════════════════════╗');
     console.log('║        🚀 Library Coffee + Study API Server                ║');
@@ -264,4 +265,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`║  💾 Health:      http://localhost:${PORT}/health`.padEnd(62) + '║');
     console.log('╚════════════════════════════════════════════════════════════╝');
     console.log('');
+    });
 });

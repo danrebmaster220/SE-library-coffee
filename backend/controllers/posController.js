@@ -544,6 +544,117 @@ exports.voidTransaction = async (req, res) => {
     }
 };
 
+// Refund a completed/preparing/ready transaction
+exports.refundTransaction = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const reason = req.body?.reason || 'No reason provided';
+        const userId = req.body?.refunded_by || req.user?.id || req.user?.user_id || null;
+
+        // Get original transaction
+        const [orders] = await db.query(
+            'SELECT beeper_number, total_amount, status, order_type FROM transactions WHERE transaction_id = ?',
+            [id]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+
+        const { beeper_number, total_amount, status, order_type } = orders[0];
+
+        // Validate status — only paid orders can be refunded
+        if (status === 'refunded') {
+            return res.status(400).json({ error: 'Transaction has already been refunded' });
+        }
+        if (status === 'voided') {
+            return res.status(400).json({ error: 'Transaction has already been voided' });
+        }
+        if (status === 'pending') {
+            return res.status(400).json({ error: 'This order has not been paid yet. Use the POS Order Queue to void pending orders.' });
+        }
+
+        // Update transaction status to refunded
+        await db.query(`
+            UPDATE transactions SET
+                status = 'refunded',
+                voided_by = ?,
+                void_reason = ?,
+                voided_at = NOW()
+            WHERE transaction_id = ?
+        `, [userId, reason, id]);
+
+        // Log the refund in void_log
+        try {
+            await db.query(`
+                INSERT INTO void_log (transaction_id, beeper_number, voided_by, void_reason, original_amount, action_type, refund_amount)
+                VALUES (?, ?, ?, ?, ?, 'refund', ?)
+            `, [id, beeper_number, userId, reason, total_amount, total_amount]);
+        } catch (logError) {
+            console.log('Refund log insert skipped:', logError.message);
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Transaction refunded successfully',
+            refund_amount: total_amount
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get refunded transactions with items
+exports.getRefundedTransactions = async (req, res) => {
+    try {
+        let query = `
+            SELECT 
+                t.transaction_id,
+                t.order_number,
+                t.beeper_number,
+                t.order_type,
+                t.subtotal,
+                t.discount_amount,
+                t.total_amount,
+                t.status,
+                t.void_reason as refund_reason,
+                t.voided_at as refunded_at,
+                t.created_at,
+                t.processed_by,
+                u.full_name as refunded_by_name,
+                u.username as refunded_by_username,
+                pu.full_name as processed_by_name
+            FROM transactions t
+            LEFT JOIN users u ON t.voided_by = u.user_id
+            LEFT JOIN users pu ON t.processed_by = pu.user_id
+            WHERE t.status = 'refunded'
+            ORDER BY t.voided_at DESC
+            LIMIT 100
+        `;
+
+        const [transactions] = await db.query(query);
+
+        // Fetch items for each refunded transaction
+        for (let transaction of transactions) {
+            const [items] = await db.query(`
+                SELECT 
+                    ti.item_id,
+                    ti.item_name,
+                    ti.quantity,
+                    ti.unit_price,
+                    ti.total_price
+                FROM transaction_items ti
+                WHERE ti.transaction_id = ?
+            `, [transaction.transaction_id]);
+            transaction.items = items;
+        }
+
+        res.json({ transactions });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Get voided transactions with items - Filtered by user role
 exports.getVoidedTransactions = async (req, res) => {
     try {

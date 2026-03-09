@@ -32,6 +32,9 @@ router.put('/order/:id/preparing', verifyToken, posController.startPreparing);
 // Get voided transactions
 router.get('/transactions/voided', verifyToken, posController.getVoidedTransactions);
 
+// Get refunded transactions
+router.get('/transactions/refunded', verifyToken, posController.getRefundedTransactions);
+
 // Get completed transactions
 router.get('/transactions/completed', verifyToken, posController.getCompletedTransactions);
 
@@ -60,5 +63,8 @@ router.put('/transactions/:id/preparing', verifyToken, posController.startPrepar
 
 // Void transaction
 router.post('/transactions/:id/void', verifyToken, posController.voidTransaction);
+
+// Refund transaction
+router.post('/transactions/:id/refund', verifyToken, posController.refundTransaction);
 
 module.exports = router;
