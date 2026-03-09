@@ -915,7 +915,7 @@
 
 .quick-cash-buttons {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 4px;
   margin-bottom: 6px;
   overflow: hidden;
@@ -941,6 +941,17 @@
   background: #5d4037;
   color: white;
   border-color: #5d4037;
+}
+
+.quick-cash-btn.exact-btn {
+  background: #5d4037;
+  color: white;
+  border-color: #5d4037;
+}
+
+.quick-cash-btn.exact-btn:hover {
+  background: #3e2723;
+  border-color: #3e2723;
 }
 
 .change-display {

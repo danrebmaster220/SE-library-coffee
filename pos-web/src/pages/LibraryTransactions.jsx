@@ -706,6 +706,7 @@ function CheckinModal(props) {
           </div>
           
           <div className="quick-cash-buttons">
+            <button type="button" className="quick-cash-btn exact-btn" onClick={() => handleQuickCash(fee)}>Exact</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(100)}>₱100</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(200)}>₱200</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(500)}>₱500</button>

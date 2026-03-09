@@ -1296,6 +1296,9 @@ export default function POS() {
             <button onClick={clearCash} className="btn-clear-cash">Clear</button>
           </div>
           <div className="quick-cash-buttons">
+            <button onClick={() => setCashAmount(String(calculateTotal()))} className="quick-cash-btn exact-btn">
+              Exact
+            </button>
             {[50, 100, 200, 500, 1000].map(amount => (
               <button key={amount} onClick={() => handleQuickCash(amount)} className="quick-cash-btn">
                 +{amount}
