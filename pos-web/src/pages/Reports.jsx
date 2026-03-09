@@ -489,7 +489,7 @@ export default function Reports() {
               >
                 <option value="">All Types</option>
                 <option value="dine-in">Dine In</option>
-                <option value="take-out">Take Out</option>
+                <option value="takeout">Take Out</option>
               </select>
               <select
                 className="filter-select"
