@@ -4,9 +4,13 @@ const db = require('../config/db');
 // BEEPER MANAGEMENT
 
 // Get next available beeper
-const getAvailableBeeper = async () => {
-    const [beepers] = await db.query(
-        'SELECT beeper_number FROM beepers WHERE status = ? ORDER BY beeper_number LIMIT 1',
+// When called with a connection (inside a transaction), uses FOR UPDATE to prevent race conditions.
+// When called without a connection (standalone), uses the shared pool (no lock).
+const getAvailableBeeper = async (connection = null) => {
+    const queryRunner = connection || db;
+    const lockClause = connection ? ' FOR UPDATE' : '';
+    const [beepers] = await queryRunner.query(
+        'SELECT beeper_number FROM beepers WHERE status = ? ORDER BY beeper_number LIMIT 1' + lockClause,
         ['available']
     );
     return beepers.length > 0 ? beepers[0].beeper_number : null;
@@ -125,7 +129,7 @@ exports.createTransaction = async (req, res) => {
         let beeperNumber;
         if (beeper_id) {
             const [beeper] = await connection.query(
-                'SELECT beeper_number FROM beepers WHERE beeper_number = ? AND status = ?',
+                'SELECT beeper_number FROM beepers WHERE beeper_number = ? AND status = ? FOR UPDATE',
                 [beeper_id, 'available']
             );
             if (beeper.length === 0) {
@@ -134,7 +138,7 @@ exports.createTransaction = async (req, res) => {
             }
             beeperNumber = beeper[0].beeper_number;
         } else {
-            beeperNumber = await getAvailableBeeper();
+            beeperNumber = await getAvailableBeeper(connection);
             if (!beeperNumber) {
                 await connection.rollback();
                 return res.status(400).json({ error: 'No beepers available. Please wait.' });
@@ -240,8 +244,8 @@ exports.createKioskOrder = async (req, res) => {
 
         const { order_type, items, subtotal, total_amount, library_booking } = req.body;
 
-        // Get available beeper
-        const beeperNumber = await getAvailableBeeper();
+        // Get available beeper (with row lock to prevent race conditions)
+        const beeperNumber = await getAvailableBeeper(connection);
         if (!beeperNumber) {
             await connection.rollback();
             return res.status(400).json({ error: 'No beepers available. Please wait.' });
@@ -249,11 +253,15 @@ exports.createKioskOrder = async (req, res) => {
 
         // Create transaction with pending status
         // Include library_booking JSON if present
+        // Normalize order_type: kiosk may send 'dine_in' but DB enum expects 'dine-in'
+        let normalizedOrderType = order_type || 'dine-in';
+        if (normalizedOrderType === 'dine_in') normalizedOrderType = 'dine-in';
+        
         const [result] = await connection.query(`
             INSERT INTO transactions (
                 beeper_number, order_type, subtotal, total_amount, status, library_booking
             ) VALUES (?, ?, ?, ?, ?, ?)
-        `, [beeperNumber, order_type || 'dine-in', subtotal, total_amount, 'pending', 
+        `, [beeperNumber, normalizedOrderType, subtotal, total_amount, 'pending', 
             library_booking ? JSON.stringify(library_booking) : null]);
 
         const transactionId = result.insertId;
