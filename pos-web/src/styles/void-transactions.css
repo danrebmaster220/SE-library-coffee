@@ -298,12 +298,15 @@
 }
 
 .order-id-badge {
-  background: var(--coffee-dark);
-  color: white;
+  background: white;
+  color: var(--coffee-dark);
   padding: 4px 12px;
   border-radius: 6px;
   font-weight: 700;
   font-family: monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  border: 1.5px solid var(--latte);
 }
 
 .beeper-badge {
