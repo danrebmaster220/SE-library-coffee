@@ -361,33 +361,41 @@ exports.processPayment = async (req, res) => {
         
         // If there's a library booking, create the library session
         if (libraryBooking && libraryBooking.seat_id) {
-            // Check if seat is still available
+            // Check if seat is still available (with row lock to prevent race conditions)
             const [seat] = await connection.query(
-                'SELECT seat_id, status FROM library_seats WHERE seat_id = ?',
+                'SELECT seat_id, status FROM library_seats WHERE seat_id = ? FOR UPDATE',
                 [libraryBooking.seat_id]
             );
             
-            if (seat.length > 0 && seat[0].status === 'available') {
-                // Create library session
-                const [sessionResult] = await connection.query(`
-                    INSERT INTO library_sessions 
-                    (seat_id, customer_name, paid_minutes, amount_paid, status, start_time) 
-                    VALUES (?, ?, ?, ?, 'active', NOW())
-                `, [
-                    libraryBooking.seat_id,
-                    libraryBooking.customer_name,
-                    libraryBooking.duration_minutes,
-                    libraryBooking.amount
-                ]);
-                
-                librarySessionId = sessionResult.insertId;
-                
-                // Update seat status to occupied
-                await connection.query(
-                    'UPDATE library_seats SET status = "occupied" WHERE seat_id = ?',
-                    [libraryBooking.seat_id]
-                );
+            if (seat.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Selected seat no longer exists.' });
             }
+            
+            if (seat[0].status !== 'available') {
+                await connection.rollback();
+                return res.status(400).json({ error: `Seat is no longer available (currently ${seat[0].status}). Please select a different seat.` });
+            }
+            
+            // Create library session
+            const [sessionResult] = await connection.query(`
+                INSERT INTO library_sessions 
+                (seat_id, customer_name, paid_minutes, amount_paid, status, start_time) 
+                VALUES (?, ?, ?, ?, 'active', NOW())
+            `, [
+                libraryBooking.seat_id,
+                libraryBooking.customer_name,
+                libraryBooking.duration_minutes,
+                libraryBooking.amount
+            ]);
+            
+            librarySessionId = sessionResult.insertId;
+            
+            // Update seat status to occupied
+            await connection.query(
+                'UPDATE library_seats SET status = "occupied" WHERE seat_id = ?',
+                [libraryBooking.seat_id]
+            );
         }
 
         // Update transaction

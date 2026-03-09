@@ -54,6 +54,13 @@ export default function LibrarySeats() {
       duration: 600,
       useNativeDriver: true,
     }).start();
+
+    // Poll for seat updates every 10 seconds to keep map fresh
+    const pollInterval = setInterval(() => {
+      fetchSeatsSilent();
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, [fadeAnim]);
 
   const fetchSeats = async () => {
@@ -71,6 +78,17 @@ export default function LibrarySeats() {
       setSeats([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Silent refresh (no loading spinner, no error alerts) for polling
+  const fetchSeatsSilent = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/library/seats/available`);
+      const data = await response.json();
+      setSeats(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Silent seat refresh failed:", error);
     }
   };
 
