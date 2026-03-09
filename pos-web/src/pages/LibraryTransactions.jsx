@@ -543,11 +543,8 @@ export default function LibraryTransactions() {
                             </span>
                           </td>
                           <td className="actions-cell">
-                            {session.status === 'completed' && isAdmin && (
-                              <button className="btn-void-small" style={{background: '#dc3545', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer'}} onClick={function() { openVoidModal(session); }}>Void</button>
-                            )}
-                            {session.status === 'completed' && !isAdmin && (
-                              <span className="no-action-text" style={{color: '#999', fontSize: '12px', fontStyle: 'italic'}}>Admin only</span>
+                            {session.status === 'completed' && (
+                              <span className="no-action-text" style={{color: '#999', fontSize: '12px', fontStyle: 'italic'}}>—</span>
                             )}
                             {session.status === 'voided' && (
                               <span className="void-info" title={'Voided by: ' + (session.voided_by_name || 'Unknown') + '\nReason: ' + (session.void_reason || 'No reason')}>

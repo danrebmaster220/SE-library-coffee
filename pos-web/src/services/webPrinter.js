@@ -756,6 +756,109 @@ function buildPlainTextLibraryExtension(session) {
 }
 
 // ============================================
+// Refund Receipt Builders
+// ============================================
+
+function buildRefundReceiptHTML(data) {
+  const transactionNum = 'ORD-' + String(data.transaction_id).padStart(6, '0');
+  
+  let itemsHTML = '';
+  (data.items || []).forEach(item => {
+    const itemName = item.item_name || item.name || 'Unknown Item';
+    const qty = item.quantity || 1;
+    const price = parseFloat(item.total_price || item.unit_price * qty || 0);
+    
+    itemsHTML += `<div class="item-row">`;
+    itemsHTML += `<div class="item-name">${qty}x ${itemName}</div>`;
+    itemsHTML += `<div class="item-price">${formatCurrency(price)}</div>`;
+    itemsHTML += `</div>`;
+  });
+
+  return `
+    <div class="receipt">
+      <div class="receipt-header">
+        <div class="store-name">THE LIBRARY</div>
+        <div class="store-sub">Coffee + Study</div>
+        <div class="store-sub">Pavilion, Nunez St.</div>
+        <div class="store-sub">Zamboanga City</div>
+      </div>
+      <div class="separator">${SEP}</div>
+      <div style="text-align:center;font-size:14px;font-weight:bold;margin:6px 0;">*** REFUND RECEIPT ***</div>
+      <div class="separator">${SEP}</div>
+      <div class="info-row"><span>Date:</span><span>${formatDateTime(data.refunded_at || new Date())}</span></div>
+      <div class="info-row"><span>Original Order:</span><span>${transactionNum}</span></div>
+      <div class="info-row"><span>Order #:</span><span>${data.beeper_number || '-'}</span></div>
+      <div class="info-row"><span>Original Date:</span><span>${formatDateTime(data.created_at)}</span></div>
+      ${data.refunded_by ? `<div class="info-row"><span>Authorized By:</span><span>${data.refunded_by}</span></div>` : ''}
+      <div class="separator">${SEP}</div>
+      <div class="section-title">REFUNDED ITEMS:</div>
+      ${itemsHTML}
+      <div class="separator">${SEP}</div>
+      <div class="totals">
+        <div class="row"><span>Subtotal:</span><span>${formatCurrency(data.subtotal || data.total_amount)}</span></div>
+        ${data.discount_amount > 0 ? `<div class="row"><span>Discount${data.discount_name ? ` (${data.discount_name})` : ''}:</span><span>-${formatCurrency(data.discount_amount)}</span></div>` : ''}
+        <div class="row total-final"><span>REFUND TOTAL:</span><span>${formatCurrency(data.total_amount)}</span></div>
+      </div>
+      <div class="separator">${SEP}</div>
+      ${data.refund_reason ? `<div style="font-size:11px;"><strong>Reason:</strong> ${data.refund_reason}</div><div class="separator">${SEP}</div>` : ''}
+      <div class="footer">
+        <p>This is a refund confirmation.</p>
+        <p>Please keep this for your records.</p>
+        <p class="separator">${SEP}</p>
+        <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
+      </div>
+    </div>
+  `;
+}
+
+function buildPlainTextRefundReceipt(data) {
+  const lines = [];
+  lines.push(txtCenter('THE LIBRARY'));
+  lines.push(txtCenter('Coffee + Study'));
+  lines.push(txtCenter('Pavilion, Nunez St.'));
+  lines.push(txtCenter('Zamboanga City'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('*** REFUND RECEIPT ***'));
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Date:', formatDateTime(data.refunded_at || new Date())));
+  lines.push(txtLR('Orig Order:', 'ORD-' + String(data.transaction_id).padStart(6, '0')));
+  lines.push(txtLR('Order #:', String(data.beeper_number || '-')));
+  lines.push(txtLR('Orig Date:', formatDateTime(data.created_at)));
+  if (data.refunded_by) {
+    lines.push(txtLR('Auth By:', data.refunded_by));
+  }
+  lines.push(TXT_SEP);
+  lines.push('REFUNDED ITEMS:');
+  
+  (data.items || []).forEach(item => {
+    const name = item.item_name || item.name || 'Item';
+    const qty = item.quantity || 1;
+    const price = parseFloat(item.total_price || item.unit_price * qty || 0);
+    lines.push(txtLR(qty + 'x ' + name, txtMoney(price)));
+  });
+  
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Subtotal:', txtMoney(data.subtotal || data.total_amount)));
+  if (data.discount_amount > 0) {
+    lines.push(txtLR('Discount:', '-' + txtMoney(data.discount_amount)));
+  }
+  lines.push(txtLR('REFUND TOTAL:', txtMoney(data.total_amount)));
+  lines.push(TXT_SEP);
+  
+  if (data.refund_reason) {
+    lines.push('Reason: ' + data.refund_reason);
+    lines.push(TXT_SEP);
+  }
+  
+  lines.push(txtCenter('Refund confirmation.'));
+  lines.push(txtCenter('Keep for your records.'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
+
+  return lines.join('\n');
+}
+
+// ============================================
 // Browser Print Fallback (window.print)
 // Builds plain-text receipts that look structured on any thermal printer
 // via Windows spooler. Used when localhost:9100 print server is offline.
@@ -768,6 +871,8 @@ function openThermalPrint(receiptData, printEndpoint) {
     plainText = buildPlainTextLibraryCheckin(receiptData);
   } else if (printEndpoint === '/library-extension') {
     plainText = buildPlainTextLibraryExtension(receiptData);
+  } else if (printEndpoint === '/refund') {
+    plainText = buildPlainTextRefundReceipt(receiptData);
   } else {
     // Order receipt — customer + barista + kitchen
     plainText = buildPlainTextCustomerReceipt(receiptData);
@@ -872,9 +977,18 @@ export async function printLibraryExtensionReceipt(session) {
   return showReceiptModal(html, 'Extension Receipt', session, '/library-extension');
 }
 
+/**
+ * Show refund receipt preview
+ */
+export async function printRefundReceipt(refundData) {
+  const html = buildRefundReceiptHTML(refundData);
+  return showReceiptModal(html, 'Refund Receipt', refundData, '/refund');
+}
+
 export default {
   printOrderReceipt,
   printCustomerReceipt,
   printLibraryCheckinReceipt,
-  printLibraryExtensionReceipt
+  printLibraryExtensionReceipt,
+  printRefundReceipt
 };

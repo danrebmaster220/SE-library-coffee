@@ -501,6 +501,7 @@ export default function Reports() {
                 <option value="preparing">Preparing</option>
                 <option value="ready">Ready</option>
                 <option value="voided">Voided</option>
+                <option value="refunded">Refunded</option>
               </select>
             </>
           )}

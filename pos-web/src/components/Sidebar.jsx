@@ -194,7 +194,7 @@ export default function Sidebar() {
         { label: 'Order Queue', path: '/orders' },
         { label: 'Ready Orders', path: '/orders/ready' },
         { label: 'Completed', path: '/orders/completed' },
-        { label: 'Void Transactions', path: '/orders/void' }
+        { label: 'Refund Order', path: '/orders/void' }
       ]
     },
     {

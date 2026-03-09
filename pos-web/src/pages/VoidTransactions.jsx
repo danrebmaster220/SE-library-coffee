@@ -1,49 +1,41 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import api from '../api';
+import { printRefundReceipt } from '../services/webPrinter';
 import '../styles/menu-management-styles/index.css';
 import '../styles/void-transactions.css';
 
 export default function VoidTransactions() {
-  const [voidedOrders, setVoidedOrders] = useState([]);
+  const [refundedOrders, setRefundedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('void'); // 'void' or 'history'
-  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('refund');
   
-  // Void form states
   const [orderId, setOrderId] = useState('');
-  const [voidReason, setVoidReason] = useState('');
+  const [refundReason, setRefundReason] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchError, setSearchError] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
   
-  // Admin auth modal (only for cashiers)
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Confirmation modal (for admins)
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  
-  // Alert modal
   const [showAlert, setShowAlert] = useState(false);
   const [alertData, setAlertData] = useState({ title: '', message: '', type: 'info' });
 
-  // Pagination states for void history
   const [historyPage, setHistoryPage] = useState(1);
   const [historySearch, setHistorySearch] = useState('');
   const historyRowsPerPage = 10;
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    setCurrentUser(user);
     fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
-      const voidedRes = await api.get('/pos/transactions/voided');
-      setVoidedOrders(voidedRes.data.transactions || voidedRes.data || []);
+      const refundedRes = await api.get('/pos/transactions/refunded');
+      setRefundedOrders(refundedRes.data.transactions || refundedRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -51,7 +43,6 @@ export default function VoidTransactions() {
     }
   };
 
-  // Search for order by Transaction ID
   const handleSearchOrder = async () => {
     if (!orderId.trim()) {
       setSearchError('Please enter an Order ID');
@@ -60,94 +51,78 @@ export default function VoidTransactions() {
     }
 
     setSearchError('');
+    setSearchLoading(true);
     
-    // Parse the order ID - handle formats like "ORD-000031", "000031", or "31"
     let searchId = orderId.trim();
     
-    // Remove ORD- or LIB- prefix if present
     if (searchId.toUpperCase().startsWith('ORD-')) {
-      searchId = searchId.substring(4); // Remove "ORD-"
+      searchId = searchId.substring(4);
     } else if (searchId.toUpperCase().startsWith('LIB-')) {
-      setSearchError('Library sessions cannot be voided here. Use Library Management.');
+      setSearchError('Library sessions cannot be refunded here. Use Library Management.');
       setSearchResult(null);
+      setSearchLoading(false);
       return;
     }
     
-    // Remove leading zeros and convert to number
     searchId = parseInt(searchId, 10);
     
     if (isNaN(searchId) || searchId <= 0) {
       setSearchError('Please enter a valid Order ID (e.g., ORD-000031 or 31)');
       setSearchResult(null);
+      setSearchLoading(false);
       return;
     }
     
     try {
-      // Search by transaction ID
       const res = await api.get(`/pos/transactions/${searchId}`);
       if (res.data) {
-        if (res.data.status === 'voided') {
-          setSearchError('This order has already been voided');
-          setSearchResult(null);
-        } else if (res.data.status === 'completed') {
-          // Allow voiding completed orders (past transactions)
-          setSearchResult(res.data);
-        } else {
-          setSearchResult(res.data);
-        }
+        setSearchResult(res.data);
+        setSearchError('');
       }
     } catch {
-      setSearchError(`Order not found with ID: ORD-${String(searchId).padStart(6, '0')}`);
+      setSearchError('Order not found with ID: ORD-' + String(searchId).padStart(6, '0'));
       setSearchResult(null);
+    } finally {
+      setSearchLoading(false);
     }
   };
 
-  // Initiate void process
-  const handleInitiateVoid = () => {
+  const canRefund = (status) => {
+    return ['preparing', 'ready', 'completed'].includes(status);
+  };
+
+  const getStatusMessage = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'This order has not been paid yet. Use the POS Order Queue to void pending orders.';
+      case 'voided':
+        return 'This order has already been voided and cannot be refunded.';
+      case 'refunded':
+        return 'This order has already been refunded.';
+      default:
+        return '';
+    }
+  };
+
+  const handleInitiateRefund = () => {
     if (!searchResult) {
       displayAlert('Error', 'Please search for an order first', 'error');
       return;
     }
-    
-    // Open the appropriate modal - reason will be entered inside the modal
-    if (currentUser?.role === 'admin') {
-      setVoidReason(''); // Reset reason for new void attempt
-      setShowConfirmModal(true);
-    } else {
-      setVoidReason(''); // Reset reason for new void attempt
-      setShowAuthModal(true);
-      setAdminUsername('');
-      setAdminPassword('');
-      setAuthError('');
-    }
+    setRefundReason('');
+    setAdminUsername('');
+    setAdminPassword('');
+    setAuthError('');
+    setShowAuthModal(true);
   };
 
-  // Admin direct confirmation (no credentials needed)
-  const handleAdminConfirmVoid = async () => {
-    setIsProcessing(true);
-    try {
-      await api.post(`/pos/transactions/${searchResult.id || searchResult.transaction_id}/void`, {
-        reason: voidReason,
-        voided_by: currentUser.user_id
-      });
-
-      setShowConfirmModal(false);
-      setSearchResult(null);
-      setOrderId('');
-      setVoidReason('');
-      displayAlert('Success', 'Order has been voided successfully', 'success');
-      fetchData();
-    } catch (error) {
-      displayAlert('Error', error.response?.data?.error || 'Failed to void order', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Process void with admin credentials (for cashiers)
-  const handleCashierConfirmVoid = async () => {
+  const handleConfirmRefund = async () => {
     if (!adminUsername.trim() || !adminPassword.trim()) {
       setAuthError('Please enter admin credentials');
+      return;
+    }
+    if (!refundReason.trim()) {
+      setAuthError('Please enter a reason for the refund');
       return;
     }
 
@@ -155,7 +130,6 @@ export default function VoidTransactions() {
     setAuthError('');
 
     try {
-      // Verify admin credentials
       const authRes = await api.post('/auth/verify-admin', {
         username: adminUsername,
         password: adminPassword
@@ -167,23 +141,48 @@ export default function VoidTransactions() {
         return;
       }
 
-      // Process void
-      await api.post(`/pos/transactions/${searchResult.id || searchResult.transaction_id}/void`, {
-        reason: voidReason,
-        voided_by: authRes.data.admin_id
+      const refundRes = await api.post('/pos/transactions/' + (searchResult.id || searchResult.transaction_id) + '/refund', {
+        reason: refundReason,
+        refunded_by: authRes.data.admin_id
       });
 
       setShowAuthModal(false);
+
+      displayAlert(
+        'Refund Successful', 
+        'Order ORD-' + String(searchResult.id || searchResult.transaction_id).padStart(6, '0') + ' has been refunded.\nRefund Amount: P' + parseFloat(refundRes.data.refund_amount || searchResult.total_amount || searchResult.total || 0).toFixed(2), 
+        'success'
+      );
+
+      try {
+        await printRefundReceipt({
+          transaction_id: searchResult.id || searchResult.transaction_id,
+          order_number: searchResult.order_number,
+          beeper_number: searchResult.beeper_number,
+          order_type: searchResult.order_type,
+          items: searchResult.items || [],
+          subtotal: searchResult.subtotal,
+          discount_amount: searchResult.discount_amount,
+          discount_name: searchResult.discount_name,
+          total_amount: searchResult.total_amount || searchResult.total,
+          refund_reason: refundReason,
+          refunded_by: adminUsername,
+          created_at: searchResult.created_at,
+          refunded_at: new Date().toISOString()
+        });
+      } catch (printErr) {
+        console.log('Refund receipt print skipped:', printErr.message);
+      }
+
       setSearchResult(null);
       setOrderId('');
-      setVoidReason('');
-      displayAlert('Success', 'Order has been voided successfully', 'success');
+      setRefundReason('');
       fetchData();
     } catch (error) {
       if (error.response?.status === 401) {
         setAuthError('Invalid admin credentials');
       } else {
-        setAuthError(error.response?.data?.error || 'Failed to void order');
+        setAuthError(error.response?.data?.error || 'Failed to process refund');
       }
     } finally {
       setIsProcessing(false);
@@ -195,45 +194,38 @@ export default function VoidTransactions() {
     setShowAlert(true);
   };
 
-  // Filter voided orders based on search
-  const filteredVoidedOrders = voidedOrders.filter(order => {
+  const filteredRefundedOrders = refundedOrders.filter(order => {
     if (!historySearch.trim()) return true;
     const searchLower = historySearch.toLowerCase();
-    const orderId = String(order.order_number || order.transaction_id || order.id || '');
-    const orderFormatted = `ord-${orderId.padStart(6, '0')}`;
+    const oid = String(order.order_number || order.transaction_id || order.id || '');
+    const orderFormatted = 'ord-' + oid.padStart(6, '0');
     const beeper = String(order.beeper_number || '');
-    const voidedBy = (order.voided_by_name || '').toLowerCase();
-    const reason = (order.void_reason || '').toLowerCase();
+    const refundedBy = (order.refunded_by_name || '').toLowerCase();
+    const reason = (order.refund_reason || '').toLowerCase();
     
     return (
-      orderId.includes(searchLower) ||
+      oid.includes(searchLower) ||
       orderFormatted.includes(searchLower) ||
       beeper.includes(searchLower) ||
-      voidedBy.includes(searchLower) ||
+      refundedBy.includes(searchLower) ||
       reason.includes(searchLower)
     );
   });
 
-  // Reset page when search changes
   useEffect(() => {
     setHistoryPage(1);
-  }, [historySearch, voidedOrders]);
+  }, [historySearch, refundedOrders]);
 
-  // Pagination calculations
-  const historyTotalPages = Math.ceil(filteredVoidedOrders.length / historyRowsPerPage);
+  const historyTotalPages = Math.ceil(filteredRefundedOrders.length / historyRowsPerPage);
   const historyStartIndex = (historyPage - 1) * historyRowsPerPage;
   const historyEndIndex = historyStartIndex + historyRowsPerPage;
-  const paginatedVoidedOrders = filteredVoidedOrders.slice(historyStartIndex, historyEndIndex);
+  const paginatedRefundedOrders = filteredRefundedOrders.slice(historyStartIndex, historyEndIndex);
 
-  // Generate page numbers helper
   const getHistoryPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
     if (historyTotalPages <= maxVisiblePages) {
-      for (let i = 1; i <= historyTotalPages; i++) {
-        pages.push(i);
-      }
+      for (let i = 1; i <= historyTotalPages; i++) pages.push(i);
     } else {
       if (historyPage <= 3) {
         for (let i = 1; i <= 4; i++) pages.push(i);
@@ -262,113 +254,141 @@ export default function VoidTransactions() {
     <div className="main-content">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Void Transactions</h1>
-          <p className="page-subtitle">Void orders and view voided transaction history</p>
+          <h1 className="page-title">Refund Order</h1>
+          <p className="page-subtitle">Process refunds for paid orders and view refund history</p>
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="void-tabs">
         <button 
-          className={`void-tab ${activeTab === 'void' ? 'active' : ''}`}
-          onClick={() => setActiveTab('void')}
+          className={'void-tab' + (activeTab === 'refund' ? ' active' : '')}
+          onClick={() => setActiveTab('refund')}
         >
-          🚫 Void Order
+          Refund Order
         </button>
         <button 
-          className={`void-tab ${activeTab === 'history' ? 'active' : ''}`}
+          className={'void-tab' + (activeTab === 'history' ? ' active' : '')}
           onClick={() => setActiveTab('history')}
         >
-          📋 Void History ({voidedOrders.length})
+          Refund History ({refundedOrders.length})
         </button>
       </div>
 
-      {/* Void Order Tab */}
-      {activeTab === 'void' && (
+      {activeTab === 'refund' && (
         <div className="void-form-container">
-          <div className="void-form-card">
-            <h2>Void an Order</h2>
-            <p className="void-instructions">
-              Enter the unique Order ID to find and void an order. 
-              {currentUser?.role === 'admin' 
-                ? ' As an admin, you can void directly.' 
-                : ' Admin authentication is required for cashiers.'}
+          <div className="void-form-card refund-card">
+            <h2 className="refund-title">Refund an Order</h2>
+            <p className="void-instructions refund-instructions">
+              Enter the Order ID to search for a paid order and process a refund. 
+              Admin authentication is required to authorize all refunds.
             </p>
 
-            {/* Search Order */}
             <div className="void-form-group">
               <label>Order ID (Transaction ID)</label>
               <div className="search-input-group">
                 <input
                   type="text"
                   value={orderId}
-                  onChange={(e) => setOrderId(e.target.value)}
+                  onChange={(e) => { setOrderId(e.target.value); setSearchError(''); setSearchResult(null); }}
                   placeholder="Enter order ID (e.g., ORD-000031 or 31)"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearchOrder()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchOrder()}
                 />
-                <button className="search-btn" onClick={handleSearchOrder}>
-                  🔍 Search
+                <button className="search-btn" onClick={handleSearchOrder} disabled={searchLoading}>
+                  {searchLoading ? 'Searching...' : 'Search'}
                 </button>
               </div>
               {searchError && <span className="error-text">{searchError}</span>}
             </div>
 
-            {/* Order Details */}
             {searchResult && (
-              <div className="order-preview">
-                <h3>Order Found</h3>
+              <div className={'order-preview' + (!canRefund(searchResult.status) ? ' order-preview-disabled' : ' order-preview-refundable')}>
+                <div className="order-preview-header">
+                  <h3>
+                    {canRefund(searchResult.status) ? 'Order Found — Eligible for Refund' : 'Order Found — Not Eligible'}
+                  </h3>
+                  <span className={'status-badge status-' + searchResult.status}>
+                    {searchResult.status}
+                  </span>
+                </div>
+
+                {!canRefund(searchResult.status) && (
+                  <div className="refund-status-warning">
+                    {getStatusMessage(searchResult.status)}
+                  </div>
+                )}
+
                 <div className="order-preview-details">
                   <div className="preview-row">
                     <span>Order ID:</span>
                     <span className="order-id-badge">ORD-{String(searchResult.id || searchResult.transaction_id).padStart(6, '0')}</span>
                   </div>
                   <div className="preview-row">
-                    <span>Order Number:</span>
-                    <span>{searchResult.order_number || '-'}</span>
-                  </div>
-                  <div className="preview-row">
                     <span>Order #:</span>
-                    <span className="beeper-badge">🔔 {searchResult.beeper_number || '-'}</span>
+                    <span className="beeper-badge">{searchResult.beeper_number || '-'}</span>
                   </div>
                   <div className="preview-row">
                     <span>Status:</span>
-                    <span className={`status-badge status-${searchResult.status}`}>
+                    <span className={'status-badge status-' + searchResult.status}>
                       {searchResult.status}
                     </span>
                   </div>
                   <div className="preview-row">
                     <span>Type:</span>
-                    <span>{searchResult.order_type}</span>
+                    <span>{searchResult.order_type || '-'}</span>
                   </div>
                   <div className="preview-row">
                     <span>Date:</span>
                     <span>{new Date(searchResult.created_at).toLocaleString()}</span>
                   </div>
-                  <div className="preview-row total">
-                    <span>Total:</span>
-                    <span>₱{parseFloat(searchResult.total_amount || searchResult.total || 0).toFixed(2)}</span>
+                </div>
+
+                {searchResult.items && searchResult.items.length > 0 && (
+                  <div className="refund-items-section">
+                    <h4>Order Items</h4>
+                    <div className="refund-items-list">
+                      {searchResult.items.map((item, idx) => (
+                        <div key={idx} className="refund-item-row">
+                          <span className="refund-item-name">
+                            {item.quantity}x {item.item_name || item.name}
+                          </span>
+                          <span className="refund-item-price">
+                            P{parseFloat(item.total_price || item.unit_price * item.quantity || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="order-preview-details">
+                  {searchResult.discount_amount > 0 && (
+                    <div className="preview-row">
+                      <span>Discount:</span>
+                      <span className="discount-text">-P{parseFloat(searchResult.discount_amount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="preview-row total refund-total">
+                    <span>Refund Amount:</span>
+                    <span>P{parseFloat(searchResult.total_amount || searchResult.total || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Void Button */}
-            {searchResult && (
+            {searchResult && canRefund(searchResult.status) && (
               <button 
-                className="void-submit-btn"
-                onClick={handleInitiateVoid}
+                className="refund-submit-btn"
+                onClick={handleInitiateRefund}
               >
-                🚫 Void This Order
+                Refund This Order
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* History Tab */}
       {activeTab === 'history' && (
         <>
-          {/* Search Bar - Outside table container */}
           <div className="search-box" style={{marginBottom: '20px', position: 'relative', width: 'fit-content'}}>
             <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#a1887f'}}>
               <circle cx="11" cy="11" r="8"></circle>
@@ -377,15 +397,15 @@ export default function VoidTransactions() {
             <input
               type="text"
               className="search-input"
-              placeholder="Search items..."
+              placeholder="Search refunds..."
               value={historySearch}
               onChange={(e) => setHistorySearch(e.target.value)}
             />
           </div>
 
           <div className="table-container">
-            {filteredVoidedOrders.length === 0 ? (
-              <div className="empty-state">{historySearch ? 'No voided transactions match your search' : 'No voided transactions'}</div>
+            {filteredRefundedOrders.length === 0 ? (
+              <div className="empty-state">{historySearch ? 'No refunded transactions match your search' : 'No refunded transactions'}</div>
             ) : (
               <>
                 <div className="table-scroll-wrapper">
@@ -396,16 +416,16 @@ export default function VoidTransactions() {
                         <th>Order #</th>
                         <th>Items</th>
                         <th>Date/Time</th>
-                        <th>Original Amount</th>
-                        <th>Voided By</th>
+                        <th>Refund Amount</th>
+                        <th>Refunded By</th>
                         <th>Reason</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedVoidedOrders.map(order => (
-                        <tr key={order.transaction_id || order.id}>
+                      {paginatedRefundedOrders.map(order => (
+                        <tr key={order.transaction_id || order.id} className="refunded-row">
                           <td>ORD-{String(order.order_number || order.transaction_id || order.id).padStart(6, '0')}</td>
-                          <td><strong>🔔 {order.beeper_number}</strong></td>
+                          <td><strong>{order.beeper_number}</strong></td>
                           <td className="items-cell">
                             {order.items && order.items.length > 0 ? (
                               <div className="items-list">
@@ -420,10 +440,10 @@ export default function VoidTransactions() {
                               </div>
                             ) : '-'}
                           </td>
-                          <td>{order.voided_at ? new Date(order.voided_at).toLocaleString() : '-'}</td>
-                          <td className="price-cell">₱{parseFloat(order.total_amount || order.total || 0).toFixed(2)}</td>
-                          <td>{order.voided_by_name || 'Admin'}</td>
-                          <td className="reason-cell">{order.void_reason || '-'}</td>
+                          <td>{order.refunded_at ? new Date(order.refunded_at).toLocaleString() : '-'}</td>
+                          <td className="price-cell refund-amount">P{parseFloat(order.total_amount || order.total || 0).toFixed(2)}</td>
+                          <td>{order.refunded_by_name || order.refunded_by_username || 'Admin'}</td>
+                          <td className="reason-cell">{order.refund_reason || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -433,19 +453,19 @@ export default function VoidTransactions() {
               {historyTotalPages > 1 && (
                 <div className="pagination-container">
                   <span className="pagination-info">
-                    Showing {historyStartIndex + 1}-{Math.min(historyEndIndex, filteredVoidedOrders.length)} of {filteredVoidedOrders.length}
+                    Showing {historyStartIndex + 1}-{Math.min(historyEndIndex, filteredRefundedOrders.length)} of {filteredRefundedOrders.length}
                   </span>
-                  <button className="pagination-btn" onClick={() => setHistoryPage(1)} disabled={historyPage === 1}>«</button>
-                  <button className="pagination-btn" onClick={() => setHistoryPage(historyPage - 1)} disabled={historyPage === 1}>‹</button>
+                  <button className="pagination-btn" onClick={() => setHistoryPage(1)} disabled={historyPage === 1}>&#171;</button>
+                  <button className="pagination-btn" onClick={() => setHistoryPage(historyPage - 1)} disabled={historyPage === 1}>&#8249;</button>
                   {getHistoryPageNumbers().map((page, idx) => (
                     page === '...' ? (
-                      <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                      <span key={'ellipsis-' + idx} className="pagination-ellipsis">...</span>
                     ) : (
                       <button key={page} className={historyPage === page ? 'pagination-btn active' : 'pagination-btn'} onClick={() => setHistoryPage(page)}>{page}</button>
                     )
                   ))}
-                  <button className="pagination-btn" onClick={() => setHistoryPage(historyPage + 1)} disabled={historyPage === historyTotalPages}>›</button>
-                  <button className="pagination-btn" onClick={() => setHistoryPage(historyTotalPages)} disabled={historyPage === historyTotalPages}>»</button>
+                  <button className="pagination-btn" onClick={() => setHistoryPage(historyPage + 1)} disabled={historyPage === historyTotalPages}>&#8250;</button>
+                  <button className="pagination-btn" onClick={() => setHistoryPage(historyTotalPages)} disabled={historyPage === historyTotalPages}>&#187;</button>
                 </div>
               )}
             </>
@@ -454,30 +474,31 @@ export default function VoidTransactions() {
         </>
       )}
 
-      {/* Admin Auth Modal */}
       {showAuthModal && (
-        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
-          <div className="modal auth-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>🔐 Admin Authorization Required</h2>
-              <button className="modal-close" onClick={() => setShowAuthModal(false)}>✕</button>
+        <div className="modal-overlay" onClick={() => !isProcessing && setShowAuthModal(false)}>
+          <div className="modal auth-modal refund-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header refund-modal-header">
+              <h2>Admin Authorization Required</h2>
+              <button className="modal-close" onClick={() => !isProcessing && setShowAuthModal(false)}>&#10005;</button>
             </div>
             <div className="modal-body">
-              <p className="auth-warning">
-                Voiding Order #{searchResult?.id} (Order #{searchResult?.beeper_number})
+              <p className="auth-warning refund-auth-info">
+                Refunding Order <strong>ORD-{String(searchResult?.id || searchResult?.transaction_id).padStart(6, '0')}</strong>
                 <br />
-                <strong>Amount: ₱{parseFloat(searchResult?.total || 0).toFixed(2)}</strong>
+                Order #: <strong>{searchResult?.beeper_number}</strong>
+                <br />
+                <span className="refund-amount-highlight">Refund Amount: P{parseFloat(searchResult?.total_amount || searchResult?.total || 0).toFixed(2)}</span>
               </p>
               
               <div className="form-group">
-                <label>Reason for Void <span style={{color: '#dc3545'}}>*</span></label>
+                <label>Reason for Refund <span style={{color: '#D97706'}}>*</span></label>
                 <textarea
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  placeholder="Enter the reason for voiding this order..."
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="Enter the reason for refunding this order..."
                   rows={2}
                   disabled={isProcessing}
-                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none'}}
+                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none', fontFamily: 'inherit'}}
                 />
               </div>
 
@@ -500,7 +521,7 @@ export default function VoidTransactions() {
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="Enter admin password"
                   disabled={isProcessing}
-                  onKeyPress={(e) => e.key === 'Enter' && voidReason.trim() && handleCashierConfirmVoid()}
+                  onKeyDown={(e) => e.key === 'Enter' && refundReason.trim() && adminUsername.trim() && adminPassword.trim() && handleConfirmRefund()}
                 />
               </div>
 
@@ -515,77 +536,25 @@ export default function VoidTransactions() {
                 Cancel
               </button>
               <button 
-                className="btn-danger" 
-                onClick={handleCashierConfirmVoid}
-                disabled={isProcessing || !voidReason.trim() || !adminUsername.trim() || !adminPassword.trim()}
+                className="btn-refund" 
+                onClick={handleConfirmRefund}
+                disabled={isProcessing || !refundReason.trim() || !adminUsername.trim() || !adminPassword.trim()}
               >
-                {isProcessing ? 'Processing...' : '🚫 Confirm Void'}
+                {isProcessing ? 'Processing...' : 'Confirm Refund'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Admin Confirmation Modal (No credentials needed) */}
-      {showConfirmModal && (
-        <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
-          <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>⚠️ Confirm Void Order</h2>
-              <button className="modal-close" onClick={() => setShowConfirmModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p className="auth-warning">
-                Are you sure you want to void this order?
-                <br /><br />
-                <strong>Order ORD-{String(searchResult?.id || searchResult?.transaction_id).padStart(6, '0')}</strong>
-                <br />
-                Order #: {searchResult?.beeper_number}
-                <br />
-                <strong>Amount: ₱{parseFloat(searchResult?.total || 0).toFixed(2)}</strong>
-              </p>
-              
-              <div className="form-group">
-                <label>Reason for Void <span style={{color: '#dc3545'}}>*</span></label>
-                <textarea
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  placeholder="Enter the reason for voiding this order..."
-                  rows={2}
-                  disabled={isProcessing}
-                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none'}}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button 
-                className="btn-secondary" 
-                onClick={() => setShowConfirmModal(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-danger" 
-                onClick={handleAdminConfirmVoid}
-                disabled={isProcessing || !voidReason.trim()}
-              >
-                {isProcessing ? 'Processing...' : '🚫 Confirm Void'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Alert Modal */}
       {showAlert && (
         <div className="modal-overlay" onClick={() => setShowAlert(false)}>
-          <div className={`modal alert-modal ${alertData.type}`} onClick={e => e.stopPropagation()}>
+          <div className={'modal alert-modal ' + alertData.type} onClick={e => e.stopPropagation()}>
             <div className="alert-icon">
-              {alertData.type === 'success' ? '✅' : alertData.type === 'error' ? '❌' : 'ℹ️'}
+              {alertData.type === 'success' ? String.fromCodePoint(0x2705) : alertData.type === 'error' ? String.fromCodePoint(0x274C) : String.fromCodePoint(0x2139, 0xFE0F)}
             </div>
             <h3>{alertData.title}</h3>
-            <p>{alertData.message}</p>
+            <p style={{whiteSpace: 'pre-line'}}>{alertData.message}</p>
             <button className="btn-primary" onClick={() => setShowAlert(false)}>
               OK
             </button>
