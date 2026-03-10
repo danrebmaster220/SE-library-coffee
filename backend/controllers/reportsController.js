@@ -105,7 +105,7 @@ exports.getTopProducts = async (req, res) => {
             JOIN orders o ON oi.order_id = o.order_id
             WHERE o.payment_status = 'paid'
             AND DATE(o.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY i.item_id
+            GROUP BY i.item_id, i.name, c.name
             ORDER BY total_quantity DESC
             LIMIT ?
         `, [parseInt(productLimit)]);
@@ -134,7 +134,7 @@ exports.getCategoryPerformance = async (req, res) => {
             JOIN orders o ON oi.order_id = o.order_id
             WHERE o.payment_status = 'paid'
             AND DATE(o.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY c.category_id
+            GROUP BY c.category_id, c.name
             ORDER BY total_revenue DESC
         `);
 
@@ -235,7 +235,7 @@ exports.getOrdersReport = async (req, res) => {
             LEFT JOIN discounts d ON t.discount_id = d.discount_id
             LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
             WHERE ${whereConditions.join(' AND ')}
-            GROUP BY t.transaction_id
+            GROUP BY t.transaction_id, t.order_type, t.beeper_number, t.subtotal, t.discount_amount, t.total_amount, t.cash_tendered, t.change_due, t.status, t.created_at, d.name
             ORDER BY t.created_at DESC
         `, params);
 
@@ -478,7 +478,7 @@ exports.exportExcel = async (req, res) => {
                 LEFT JOIN discounts d ON t.discount_id = d.discount_id
                 LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
                 WHERE ${whereConditions.join(' AND ')}
-                GROUP BY t.transaction_id
+                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, d.name
                 ORDER BY t.created_at DESC
             `, params);
 
