@@ -22,7 +22,9 @@ const dbConfig = {
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    connectTimeout: 10000, // 10 seconds connection timeout
+    connectTimeout: 30000,       // 30 seconds connection timeout
+    enableKeepAlive: true,       // Keep connections alive
+    keepAliveInitialDelay: 10000, // Start keep-alive after 10s
 };
 
 // Add SSL for cloud databases (Railway, PlanetScale, etc.)
@@ -54,5 +56,14 @@ pool.getConnection((err, connection) => {
         connection.release();
     }
 });
+
+// Keep-alive ping every 5 minutes to prevent Railway from dropping idle connections
+setInterval(() => {
+    pool.query('SELECT 1', (err) => {
+        if (err) {
+            console.error('⚠️  Keep-alive ping failed:', err.message);
+        }
+    });
+}, 5 * 60 * 1000);
 
 module.exports = promisePool;
