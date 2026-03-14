@@ -7,15 +7,8 @@
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
 
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
 
 --
 -- Database: `coffee_db`
@@ -28,12 +21,13 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `addons` (
-  `addon_id` int(11) NOT NULL,
+  `addon_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `price` decimal(10,2) NOT NULL,
   `category_id` int(11) DEFAULT NULL,
   `status` enum('available','unavailable') DEFAULT 'available'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`addon_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- --------------------------------------------------------
 
@@ -46,7 +40,7 @@ CREATE TABLE `beepers` (
   `status` enum('available','in-use') DEFAULT 'available',
   `transaction_id` int(11) DEFAULT NULL,
   `assigned_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `beepers`
@@ -81,11 +75,12 @@ INSERT INTO `beepers` (`beeper_number`, `status`, `transaction_id`, `assigned_at
 --
 
 CREATE TABLE `categories` (
-  `category_id` int(11) NOT NULL,
+  `category_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`category_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `categories`
@@ -112,7 +107,7 @@ INSERT INTO `categories` (`category_id`, `name`, `status`, `created_at`) VALUES
 --
 
 CREATE TABLE `customization_groups` (
-  `group_id` int(11) NOT NULL,
+  `group_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `display_order` int(11) DEFAULT 0,
   `selection_type` enum('single','multiple') DEFAULT 'single',
@@ -120,7 +115,8 @@ CREATE TABLE `customization_groups` (
   `is_required` tinyint(1) DEFAULT 0,
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`group_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `customization_groups`
@@ -143,7 +139,7 @@ INSERT INTO `customization_groups` (`group_id`, `name`, `display_order`, `select
 --
 
 CREATE TABLE `customization_options` (
-  `option_id` int(11) NOT NULL,
+  `option_id` int(11) NOT NULL AUTO_INCREMENT,
   `group_id` int(11) NOT NULL,
   `name` varchar(50) NOT NULL,
   `price` decimal(10,2) DEFAULT 0.00,
@@ -153,7 +149,7 @@ CREATE TABLE `customization_options` (
   `status` enum('available','unavailable') DEFAULT 'available',
   `created_at` datetime DEFAULT current_timestamp(),
   `is_default` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `customization_options`
@@ -189,11 +185,12 @@ INSERT INTO `customization_options` (`option_id`, `group_id`, `name`, `price`, `
 --
 
 CREATE TABLE `discounts` (
-  `discount_id` int(11) NOT NULL,
+  `discount_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `percentage` decimal(5,2) NOT NULL,
   `status` enum('active','inactive') DEFAULT 'active'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`discount_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `discounts`
@@ -210,7 +207,7 @@ INSERT INTO `discounts` (`discount_id`, `name`, `percentage`, `status`) VALUES
 --
 
 CREATE TABLE `items` (
-  `item_id` int(11) NOT NULL,
+  `item_id` int(11) NOT NULL AUTO_INCREMENT,
   `category_id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
   `description` text DEFAULT NULL,
@@ -220,7 +217,7 @@ CREATE TABLE `items` (
   `image` longtext DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `is_customizable` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `items`
@@ -255,10 +252,10 @@ INSERT INTO `items` (`item_id`, `category_id`, `name`, `description`, `price`, `
 --
 
 CREATE TABLE `item_customization_groups` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `item_id` int(11) NOT NULL,
   `group_id` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `item_customization_groups`
@@ -332,11 +329,12 @@ INSERT INTO `item_customization_groups` (`id`, `item_id`, `group_id`) VALUES
 --
 
 CREATE TABLE `library_seats` (
-  `seat_id` int(11) NOT NULL,
+  `seat_id` int(11) NOT NULL AUTO_INCREMENT,
   `table_number` int(11) NOT NULL,
   `seat_number` int(11) NOT NULL,
   `status` enum('available','occupied','maintenance') DEFAULT 'available'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`seat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `library_seats`
@@ -375,7 +373,7 @@ INSERT INTO `library_seats` (`seat_id`, `table_number`, `seat_number`, `status`)
 --
 
 CREATE TABLE `library_sessions` (
-  `session_id` int(11) NOT NULL,
+  `session_id` int(11) NOT NULL AUTO_INCREMENT,
   `seat_id` int(11) NOT NULL,
   `customer_name` varchar(100) DEFAULT NULL,
   `start_time` datetime DEFAULT current_timestamp(),
@@ -390,7 +388,7 @@ CREATE TABLE `library_sessions` (
   `voided_at` datetime DEFAULT NULL,
   `voided_by` int(11) DEFAULT NULL,
   `void_reason` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `library_sessions`
@@ -422,12 +420,12 @@ INSERT INTO `library_sessions` (`session_id`, `seat_id`, `customer_name`, `start
 --
 
 CREATE TABLE `library_tables` (
-  `table_id` int(11) NOT NULL,
+  `table_id` int(11) NOT NULL AUTO_INCREMENT,
   `table_number` int(11) NOT NULL,
   `table_name` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `library_tables`
@@ -445,7 +443,7 @@ INSERT INTO `library_tables` (`table_id`, `table_number`, `table_name`, `created
 --
 
 CREATE TABLE `orders` (
-  `order_id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL AUTO_INCREMENT,
   `beeper_number` int(11) NOT NULL,
   `total_amount` decimal(10,2) NOT NULL,
   `discount_id` int(11) DEFAULT NULL,
@@ -456,7 +454,7 @@ CREATE TABLE `orders` (
   `status` enum('pending','preparing','ready','completed','cancelled') DEFAULT 'pending',
   `payment_status` enum('unpaid','paid') DEFAULT 'unpaid',
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- --------------------------------------------------------
 
@@ -465,12 +463,12 @@ CREATE TABLE `orders` (
 --
 
 CREATE TABLE `order_items` (
-  `order_item_id` int(11) NOT NULL,
+  `order_item_id` int(11) NOT NULL AUTO_INCREMENT,
   `order_id` int(11) NOT NULL,
   `item_id` int(11) NOT NULL,
   `quantity` int(11) NOT NULL,
   `price` decimal(10,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- --------------------------------------------------------
 
@@ -479,11 +477,11 @@ CREATE TABLE `order_items` (
 --
 
 CREATE TABLE `order_item_addons` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_item_id` int(11) NOT NULL,
   `addon_id` int(11) NOT NULL,
   `price` decimal(10,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- --------------------------------------------------------
 
@@ -492,13 +490,13 @@ CREATE TABLE `order_item_addons` (
 --
 
 CREATE TABLE `order_item_customizations` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_item_id` int(11) NOT NULL,
   `option_id` int(11) NOT NULL,
   `quantity` int(11) DEFAULT 1,
   `unit_price` decimal(10,2) NOT NULL,
   `total_price` decimal(10,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- --------------------------------------------------------
 
@@ -507,12 +505,13 @@ CREATE TABLE `order_item_customizations` (
 --
 
 CREATE TABLE `quick_cash_amounts` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `amount` decimal(10,2) NOT NULL,
   `label` varchar(20) NOT NULL,
   `display_order` int(11) DEFAULT 0,
   `status` enum('active','inactive') DEFAULT 'active'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `quick_cash_amounts`
@@ -533,9 +532,10 @@ INSERT INTO `quick_cash_amounts` (`id`, `amount`, `label`, `display_order`, `sta
 --
 
 CREATE TABLE `roles` (
-  `role_id` int(11) NOT NULL,
+  `role_id` int(11) NOT NULL AUTO_INCREMENT,
   `role_name` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`role_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `roles`
@@ -554,7 +554,8 @@ INSERT INTO `roles` (`role_id`, `role_name`) VALUES
 CREATE TABLE `system_settings` (
   `setting_key` varchar(50) NOT NULL,
   `setting_value` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+,
+  PRIMARY KEY (`setting_key`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `system_settings`
@@ -572,7 +573,7 @@ INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES
 --
 
 CREATE TABLE `transactions` (
-  `transaction_id` int(11) NOT NULL,
+  `transaction_id` int(11) NOT NULL AUTO_INCREMENT,
   `order_number` varchar(20) DEFAULT NULL,
   `beeper_number` int(11) NOT NULL,
   `order_type` enum('dine-in','takeout') DEFAULT 'dine-in',
@@ -592,7 +593,7 @@ CREATE TABLE `transactions` (
   `voided_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `completed_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `transactions`
@@ -657,7 +658,7 @@ INSERT INTO `transactions` (`transaction_id`, `order_number`, `beeper_number`, `
 --
 
 CREATE TABLE `transaction_items` (
-  `transaction_item_id` int(11) NOT NULL,
+  `transaction_item_id` int(11) NOT NULL AUTO_INCREMENT,
   `transaction_id` int(11) NOT NULL,
   `item_id` int(11) NOT NULL,
   `item_name` varchar(100) NOT NULL,
@@ -666,7 +667,7 @@ CREATE TABLE `transaction_items` (
   `total_price` decimal(10,2) NOT NULL,
   `notes` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `transaction_items`
@@ -731,7 +732,7 @@ INSERT INTO `transaction_items` (`transaction_item_id`, `transaction_id`, `item_
 --
 
 CREATE TABLE `transaction_item_customizations` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `transaction_item_id` int(11) NOT NULL,
   `option_id` int(11) NOT NULL,
   `option_name` varchar(50) NOT NULL,
@@ -739,7 +740,7 @@ CREATE TABLE `transaction_item_customizations` (
   `quantity` int(11) DEFAULT 1,
   `unit_price` decimal(10,2) NOT NULL,
   `total_price` decimal(10,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `transaction_item_customizations`
@@ -889,14 +890,14 @@ INSERT INTO `transaction_item_customizations` (`id`, `transaction_item_id`, `opt
 --
 
 CREATE TABLE `users` (
-  `user_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
   `role_id` int(11) NOT NULL,
   `full_name` varchar(100) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `users`
@@ -913,14 +914,14 @@ INSERT INTO `users` (`user_id`, `role_id`, `full_name`, `username`, `password_ha
 --
 
 CREATE TABLE `void_log` (
-  `void_id` int(11) NOT NULL,
+  `void_id` int(11) NOT NULL AUTO_INCREMENT,
   `transaction_id` int(11) NOT NULL,
   `beeper_number` int(11) NOT NULL,
   `voided_by` int(11) NOT NULL,
   `void_reason` text NOT NULL,
   `original_amount` decimal(10,2) NOT NULL,
   `voided_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 --
 -- Dumping data for table `void_log`
@@ -931,305 +932,9 @@ INSERT INTO `void_log` (`void_id`, `transaction_id`, `beeper_number`, `voided_by
 (2, 36, 1, 4, 'error input', 100.00, '2025-12-04 03:30:59');
 
 --
--- Indexes for dumped tables
---
 
---
--- Indexes for table `addons`
---
-ALTER TABLE `addons`
-  ADD PRIMARY KEY (`addon_id`);
-
---
--- Indexes for table `beepers`
---
-ALTER TABLE `beepers`
-  ADD PRIMARY KEY (`beeper_number`),
-  ADD KEY `transaction_id` (`transaction_id`);
-
---
--- Indexes for table `categories`
---
-ALTER TABLE `categories`
-  ADD PRIMARY KEY (`category_id`);
-
---
--- Indexes for table `customization_groups`
---
-ALTER TABLE `customization_groups`
-  ADD PRIMARY KEY (`group_id`);
-
---
--- Indexes for table `customization_options`
---
-ALTER TABLE `customization_options`
-  ADD PRIMARY KEY (`option_id`),
-  ADD KEY `group_id` (`group_id`);
-
---
--- Indexes for table `discounts`
---
-ALTER TABLE `discounts`
-  ADD PRIMARY KEY (`discount_id`);
-
---
--- Indexes for table `items`
---
-ALTER TABLE `items`
-  ADD PRIMARY KEY (`item_id`),
-  ADD KEY `category_id` (`category_id`);
-
---
--- Indexes for table `item_customization_groups`
---
-ALTER TABLE `item_customization_groups`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_item_group` (`item_id`,`group_id`),
-  ADD KEY `group_id` (`group_id`);
-
---
--- Indexes for table `library_seats`
---
-ALTER TABLE `library_seats`
-  ADD PRIMARY KEY (`seat_id`);
-
---
--- Indexes for table `library_sessions`
---
-ALTER TABLE `library_sessions`
-  ADD PRIMARY KEY (`session_id`),
-  ADD KEY `seat_id` (`seat_id`);
-
---
--- Indexes for table `library_tables`
---
-ALTER TABLE `library_tables`
-  ADD PRIMARY KEY (`table_id`),
-  ADD UNIQUE KEY `table_number` (`table_number`);
-
---
--- Indexes for table `orders`
---
-ALTER TABLE `orders`
-  ADD PRIMARY KEY (`order_id`),
-  ADD KEY `discount_id` (`discount_id`);
-
---
--- Indexes for table `order_items`
---
-ALTER TABLE `order_items`
-  ADD PRIMARY KEY (`order_item_id`),
-  ADD KEY `order_id` (`order_id`),
-  ADD KEY `item_id` (`item_id`);
-
---
--- Indexes for table `order_item_addons`
---
-ALTER TABLE `order_item_addons`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `order_item_id` (`order_item_id`),
-  ADD KEY `addon_id` (`addon_id`);
-
---
--- Indexes for table `order_item_customizations`
---
-ALTER TABLE `order_item_customizations`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `order_item_id` (`order_item_id`),
-  ADD KEY `option_id` (`option_id`);
-
---
--- Indexes for table `quick_cash_amounts`
---
-ALTER TABLE `quick_cash_amounts`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `roles`
---
-ALTER TABLE `roles`
-  ADD PRIMARY KEY (`role_id`);
-
---
--- Indexes for table `system_settings`
---
-ALTER TABLE `system_settings`
-  ADD PRIMARY KEY (`setting_key`);
-
---
--- Indexes for table `transactions`
---
-ALTER TABLE `transactions`
-  ADD PRIMARY KEY (`transaction_id`),
-  ADD KEY `discount_id` (`discount_id`),
-  ADD KEY `processed_by` (`processed_by`),
-  ADD KEY `voided_by` (`voided_by`),
-  ADD KEY `fk_library_session` (`library_session_id`);
-
---
--- Indexes for table `transaction_items`
---
-ALTER TABLE `transaction_items`
-  ADD PRIMARY KEY (`transaction_item_id`),
-  ADD KEY `transaction_id` (`transaction_id`),
-  ADD KEY `item_id` (`item_id`);
-
---
--- Indexes for table `transaction_item_customizations`
---
-ALTER TABLE `transaction_item_customizations`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `transaction_item_id` (`transaction_item_id`),
-  ADD KEY `option_id` (`option_id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`user_id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD KEY `role_id` (`role_id`);
-
---
--- Indexes for table `void_log`
---
-ALTER TABLE `void_log`
-  ADD PRIMARY KEY (`void_id`),
-  ADD KEY `transaction_id` (`transaction_id`),
-  ADD KEY `voided_by` (`voided_by`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `addons`
---
-ALTER TABLE `addons`
-  MODIFY `addon_id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `categories`
---
-ALTER TABLE `categories`
-  MODIFY `category_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
-
---
--- AUTO_INCREMENT for table `customization_groups`
---
-ALTER TABLE `customization_groups`
-  MODIFY `group_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
-
---
--- AUTO_INCREMENT for table `customization_options`
---
-ALTER TABLE `customization_options`
-  MODIFY `option_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
-
---
--- AUTO_INCREMENT for table `discounts`
---
-ALTER TABLE `discounts`
-  MODIFY `discount_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT for table `items`
---
-ALTER TABLE `items`
-  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
-
---
--- AUTO_INCREMENT for table `item_customization_groups`
---
-ALTER TABLE `item_customization_groups`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=124;
-
---
--- AUTO_INCREMENT for table `library_seats`
---
-ALTER TABLE `library_seats`
-  MODIFY `seat_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
-
---
--- AUTO_INCREMENT for table `library_sessions`
---
-ALTER TABLE `library_sessions`
-  MODIFY `session_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
-
---
--- AUTO_INCREMENT for table `library_tables`
---
-ALTER TABLE `library_tables`
-  MODIFY `table_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `orders`
---
-ALTER TABLE `orders`
-  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `order_items`
---
-ALTER TABLE `order_items`
-  MODIFY `order_item_id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `order_item_addons`
---
-ALTER TABLE `order_item_addons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `order_item_customizations`
---
-ALTER TABLE `order_item_customizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `quick_cash_amounts`
---
-ALTER TABLE `quick_cash_amounts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
-
---
--- AUTO_INCREMENT for table `roles`
---
-ALTER TABLE `roles`
-  MODIFY `role_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `transactions`
---
-ALTER TABLE `transactions`
-  MODIFY `transaction_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
-
---
--- AUTO_INCREMENT for table `transaction_items`
---
-ALTER TABLE `transaction_items`
-  MODIFY `transaction_item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
-
---
--- AUTO_INCREMENT for table `transaction_item_customizations`
---
-ALTER TABLE `transaction_item_customizations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=136;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
-
---
--- AUTO_INCREMENT for table `void_log`
---
-ALTER TABLE `void_log`
-  MODIFY `void_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
 -- Constraints for dumped tables
+
 --
 
 --
@@ -1327,6 +1032,3 @@ ALTER TABLE `void_log`
   ADD CONSTRAINT `void_log_ibfk_2` FOREIGN KEY (`voided_by`) REFERENCES `users` (`user_id`);
 COMMIT;
 
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
