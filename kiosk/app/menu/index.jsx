@@ -8,9 +8,12 @@ import {
   ScrollView, 
   TouchableOpacity,
   Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ShoppingCart, X, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ShoppingCart, X, ChevronLeft, ChevronRight, Search } from "lucide-react-native";
+import { io } from "socket.io-client";
 
 import Header from "../../components/Header";
 import MenuContent from "../../components/MenuContent";
@@ -18,7 +21,7 @@ import OrderDetails from "../../components/OrderDetails";
 import Sidebar from "../../components/Sidebar";
 import { useResponsive } from "../../hooks/useResponsive";
 
-import { getCategories, getMenuItems } from "../../services/api";
+import { getCategories, getMenuItems, API_BASE_URL } from "../../services/api";
 
 export default function MenuPage() {
   const { customerName = "Guest", orderType = "Dine-In", libraryBooking } = useLocalSearchParams();
@@ -55,6 +58,9 @@ export default function MenuPage() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const categoryScrollRef = useRef(null);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Handle category scroll to show/hide arrows
   const handleCategoryScroll = useCallback((event) => {
@@ -67,6 +73,33 @@ export default function MenuPage() {
     // Show right arrow if not at the end (with 10px threshold)
     setShowRightArrow(scrollX < maxScrollX - 10);
   }, []);
+
+  // Listen for real-time seat updates
+  useEffect(() => {
+    if (!currentLibraryBooking) return;
+
+    const socketUrl = API_BASE_URL.replace('/api', '');
+    const socket = io(socketUrl, { transports: ['polling', 'websocket'] });
+
+    socket.on('connect', () => {
+      socket.emit('join:library');
+    });
+
+    socket.on('library:seats-update', (data) => {
+      // If our currently selected seat got occupied by someone else (not active from us!)
+      if (data && data.seat_id === currentLibraryBooking.seat_id && data.status === 'occupied') {
+        Alert.alert(
+          "Seat Reserved", 
+          "Your selected seat was just reserved by someone else. Your selection has been cleared. Please choose another seat before checking out."
+        );
+        setCurrentLibraryBooking(null);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentLibraryBooking]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -84,11 +117,14 @@ export default function MenuPage() {
     try {
       setLoading(true);
       const cats = await getCategories();
-      setCategories(cats);
+      const allCategory = { category_id: 'all', name: 'All' };
+      const catsWithAll = [allCategory, ...cats];
+      
+      setCategories(catsWithAll);
       
       // Auto-select first category
-      if (cats.length > 0) {
-        setSelectedCategory(cats[0].name);
+      if (catsWithAll.length > 0) {
+        setSelectedCategory(catsWithAll[0].name);
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -101,16 +137,20 @@ export default function MenuPage() {
     try {
       setLoadingItems(true);
       
-      // Find the category ID
-      const category = categories.find(
-        cat => cat.name === categoryName
-      );
-      
-      if (category) {
-        const items = await getMenuItems(category.category_id);
+      if (categoryName === 'All') {
+        const items = await getMenuItems();
         setMenuItems(items);
       } else {
-        setMenuItems([]);
+        const category = categories.find(
+          cat => cat.name === categoryName
+        );
+        
+        if (category) {
+          const items = await getMenuItems(category.category_id);
+          setMenuItems(items);
+        } else {
+          setMenuItems([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching items:", error);
@@ -180,6 +220,15 @@ export default function MenuPage() {
     );
   }, []);
 
+  // Filter items based on search query
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) return menuItems;
+    const query = searchQuery.toLowerCase();
+    return menuItems.filter(item => 
+      (item.name || item.item_name)?.toLowerCase().includes(query)
+    );
+  }, [menuItems, searchQuery]);
+
   // Memoized cart calculations - must be before any conditional returns
   const totalCartItems = useMemo(() => {
     return orders.reduce((sum, item) => sum + item.quantity, 0);
@@ -215,6 +264,25 @@ export default function MenuPage() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <Header customerName={customerName} orderType={orderType} isPhone={isPhone} />
         
+        {/* Search Bar for Phone */}
+        <View style={styles.phoneSearchContainer}>
+          <View style={styles.phoneSearchWrapper}>
+            <Search color="#8b6b5d" size={18} />
+            <TextInput
+              style={styles.phoneSearchInput}
+              placeholder="Search menu..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#8b6b5d"
+            />
+            {searchQuery.trim() !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+                <X color="#8b6b5d" size={16} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Horizontal Category Tabs for Phone with Scroll Indicators */}
         <View style={styles.phoneCategoryContainer}>
           {/* Left Arrow Indicator */}
@@ -268,7 +336,7 @@ export default function MenuPage() {
             </View>
           ) : (
             <MenuContent
-              items={menuItems}
+              items={filteredMenuItems}
               onAddToOrder={handleAddToOrder}
               selectedCategory={selectedCategory}
               isPhone={isPhone}
@@ -337,11 +405,32 @@ export default function MenuPage() {
       <Header customerName={customerName} orderType={orderType} isPhone={isPhone} />
 
       <View style={styles.container}>
-        <Sidebar
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          categories={categories}
-        />
+        <View style={styles.tabletSidebarContainer}>
+          {/* Tablet Search Bar */}
+          <View style={styles.tabletSearchContainer}>
+            <View style={styles.tabletSearchWrapper}>
+              <Search color="#8b6b5d" size={18} />
+              <TextInput
+                style={styles.tabletSearchInput}
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#8b6b5d"
+              />
+              {searchQuery.trim() !== '' && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+                  <X color="#8b6b5d" size={16} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <Sidebar
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            categories={categories}
+            style={styles.tabletSidebar}
+          />
+        </View>
 
         {loadingItems ? (
           <View style={styles.loadingItemsContainer}>
@@ -350,7 +439,7 @@ export default function MenuPage() {
           </View>
         ) : (
           <MenuContent
-            items={menuItems}
+            items={filteredMenuItems}
             onAddToOrder={handleAddToOrder}
             selectedCategory={selectedCategory}
             isPhone={isPhone}
@@ -536,5 +625,62 @@ const styles = StyleSheet.create({
   },
   cartModalClose: {
     padding: 8,
+  },
+  
+  // Search Bar Styles
+  phoneSearchContainer: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0d5c9",
+  },
+  phoneSearchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1EBDF",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 40,
+  },
+  phoneSearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: "#4C2B18",
+  },
+  tabletSidebarContainer: {
+    width: "25%",
+    minWidth: 200,
+    maxWidth: 250,
+    flexDirection: "column",
+  },
+  tabletSearchContainer: {
+    marginBottom: 10,
+  },
+  tabletSearchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabletSearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: "#4C2B18",
+  },
+  tabletSidebar: {
+    flex: 1,
+  },
+  clearSearchBtn: {
+    padding: 4,
   },
 });

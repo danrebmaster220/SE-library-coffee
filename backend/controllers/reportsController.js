@@ -1229,7 +1229,7 @@ exports.exportPDF = async (req, res) => {
             doc.font('Helvetica').fontSize(8).fillColor('#888');
             doc.text(
                 `Generated on ${new Date().toLocaleString('en-PH')} | Page ${i + 1} of ${pages.count}`,
-                40, 560,
+                40, 545,
                 { align: 'center', width: 760 }
             );
         }

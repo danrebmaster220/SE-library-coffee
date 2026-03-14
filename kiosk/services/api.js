@@ -109,9 +109,9 @@ export const getItemCustomizations = async (itemId) => {
 export const submitOrder = async (orderData) => {
   try {
     // Calculate subtotal from items
-    const subtotal = orderData.items.reduce((sum, item) => {
+    const subtotal = Number(orderData.items.reduce((sum, item) => {
       return sum + (item.unit_price * item.quantity);
-    }, 0);
+    }, 0).toFixed(2));
 
     // Build properly formatted order data for the backend
     const formattedOrderData = {
@@ -120,12 +120,12 @@ export const submitOrder = async (orderData) => {
         item_id: item.item_id,
         item_name: item.item_name,
         quantity: item.quantity,
-        unit_price: parseFloat(item.unit_price) || 0,
-        total_price: (parseFloat(item.unit_price) || 0) * item.quantity,
+        unit_price: Number((parseFloat(item.unit_price) || 0).toFixed(2)),
+        total_price: Number(((parseFloat(item.unit_price) || 0) * item.quantity).toFixed(2)),
         customizations: item.customizations || []
       })),
       subtotal: subtotal,
-      total_amount: orderData.total_amount || subtotal,
+      total_amount: Number((orderData.total_amount || subtotal).toFixed(2)),
       // Include library booking if present
       library_booking: orderData.library_booking || null,
     };

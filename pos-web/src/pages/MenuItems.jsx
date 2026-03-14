@@ -14,6 +14,7 @@ export default function MenuItems() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
@@ -63,6 +64,8 @@ export default function MenuItems() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         name: formData.name,
@@ -101,6 +104,8 @@ export default function MenuItems() {
     } catch (error) {
       console.error("Error saving item:", error);
       alert("Failed to save item. Please check all fields are filled correctly.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -533,8 +538,8 @@ export default function MenuItems() {
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-confirm">
-                  {editingItem ? "Save Changes" : "Add Item"}
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : (editingItem ? "Save Changes" : "Add Item")}
                 </button>
               </div>
             </form>

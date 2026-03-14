@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
 import { printOrderReceipt } from '../services/webPrinter';
@@ -394,8 +394,8 @@ export default function POS() {
       name: customizingItem.name,
       base_price: parseFloat(customizingItem.price),
       customizations,
-      customization_total: customizationTotal,
-      total_price: parseFloat(customizingItem.price) + customizationTotal,
+      customization_total: Number(customizationTotal.toFixed(2)),
+      total_price: Number((parseFloat(customizingItem.price) + customizationTotal).toFixed(2)),
       quantity: 1
     };
 
@@ -565,25 +565,26 @@ export default function POS() {
   const subtotal = useMemo(() => {
     const itemsTotal = cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
     const libraryTotal = pendingLibraryBooking ? pendingLibraryBooking.amount : 0;
-    return itemsTotal + libraryTotal;
+    return Number((itemsTotal + libraryTotal).toFixed(2));
   }, [cart, pendingLibraryBooking]);
 
   const itemsOnlyTotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
+    return Number(cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0).toFixed(2));
   }, [cart]);
 
   const discountAmount = useMemo(() => {
     if (!selectedDiscount) return 0;
-    return subtotal * (parseFloat(selectedDiscount.percentage) / 100);
+    const computedAmt = subtotal * (parseFloat(selectedDiscount.percentage) / 100);
+    return Number(computedAmt.toFixed(2));
   }, [selectedDiscount, subtotal]);
 
   const total = useMemo(() => {
-    return subtotal - discountAmount;
+    return Number((subtotal - discountAmount).toFixed(2));
   }, [subtotal, discountAmount]);
 
   const change = useMemo(() => {
     const cash = parseFloat(cashAmount) || 0;
-    return Math.max(0, cash - total);
+    return Number(Math.max(0, cash - total).toFixed(2));
   }, [cashAmount, total]);
 
   // Keep old function names for backward compatibility but use memoized values
@@ -1374,7 +1375,7 @@ export default function POS() {
                                   />
                                   <span className="chip-content">
                                     <span className="option-name">{option.name}</span>
-                                    {optPrice > 0 && <span className="option-price">+₱{optPrice.toFixed(0)}</span>}
+                                    {optPrice > 0 && <span className="option-price">+₱{optPrice.toFixed(2)}</span>}
                                   </span>
                                 </label>
                               );
@@ -1420,7 +1421,10 @@ export default function POS() {
                                   <div key={optionId} className="quantity-option">
                                     <div className="quantity-option-info">
                                       <span className="quantity-option-name">{option.name}</span>
-                                      <span className="quantity-option-price">₱{optPrice.toFixed(0)}/pump</span>
+                                      <span className="quantity-option-price">
+                                        ₱{optPrice.toFixed(2)}
+                                        {(currentAddonGroup?.name?.toLowerCase().includes('syrup') || currentAddonGroup?.name?.toLowerCase().includes('sauce')) ? '/pump' : '/qty'}
+                                      </span>
                                     </div>
                                     <div className="quantity-controls">
                                       <button 
@@ -1454,7 +1458,7 @@ export default function POS() {
                                     />
                                     <span className="addon-option-name">{option.name}</span>
                                     {optPrice > 0 && (
-                                      <span className="addon-option-price">+₱{optPrice.toFixed(0)}</span>
+                                      <span className="addon-option-price">+₱{optPrice.toFixed(2)}</span>
                                     )}
                                   </label>
                                 );

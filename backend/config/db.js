@@ -44,6 +44,13 @@ const pool = mysql.createPool(dbConfig);
 // Convert pool to allow async/await
 const promisePool = pool.promise();
 
+// Disable ONLY_FULL_GROUP_BY for TiDB compatibility
+pool.on('connection', (connection) => {
+    connection.query('SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,"ONLY_FULL_GROUP_BY",""))', (err) => {
+        if (err) console.error('Error setting sql_mode:', err.message);
+    });
+});
+
 // Test connection on startup
 pool.getConnection((err, connection) => {
     if (err) {

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from "react-native";
-import { useMemo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions, BackHandler } from "react-native";
+import { useMemo, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useResponsive } from "../hooks/useResponsive";
 
@@ -40,6 +40,15 @@ const OrderSuccess = () => {
     // Navigate back to home screen
     router.push("/");
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleContinue();
+      return true; // Prevent default behavior
+    };
+    BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>

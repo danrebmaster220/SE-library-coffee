@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { User, Clock, Plus, Minus, ArrowLeft } from "lucide-react-native";
 import { API_BASE_URL } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
+import { io } from "socket.io-client";
 
 // Pricing configuration
 const PRICING = {
@@ -45,6 +46,17 @@ export default function LibrarySeats() {
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Silent refresh (no loading spinner, no error alerts) for polling
+  const fetchSeatsSilent = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/library/seats/available`);
+      const data = await response.json();
+      setSeats(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Silent seat refresh failed:", error);
+    }
+  };
+
   useEffect(() => {
     fetchSeats();
     // Animation value from useRef is stable
@@ -55,12 +67,29 @@ export default function LibrarySeats() {
       useNativeDriver: true,
     }).start();
 
-    // Poll for seat updates every 10 seconds to keep map fresh
+    // Setup Socket.IO for real-time seat updates
+    const socketUrl = API_BASE_URL.replace('/api', '');
+    const socket = io(socketUrl, { transports: ['polling', 'websocket'] });
+
+    socket.on('connect', () => {
+      console.log("Connected to WebSocket for seat updates");
+      socket.emit('join:library');
+    });
+
+    socket.on('library:seats-update', (data) => {
+      console.log("Real-time seat update received:", data);
+      fetchSeatsSilent(); // Refresh seats immediately when any seat status changes
+    });
+
+    // Poll for seat updates every 10 seconds as a fallback
     const pollInterval = setInterval(() => {
       fetchSeatsSilent();
     }, 10000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      clearInterval(pollInterval);
+      socket.disconnect();
+    };
   }, [fadeAnim]);
 
   const fetchSeats = async () => {
@@ -78,17 +107,6 @@ export default function LibrarySeats() {
       setSeats([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Silent refresh (no loading spinner, no error alerts) for polling
-  const fetchSeatsSilent = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/library/seats/available`);
-      const data = await response.json();
-      setSeats(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Silent seat refresh failed:", error);
     }
   };
 
