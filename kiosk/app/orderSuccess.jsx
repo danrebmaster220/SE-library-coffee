@@ -38,7 +38,7 @@ const OrderSuccess = () => {
 
   const handleContinue = () => {
     // Navigate back to home screen
-    router.push("/");
+    router.replace("/");
   };
 
   useEffect(() => {

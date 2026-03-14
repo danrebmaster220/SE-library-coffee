@@ -264,25 +264,6 @@ export default function MenuPage() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <Header customerName={customerName} orderType={orderType} isPhone={isPhone} />
         
-        {/* Search Bar for Phone */}
-        <View style={styles.phoneSearchContainer}>
-          <View style={styles.phoneSearchWrapper}>
-            <Search color="#8b6b5d" size={18} />
-            <TextInput
-              style={styles.phoneSearchInput}
-              placeholder="Search menu..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#8b6b5d"
-            />
-            {searchQuery.trim() !== '' && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-                <X color="#8b6b5d" size={16} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
         {/* Horizontal Category Tabs for Phone with Scroll Indicators */}
         <View style={styles.phoneCategoryContainer}>
           {/* Left Arrow Indicator */}
@@ -325,6 +306,25 @@ export default function MenuPage() {
               <ChevronRight color="#4C2B18" size={20} />
             </View>
           )}
+        </View>
+
+        {/* Search Bar for Phone */}
+        <View style={styles.phoneSearchContainer}>
+          <View style={styles.phoneSearchWrapper}>
+            <Search color="#8b6b5d" size={18} />
+            <TextInput
+              style={styles.phoneSearchInput}
+              placeholder="Search menu..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#8b6b5d"
+            />
+            {searchQuery.trim() !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+                <X color="#8b6b5d" size={16} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Menu Content */}
@@ -406,6 +406,15 @@ export default function MenuPage() {
 
       <View style={styles.container}>
         <View style={styles.tabletSidebarContainer}>
+          <Sidebar
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            categories={categories}
+            style={styles.tabletSidebar}
+          />
+        </View>
+
+        <View style={styles.tabletMainContent}>
           {/* Tablet Search Bar */}
           <View style={styles.tabletSearchContainer}>
             <View style={styles.tabletSearchWrapper}>
@@ -424,27 +433,21 @@ export default function MenuPage() {
               )}
             </View>
           </View>
-          <Sidebar
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            categories={categories}
-            style={styles.tabletSidebar}
-          />
-        </View>
 
-        {loadingItems ? (
-          <View style={styles.loadingItemsContainer}>
-            <ActivityIndicator size="large" color="#4C2B18" />
-            <Text style={styles.loadingText}>Loading items...</Text>
-          </View>
-        ) : (
-          <MenuContent
-            items={filteredMenuItems}
-            onAddToOrder={handleAddToOrder}
-            selectedCategory={selectedCategory}
-            isPhone={isPhone}
-          />
-        )}
+          {loadingItems ? (
+            <View style={styles.loadingItemsContainer}>
+              <ActivityIndicator size="large" color="#4C2B18" />
+              <Text style={styles.loadingText}>Loading items...</Text>
+            </View>
+          ) : (
+            <MenuContent
+              items={filteredMenuItems}
+              onAddToOrder={handleAddToOrder}
+              selectedCategory={selectedCategory}
+              isPhone={isPhone}
+            />
+          )}
+        </View>
 
         <OrderDetails
           orders={orders}
@@ -679,6 +682,11 @@ const styles = StyleSheet.create({
   },
   tabletSidebar: {
     flex: 1,
+  },
+  tabletMainContent: {
+    flex: 1,
+    flexDirection: 'column',
+    paddingHorizontal: 10,
   },
   clearSearchBtn: {
     padding: 4,
