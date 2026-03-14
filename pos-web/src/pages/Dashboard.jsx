@@ -6,7 +6,7 @@ import '../styles/dashboard.css';
 export default function Dashboard() {
   const [salesPeriod, setSalesPeriod] = useState('weekly');
   const [loading, setLoading] = useState(true);
-  
+
   const [stats, setStats] = useState({
     todaySales: 0,
     totalOrders: 0,
@@ -37,11 +37,11 @@ export default function Dashboard() {
     { name: 'Library', sales: 0, color: '#DEB887' }
   ]);
 
-  useEffect(() => {                                                                                           
+  useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch all dashboard data in parallel
         const [statsRes, salesChartRes, categoryRes] = await Promise.all([
           api.get('/dashboard/stats'),
@@ -82,13 +82,13 @@ export default function Dashboard() {
           'Food': '#E67E22',        // Carrot orange
           'Library': '#3498DB'      // Bright blue
         };
-        
+
         const categories = (categoryRes.data || []).map(cat => ({
           name: cat.category,
           sales: parseFloat(cat.total_sales) || 0,
           color: categoryColors[cat.category] || '#999'
         }));
-        
+
         if (categories.length > 0) {
           setCategorySales(categories);
         }
@@ -101,7 +101,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-    
+
     // Refresh every 30 seconds
     const interval = setInterval(loadDashboardData, 30000);
     return () => clearInterval(interval);
@@ -122,10 +122,10 @@ export default function Dashboard() {
   };
 
   const { data: currentChartData, labelKey } = getChartData();
-  
+
   // Calculate max for chart scaling with smart rounding
   const rawMaxSales = Math.max(...(currentChartData.map(item => item.sales || 0)), 1);
-  
+
   // Smart rounding function for nice Y-axis values
   const getNiceMaxValue = (value) => {
     if (value <= 0) return 100;
@@ -166,7 +166,7 @@ export default function Dashboard() {
   // Format X-axis labels based on period
   const formatXAxisLabel = (item) => {
     const label = item[labelKey];
-    
+
     if (salesPeriod === 'today') {
       // For hourly data, show abbreviated format
       // Convert "8AM" or "8 AM" to just "8A" or "2P"
@@ -178,7 +178,7 @@ export default function Dashboard() {
       }
       return label;
     }
-    
+
     if (salesPeriod === 'monthly') {
       // Convert "Week 1" to "W1"
       const weekMatch = label?.match(/Week\s*(\d+)/i);
@@ -187,13 +187,13 @@ export default function Dashboard() {
       }
       return label?.replace(/Week\s*/i, 'W') || label;
     }
-    
+
     if (salesPeriod === 'yearly') {
       // Months are already short (Jan, Feb, etc.) - just return first letter on mobile
       // This will be handled via CSS skip-on-mobile class
       return label;
     }
-    
+
     // Weekly - days are already short (Mon, Tue, etc.)
     return label;
   };
@@ -204,28 +204,28 @@ export default function Dashboard() {
   // Generate SVG path for line chart
   const generateLinePath = () => {
     if (currentChartData.length === 0) return '';
-    
+
     const width = 100;
     const height = 100;
     const padding = 5;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
-    
+
     const points = currentChartData.map((item, index) => {
       const x = padding + (index / (currentChartData.length - 1 || 1)) * chartWidth;
       const y = padding + chartHeight - ((item.sales || 0) / maxSales) * chartHeight;
       return { x, y };
     });
-    
+
     // Create smooth curve path
     const linePath = points.reduce((path, point, index) => {
       if (index === 0) return `M ${point.x} ${point.y}`;
       return `${path} L ${point.x} ${point.y}`;
     }, '');
-    
+
     // Create area path (for gradient fill)
     const areaPath = `${linePath} L ${padding + chartWidth} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`;
-    
+
     return { linePath, areaPath, points };
   };
 
@@ -234,36 +234,36 @@ export default function Dashboard() {
   // Generate donut chart segments
   const generateDonutSegments = () => {
     if (totalCategorySales === 0) return [];
-    
+
     let cumulativePercent = 0;
     const segments = [];
-    
+
     categorySales.forEach((cat) => {
       const percent = (cat.sales / totalCategorySales) * 100;
       const startAngle = (cumulativePercent / 100) * 360;
       const endAngle = ((cumulativePercent + percent) / 100) * 360;
-      
+
       // SVG arc calculation
       const radius = 40;
       const innerRadius = 25;
       const centerX = 50;
       const centerY = 50;
-      
+
       const startAngleRad = (startAngle - 90) * (Math.PI / 180);
       const endAngleRad = (endAngle - 90) * (Math.PI / 180);
-      
+
       const x1 = centerX + radius * Math.cos(startAngleRad);
       const y1 = centerY + radius * Math.sin(startAngleRad);
       const x2 = centerX + radius * Math.cos(endAngleRad);
       const y2 = centerY + radius * Math.sin(endAngleRad);
-      
+
       const x3 = centerX + innerRadius * Math.cos(endAngleRad);
       const y3 = centerY + innerRadius * Math.sin(endAngleRad);
       const x4 = centerX + innerRadius * Math.cos(startAngleRad);
       const y4 = centerY + innerRadius * Math.sin(startAngleRad);
-      
+
       const largeArcFlag = percent > 50 ? 1 : 0;
-      
+
       const pathData = `
         M ${x1} ${y1}
         A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
@@ -271,7 +271,7 @@ export default function Dashboard() {
         A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4}
         Z
       `;
-      
+
       segments.push({
         path: pathData,
         color: cat.color,
@@ -279,17 +279,17 @@ export default function Dashboard() {
         percent: percent.toFixed(1),
         sales: cat.sales
       });
-      
+
       cumulativePercent += percent;
     });
-    
+
     return segments;
   };
 
   const donutSegments = generateDonutSegments();
 
   // APK download URL from latest EAS build
-  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/w1apFSXG5jYFRhDbEsffop.apk';
+  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/tmWvPJjYzNHWrutRDWQdcP.apk';
 
   if (loading) {
     return (
@@ -310,10 +310,10 @@ export default function Dashboard() {
       </div>
 
       {/* APK Download Banner */}
-      <a 
-        href={APK_DOWNLOAD_URL} 
-        target="_blank" 
-        rel="noopener noreferrer" 
+      <a
+        href={APK_DOWNLOAD_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         className="apk-download-banner"
       >
         <div className="apk-banner-marquee">
@@ -372,25 +372,25 @@ export default function Dashboard() {
           <div className="chart-header">
             <h3>Sales Overview</h3>
             <div className="period-tabs">
-              <button 
+              <button
                 className={`period-btn ${salesPeriod === 'today' ? 'active' : ''}`}
                 onClick={() => setSalesPeriod('today')}
               >
                 Today
               </button>
-              <button 
+              <button
                 className={`period-btn ${salesPeriod === 'weekly' ? 'active' : ''}`}
                 onClick={() => setSalesPeriod('weekly')}
               >
                 Weekly
               </button>
-              <button 
+              <button
                 className={`period-btn ${salesPeriod === 'monthly' ? 'active' : ''}`}
                 onClick={() => setSalesPeriod('monthly')}
               >
                 Monthly
               </button>
-              <button 
+              <button
                 className={`period-btn ${salesPeriod === 'yearly' ? 'active' : ''}`}
                 onClick={() => setSalesPeriod('yearly')}
               >
@@ -398,7 +398,7 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-          
+
           {/* Line Chart */}
           <div className="line-chart-container">
             {/* Y-axis labels */}
@@ -407,7 +407,7 @@ export default function Dashboard() {
                 <span key={index} className="y-label">{formatYAxisLabel(value)}</span>
               ))}
             </div>
-            
+
             {/* Chart area */}
             <div className="chart-area">
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="line-chart-svg">
@@ -418,59 +418,59 @@ export default function Dashboard() {
                     <stop offset="100%" stopColor="var(--caramel)" stopOpacity="0.05" />
                   </linearGradient>
                 </defs>
-                
+
                 {/* Horizontal grid lines */}
                 {[0, 25, 50, 75, 100].map((y) => (
-                  <line 
-                    key={y} 
-                    x1="0" 
-                    y1={5 + (y / 100) * 90} 
-                    x2="100" 
-                    y2={5 + (y / 100) * 90} 
-                    stroke="#eee" 
+                  <line
+                    key={y}
+                    x1="0"
+                    y1={5 + (y / 100) * 90}
+                    x2="100"
+                    y2={5 + (y / 100) * 90}
+                    stroke="#eee"
                     strokeWidth="0.2"
                   />
                 ))}
-                
+
                 {/* Area fill */}
                 {areaPath && (
-                  <path 
-                    d={areaPath} 
+                  <path
+                    d={areaPath}
                     fill="url(#areaGradient)"
                   />
                 )}
-                
+
                 {/* Line */}
                 {linePath && (
-                  <path 
-                    d={linePath} 
-                    fill="none" 
-                    stroke="var(--caramel)" 
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="var(--caramel)"
                     strokeWidth="0.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 )}
-                
+
                 {/* Data points */}
                 {points && points.map((point, index) => (
-                  <circle 
+                  <circle
                     key={index}
-                    cx={point.x} 
-                    cy={point.y} 
-                    r="0.8" 
+                    cx={point.x}
+                    cy={point.y}
+                    r="0.8"
                     fill="var(--coffee-dark)"
                     stroke="white"
                     strokeWidth="0.2"
                   />
                 ))}
               </svg>
-              
+
               {/* X-axis labels */}
               <div className="line-chart-labels">
                 {currentChartData.map((item, index) => (
-                  <span 
-                    key={index} 
+                  <span
+                    key={index}
                     className={`line-label ${(salesPeriod === 'today' || salesPeriod === 'yearly') && currentChartData.length > 8 ? 'skip-on-mobile' : ''}`}
                     data-index={index}
                   >
@@ -484,7 +484,7 @@ export default function Dashboard() {
 
         <div className="chart-card">
           <h3>Sales by Category</h3>
-          
+
           {/* Donut Chart */}
           <div className="donut-chart-container">
             <div className="donut-chart-wrapper">
@@ -506,7 +506,7 @@ export default function Dashboard() {
                 </text>
               </svg>
             </div>
-            
+
             {/* Legend */}
             <div className="donut-legend">
               {categorySales.map((cat, index) => (
