@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
 import { printOrderReceipt } from '../services/webPrinter';
+import VoidTransactionModal from '../components/VoidTransactionModal';
 import Toast from '../components/Toast';
 import '../styles/pos.css';
 
@@ -44,6 +45,9 @@ export default function POS() {
   const [itemRemovalCredentials, setItemRemovalCredentials] = useState({ username: '', password: '' });
   const [itemRemovalReason, setItemRemovalReason] = useState('');
   
+  // Bulk Void UI
+  const [showBulkVoidModal, setShowBulkVoidModal] = useState(false);
+  
   // Confirmation modal state (for POS direct orders)
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null); // { type: 'remove', itemId, itemName }
@@ -53,7 +57,7 @@ export default function POS() {
   
   // Ref for pos-container to force correct height in cashier mode
   const posContainerRef = useRef(null);
-  
+
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
 
@@ -537,7 +541,7 @@ export default function POS() {
       } else {
         showToast('Invalid admin credentials', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Authentication failed', 'error');
     }
   };
@@ -568,15 +572,31 @@ export default function POS() {
     return Number((itemsTotal + libraryTotal).toFixed(2));
   }, [cart, pendingLibraryBooking]);
 
-  const itemsOnlyTotal = useMemo(() => {
-    return Number(cart.reduce((sum, item) => sum + (item.total_price * item.quantity), 0).toFixed(2));
-  }, [cart]);
-
   const discountAmount = useMemo(() => {
     if (!selectedDiscount) return 0;
     const computedAmt = subtotal * (parseFloat(selectedDiscount.percentage) / 100);
     return Number(computedAmt.toFixed(2));
   }, [selectedDiscount, subtotal]);
+
+  const handleBulkVoidConfirm = ({ itemIds, voidLibrary }) => {
+    // Process removals based on selected item IDs
+    if (itemIds.length > 0) {
+      setCart(prev => prev.filter(item => !itemIds.includes(item.id)));
+    }
+    
+    // Process library booking void
+    if (voidLibrary && pendingLibraryBooking) {
+      // Un-reserve seat on WebSocket so it goes back to green instances
+      const socket = socketService.getSocket();
+      if (socket && pendingLibraryBooking.seat_id) {
+        socket.emit('seat:release', { seat_id: pendingLibraryBooking.seat_id });
+      }
+      setPendingLibraryBooking(null);
+    }
+    
+    showToast(`Successfully voided ${itemIds.length + (voidLibrary ? 1 : 0)} items`, 'success');
+    setShowBulkVoidModal(false);
+  };
 
   const total = useMemo(() => {
     return Number((subtotal - discountAmount).toFixed(2));
@@ -589,7 +609,6 @@ export default function POS() {
 
   // Keep old function names for backward compatibility but use memoized values
   const calculateSubtotal = useCallback(() => subtotal, [subtotal]);
-  const calculateItemsOnly = useCallback(() => itemsOnlyTotal, [itemsOnlyTotal]);
   const calculateDiscount = useCallback(() => discountAmount, [discountAmount]);
   const calculateTotal = useCallback(() => total, [total]);
   const calculateChange = useCallback(() => change, [change]);
@@ -745,16 +764,6 @@ export default function POS() {
     setPendingLibraryBooking(null);
   };
 
-  const handleStartPreparing = async (order) => {
-    try {
-      await api.put(`/pos/order/${order.id}/preparing`);
-      fetchOrders();
-    } catch (err) {
-      console.error('Failed to start preparing:', err);
-    }
-  };
-
-  
   // Load pending kiosk order into cart for payment
   const loadPendingOrder = (order) => {
     setCart([]);
@@ -805,16 +814,6 @@ export default function POS() {
       setCart(cartItems);
     }
     showToast(`Loaded order #${order.beeper_number} for payment`, 'success');
-  };
-
-  const clearPendingOrder = () => {
-    setPendingOrderId(null);
-    setPendingOrderBeeper(null);
-    setPendingLibraryBooking(null);
-    setCart([]);
-    setOrderType(null);
-    setSelectedDiscount(null);
-    setCashAmount('');
   };
 
   const handleMarkReady = async (order) => {
@@ -1115,16 +1114,14 @@ export default function POS() {
               "Current Order"
             )}
           </h2>
-          {/* Only show Clear button for POS direct orders, not for kiosk orders */}
-          {!pendingOrderId && cart.length > 0 && (
+          {/* Only show Void button for POS direct orders, not for kiosk orders */}
+          {!pendingOrderId && (cart.length > 0 || pendingLibraryBooking) && (
             <button 
-              onClick={() => {
-                setConfirmAction({ action: 'clear', itemCount: cart.length });
-                setShowConfirmModal(true);
-              }} 
+              onClick={() => setShowBulkVoidModal(true)} 
               className="btn-clear-order"
+              style={{ backgroundColor: '#e53935', color: 'white', padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
             >
-              Clear
+              Void
             </button>
           )}
         </div>
@@ -1332,12 +1329,6 @@ export default function POS() {
         const requiredGroups = customizationGroups.filter(g => g.is_required);
         const addonGroups = customizationGroups.filter(g => !g.is_required);
         const currentAddonGroup = addonGroups.find(g => (g.group_id || g.id) === activeAddonTab) || addonGroups[0];
-        
-        // Helper to get selected count for a group
-        const getSelectedCount = (groupId) => {
-          const selected = selectedCustomizations[groupId] || [];
-          return selected.length;
-        };
         
         return (
           <div className="modal-overlay">
@@ -1732,6 +1723,16 @@ export default function POS() {
           </div>
         </div>
       )}
+
+      {/* Bulk Void Transaction Modal */}
+      <VoidTransactionModal 
+        isOpen={showBulkVoidModal}
+        onClose={() => setShowBulkVoidModal(false)}
+        cartItems={cart}
+        libraryBooking={pendingLibraryBooking}
+        onConfirmVoid={handleBulkVoidConfirm}
+        isKioskOrder={!!pendingOrderId}
+      />
     </div>
   );
 }

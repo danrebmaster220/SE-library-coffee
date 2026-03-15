@@ -1,6 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api';
-import { printRefundReceipt } from '../services/webPrinter';
+import ReturnRequestModal from '../components/ReturnRequestModal';
 import '../styles/menu-management-styles/index.css';
 import '../styles/void-transactions.css';
 
@@ -10,19 +10,15 @@ export default function VoidTransactions() {
   const [activeTab, setActiveTab] = useState('refund');
   
   const [orderId, setOrderId] = useState('');
-  const [refundReason, setRefundReason] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchError, setSearchError] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
-  
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+
   
   const [showAlert, setShowAlert] = useState(false);
   const [alertData, setAlertData] = useState({ title: '', message: '', type: 'info' });
+  
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   const [historyPage, setHistoryPage] = useState(1);
   const [historySearch, setHistorySearch] = useState('');
@@ -101,91 +97,6 @@ export default function VoidTransactions() {
         return 'This order has already been refunded.';
       default:
         return '';
-    }
-  };
-
-  const handleInitiateRefund = () => {
-    if (!searchResult) {
-      displayAlert('Error', 'Please search for an order first', 'error');
-      return;
-    }
-    setRefundReason('');
-    setAdminUsername('');
-    setAdminPassword('');
-    setAuthError('');
-    setShowAuthModal(true);
-  };
-
-  const handleConfirmRefund = async () => {
-    if (!adminUsername.trim() || !adminPassword.trim()) {
-      setAuthError('Please enter admin credentials');
-      return;
-    }
-    if (!refundReason.trim()) {
-      setAuthError('Please enter a reason for the refund');
-      return;
-    }
-
-    setIsProcessing(true);
-    setAuthError('');
-
-    try {
-      const authRes = await api.post('/auth/verify-admin', {
-        username: adminUsername,
-        password: adminPassword
-      });
-
-      if (!authRes.data.success) {
-        setAuthError('Invalid admin credentials');
-        setIsProcessing(false);
-        return;
-      }
-
-      const refundRes = await api.post('/pos/transactions/' + (searchResult.id || searchResult.transaction_id) + '/refund', {
-        reason: refundReason,
-        refunded_by: authRes.data.admin_id
-      });
-
-      setShowAuthModal(false);
-
-      displayAlert(
-        'Refund Successful', 
-        'Order ORD-' + String(searchResult.id || searchResult.transaction_id).padStart(6, '0') + ' has been refunded.\nRefund Amount: P' + parseFloat(refundRes.data.refund_amount || searchResult.total_amount || searchResult.total || 0).toFixed(2), 
-        'success'
-      );
-
-      try {
-        await printRefundReceipt({
-          transaction_id: searchResult.id || searchResult.transaction_id,
-          order_number: searchResult.order_number,
-          beeper_number: searchResult.beeper_number,
-          order_type: searchResult.order_type,
-          items: searchResult.items || [],
-          subtotal: searchResult.subtotal,
-          discount_amount: searchResult.discount_amount,
-          discount_name: searchResult.discount_name,
-          total_amount: searchResult.total_amount || searchResult.total,
-          refund_reason: refundReason,
-          refunded_by: adminUsername,
-          created_at: searchResult.created_at,
-          refunded_at: new Date().toISOString()
-        });
-      } catch (printErr) {
-        console.log('Refund receipt print skipped:', printErr.message);
-      }
-
-      setSearchResult(null);
-      setOrderId('');
-      setRefundReason('');
-      fetchData();
-    } catch (error) {
-      if (error.response?.status === 401) {
-        setAuthError('Invalid admin credentials');
-      } else {
-        setAuthError(error.response?.data?.error || 'Failed to process refund');
-      }
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -378,7 +289,7 @@ export default function VoidTransactions() {
             {searchResult && canRefund(searchResult.status) && (
               <button 
                 className="refund-submit-btn"
-                onClick={handleInitiateRefund}
+                onClick={() => setShowReturnModal(true)}
               >
                 Refund This Order
               </button>
@@ -474,77 +385,19 @@ export default function VoidTransactions() {
         </>
       )}
 
-      {showAuthModal && (
-        <div className="modal-overlay" onClick={() => !isProcessing && setShowAuthModal(false)}>
-          <div className="modal auth-modal refund-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header refund-modal-header">
-              <h2>Admin Authorization Required</h2>
-              <button className="modal-close" onClick={() => !isProcessing && setShowAuthModal(false)}>&#10005;</button>
-            </div>
-            <div className="modal-body">
-              <p className="auth-warning refund-auth-info">
-                Refunding Order <strong>ORD-{String(searchResult?.id || searchResult?.transaction_id).padStart(6, '0')}</strong>
-                <br />
-                Order #: <strong>{searchResult?.beeper_number}</strong>
-                <br />
-                <span className="refund-amount-highlight">Refund Amount: P{parseFloat(searchResult?.total_amount || searchResult?.total || 0).toFixed(2)}</span>
-              </p>
-              
-              <div className="form-group">
-                <label>Reason for Refund <span style={{color: '#D97706'}}>*</span></label>
-                <textarea
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  placeholder="Enter the reason for refunding this order..."
-                  rows={2}
-                  disabled={isProcessing}
-                  style={{width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none', fontFamily: 'inherit'}}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Admin Username</label>
-                <input
-                  type="text"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  placeholder="Enter admin username"
-                  disabled={isProcessing}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Admin Password</label>
-                <input
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  disabled={isProcessing}
-                  onKeyDown={(e) => e.key === 'Enter' && refundReason.trim() && adminUsername.trim() && adminPassword.trim() && handleConfirmRefund()}
-                />
-              </div>
-
-              {authError && <div className="auth-error">{authError}</div>}
-            </div>
-            <div className="modal-footer">
-              <button 
-                className="btn-secondary" 
-                onClick={() => setShowAuthModal(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-refund" 
-                onClick={handleConfirmRefund}
-                disabled={isProcessing || !refundReason.trim() || !adminUsername.trim() || !adminPassword.trim()}
-              >
-                {isProcessing ? 'Processing...' : 'Confirm Refund'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showReturnModal && searchResult && (
+        <ReturnRequestModal
+          isOpen={showReturnModal}
+          onClose={() => setShowReturnModal(false)}
+          transactionId={searchResult.id || searchResult.transaction_id}
+          onRefundComplete={() => {
+            setShowReturnModal(false);
+            setSearchResult(null);
+            setOrderId('');
+            fetchData();
+            displayAlert('Refund Successful', 'The selected items have been successfully refunded.', 'success');
+          }}
+        />
       )}
 
       {showAlert && (
