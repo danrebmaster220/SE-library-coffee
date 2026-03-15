@@ -16,18 +16,31 @@ exports.getCategories = async (req, res) => {
 // Create Category
 exports.createCategory = async (req, res) => {
     const { name, icon, status } = req.body;
+    let connection;
 
     try {
-        const [result] = await db.query(
-            'INSERT INTO categories (name, status) VALUES (?, ?)',
-            [name, status || 'active']
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // Ensure sequential IDs (Bypasses TiDB auto-increment caching jumps)
+        const [maxResult] = await connection.query('SELECT COALESCE(MAX(category_id), 0) + 1 as nextId FROM categories FOR UPDATE');
+        const nextId = maxResult[0].nextId;
+
+        await connection.query(
+            'INSERT INTO categories (category_id, name, status) VALUES (?, ?, ?)',
+            [nextId, name, status || 'active']
         );
+        
+        await connection.commit();
         res.json({ 
             message: 'Category created successfully', 
-            category_id: result.insertId 
+            category_id: nextId 
         });
     } catch (error) {
+        if (connection) await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -99,18 +112,31 @@ exports.getItems = async (req, res) => {
 // Create Item
 exports.createItem = async (req, res) => {
     const { category_id, name, description, price, station, status, image, is_customizable } = req.body;
+    let connection;
 
     try {
-        const [result] = await db.query(
-            'INSERT INTO items (category_id, name, description, price, station, status, image, is_customizable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [category_id, name, description || null, price, station, status || 'available', image || null, is_customizable || false]
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // Ensure sequential IDs
+        const [maxResult] = await connection.query('SELECT COALESCE(MAX(item_id), 0) + 1 as nextId FROM items FOR UPDATE');
+        const nextId = maxResult[0].nextId;
+
+        await connection.query(
+            'INSERT INTO items (item_id, category_id, name, description, price, station, status, image, is_customizable) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [nextId, category_id, name, description || null, price, station, status || 'available', image || null, is_customizable || false]
         );
+        
+        await connection.commit();
         res.json({ 
             message: 'Item created successfully', 
-            item_id: result.insertId 
+            item_id: nextId 
         });
     } catch (error) {
+        if (connection) await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

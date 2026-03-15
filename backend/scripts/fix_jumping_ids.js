@@ -1,0 +1,113 @@
+const mysql = require('mysql2/promise');
+require('dotenv').config({ path: '../.env' }); // Assuming script is run from backend/scripts/
+
+async function run() {
+    console.log("🛠️ Starting ID Resequencing Script for TiDB...");
+
+    let connection;
+    try {
+        connection = await mysql.createConnection({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD || process.env.DB_PASS,
+            database: process.env.DB_NAME,
+            port: process.env.DB_PORT || 3306,
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+        });
+
+        console.log("✅ Connected to Database.");
+        
+        // Disable Foreign Key Checks temporarily
+        await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+        console.log("🔓 Disabled Foreign Key Checks.");
+
+        const tableMaps = [
+            {
+                table: 'categories',
+                idCol: 'category_id',
+                children: [{ table: 'items', fk: 'category_id' }]
+            },
+            {
+                table: 'discounts',
+                idCol: 'discount_id',
+                children: [
+                    { table: 'orders', fk: 'discount_id' },
+                    { table: 'transactions', fk: 'discount_id' }
+                ]
+            },
+            {
+                table: 'users',
+                idCol: 'user_id',
+                children: [
+                    { table: 'transactions', fk: 'processed_by' },
+                    { table: 'transactions', fk: 'voided_by' },
+                    { table: 'library_sessions', fk: 'voided_by' },
+                    { table: 'void_log', fk: 'voided_by' }
+                ]
+            },
+            {
+                table: 'items',
+                idCol: 'item_id',
+                children: [
+                    { table: 'order_items', fk: 'item_id' },
+                    { table: 'transaction_items', fk: 'item_id' },
+                    { table: 'item_customization_groups', fk: 'item_id' }
+                ]
+            }
+        ];
+
+        for (const meta of tableMaps) {
+            console.log(`\n🔍 Checking table: ${meta.table}`);
+            const [rows] = await connection.query(`SELECT ${meta.idCol} FROM ${meta.table} WHERE ${meta.idCol} >= 1000 ORDER BY ${meta.idCol} ASC`);
+            
+            if (rows.length === 0) {
+                console.log(`  ✓ No jumping IDs found in ${meta.table}.`);
+                continue;
+            }
+
+            console.log(`  ⚠️ Found ${rows.length} jumping IDs in ${meta.table}. Fixing...`);
+
+            // Get current max valid ID
+            const [maxRows] = await connection.query(`SELECT MAX(${meta.idCol}) as maxId FROM ${meta.table} WHERE ${meta.idCol} < 1000`);
+            let nextValidId = (maxRows[0].maxId || 0) + 1;
+
+            for (const row of rows) {
+                const oldId = row[meta.idCol];
+                const newId = nextValidId++;
+                
+                // Update parent row
+                await connection.query(`UPDATE ${meta.table} SET ${meta.idCol} = ? WHERE ${meta.idCol} = ?`, [newId, oldId]);
+                console.log(`    → Reassigned ID ${oldId} to ${newId} in ${meta.table}`);
+
+                // Update children foreign keys
+                for (const child of meta.children) {
+                    const [updateInfo] = await connection.query(`UPDATE ${child.table} SET ${child.fk} = ? WHERE ${child.fk} = ?`, [newId, oldId]);
+                    if (updateInfo.affectedRows > 0) {
+                        console.log(`      ↳ Updated ${updateInfo.affectedRows} references in ${child.table}`);
+                    }
+                }
+            }
+        }
+
+        // Re-enable Foreign Key Checks
+        await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+        console.log("\n🔒 Re-enabled Foreign Key Checks.");
+
+        console.log("🎉 ID Resequencing Complete!");
+        
+    } catch (err) {
+        console.error("❌ Error running script:", err);
+        if (connection) {
+            try {
+                await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+                console.log("🔒 Re-enabled Foreign Key Checks after error.");
+            } catch(e) {}
+        }
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+}
+
+run();

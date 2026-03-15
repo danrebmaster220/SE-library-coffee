@@ -61,12 +61,17 @@ exports.getUserById = async (req, res) => {
 
 exports.createUser = async (req, res) => {
     const { full_name, username, password, role_id, status } = req.body;
+    let connection;
 
     try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
         // Check if username exists
-        const [existing] = await db.query('SELECT user_id FROM users WHERE username = ?', [username]);
+        const [existing] = await connection.query('SELECT user_id FROM users WHERE username = ?', [username]);
         
         if (existing.length > 0) {
+            await connection.rollback();
             return res.status(400).json({ error: 'Username already exists' });
         }
 
@@ -74,19 +79,27 @@ exports.createUser = async (req, res) => {
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(password, saltRounds);
 
+        // Ensure sequential IDs (Bypasses TiDB auto-increment caching jumps)
+        const [maxResult] = await connection.query('SELECT COALESCE(MAX(user_id), 0) + 1 as nextId FROM users FOR UPDATE');
+        const nextId = maxResult[0].nextId;
+
         // Insert user
-        const [result] = await db.query(
-            'INSERT INTO users (role_id, full_name, username, password_hash, status) VALUES (?, ?, ?, ?, ?)',
-            [role_id, full_name, username, password_hash, status || 'active']
+        await connection.query(
+            'INSERT INTO users (user_id, role_id, full_name, username, password_hash, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [nextId, role_id, full_name, username, password_hash, status || 'active']
         );
 
+        await connection.commit();
         res.json({ 
             message: 'User created successfully', 
-            user_id: result.insertId 
+            user_id: nextId 
         });
 
     } catch (error) {
+        if (connection) await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

@@ -23,18 +23,31 @@ exports.getActiveDiscounts = async (req, res) => {
 // Create Discount
 exports.createDiscount = async (req, res) => {
     const { name, percentage, status } = req.body;
+    let connection;
 
     try {
-        const [result] = await db.query(
-            'INSERT INTO discounts (name, percentage, status) VALUES (?, ?, ?)',
-            [name, percentage, status || 'active']
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // Ensure sequential IDs (Bypasses TiDB auto-increment caching jumps)
+        const [maxResult] = await connection.query('SELECT COALESCE(MAX(discount_id), 0) + 1 as nextId FROM discounts FOR UPDATE');
+        const nextId = maxResult[0].nextId;
+
+        await connection.query(
+            'INSERT INTO discounts (discount_id, name, percentage, status) VALUES (?, ?, ?, ?)',
+            [nextId, name, percentage, status || 'active']
         );
+        
+        await connection.commit();
         res.json({ 
             message: 'Discount created successfully', 
-            discount_id: result.insertId 
+            discount_id: nextId 
         });
     } catch (error) {
+        if (connection) await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
