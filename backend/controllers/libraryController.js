@@ -97,7 +97,12 @@ exports.getSeats = async (req, res) => {
         
         // Inject Kiosk memory locks so Admins see them as occupied/locked
         const seatsWithLocks = seats.map(seat => {
-            if (lockedSeats && lockedSeats.has(seat.seat_id) && seat.status === 'available') {
+            const isLocked = lockedSeats && (
+                lockedSeats.has(seat.seat_id) || 
+                lockedSeats.has(String(seat.seat_id)) || 
+                lockedSeats.has(Number(seat.seat_id))
+            );
+            if (isLocked && seat.status === 'available') {
                 return { ...seat, status: 'occupied', temporary_lock: true };
             }
             return seat;
