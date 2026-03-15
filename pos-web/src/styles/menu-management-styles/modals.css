@@ -57,7 +57,6 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 25px;
-  background: linear-gradient(135deg, var(--foam) 0%, var(--cream) 100%);
   border-bottom: 1px solid var(--latte);
   border-radius: 16px 16px 0 0;
 }
