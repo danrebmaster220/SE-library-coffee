@@ -38,12 +38,17 @@ export default function LibrarySeats() {
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSeat, setSelectedSeat] = useState(null);
+  const selectedSeatRef = useRef(null);
   const [showModal, setShowModal] = useState(false);
   
   // Booking form state
   const [customerName, setCustomerName] = useState("");
   const [extensions, setExtensions] = useState(0); // Number of 30-min extensions
   
+  // Real-time locking state
+  const [lockedSeatIds, setLockedSeatIds] = useState(new Set());
+  const socketRef = useRef(null);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Silent refresh (no loading spinner, no error alerts) for polling
@@ -81,6 +86,20 @@ export default function LibrarySeats() {
       fetchSeatsSilent(); // Refresh seats immediately when any seat status changes
     });
 
+    socket.on('seat:locked', (data) => {
+      setLockedSeatIds(prev => new Set(prev).add(data.seat_id));
+    });
+
+    socket.on('seat:released', (data) => {
+      setLockedSeatIds(prev => {
+        const next = new Set(prev);
+        next.delete(data.seat_id);
+        return next;
+      });
+    });
+
+    socketRef.current = socket;
+
     // Poll for seat updates every 10 seconds as a fallback
     const pollInterval = setInterval(() => {
       fetchSeatsSilent();
@@ -88,6 +107,10 @@ export default function LibrarySeats() {
 
     return () => {
       clearInterval(pollInterval);
+      if (selectedSeatRef.current && socket) {
+        // Auto-release any seats locked by this client if they unmount
+        socket.emit('seat:release', { seat_id: selectedSeatRef.current.seat_id });
+      }
       socket.disconnect();
     };
   }, [fadeAnim]);
@@ -143,7 +166,7 @@ export default function LibrarySeats() {
       Alert.alert("Seat Occupied", "This seat is currently in use.");
       return;
     }
-    if (seat.status === "reserved") {
+    if (seat.status === "reserved" || lockedSeatIds.has(seat.seat_id)) {
       Alert.alert("Seat Reserved", "This seat is reserved by another customer.");
       return;
     }
@@ -151,23 +174,33 @@ export default function LibrarySeats() {
       Alert.alert("Under Maintenance", "This seat is currently unavailable.");
       return;
     }
+    
+    // Attempt local lock
+    if (socketRef.current) {
+      socketRef.current.emit('seat:lock', { seat_id: seat.seat_id });
+      // Listen for lock failure just in case race condition
+      socketRef.current.once('seat:lock-failed', (data) => {
+        if (data.seat_id === seat.seat_id) {
+            Alert.alert("Seat Reserved", data.message);
+            setShowModal(false);
+            setSelectedSeat(null);
+            fetchSeatsSilent();
+        }
+      });
+    }
+
     setSelectedSeat(seat);
+    selectedSeatRef.current = seat;
     setCustomerName("");
     setExtensions(0);
     setShowModal(true);
   };
 
   const getSeatStyle = (seat) => {
-    switch (seat.status) {
-      case "occupied":
-        return styles.seatOccupied;
-      case "reserved":
-        return styles.seatReserved;
-      case "maintenance":
-        return styles.seatMaintenance;
-      default:
-        return styles.seatAvailable;
-    }
+    if (seat.status === "occupied") return styles.seatOccupied;
+    if (seat.status === "reserved" || lockedSeatIds.has(seat.seat_id)) return styles.seatReserved;
+    if (seat.status === "maintenance") return styles.seatMaintenance;
+    return styles.seatAvailable;
   };
 
   const handleConfirmBooking = () => {
@@ -198,6 +231,11 @@ export default function LibrarySeats() {
   };
 
   const handleSkip = () => {
+    // Release any locked seat
+    if (selectedSeat && socketRef.current) {
+      socketRef.current.emit('seat:release', { seat_id: selectedSeat.seat_id });
+    }
+    
     // Skip library booking, go to menu without booking
     router.push({
       pathname: "/menu",
@@ -206,6 +244,10 @@ export default function LibrarySeats() {
   };
 
   const handleBack = () => {
+    // Release any locked seat
+    if (selectedSeat && socketRef.current) {
+      socketRef.current.emit('seat:release', { seat_id: selectedSeat.seat_id });
+    }
     router.back();
   };
 
@@ -321,7 +363,14 @@ export default function LibrarySeats() {
           visible={showModal}
           animationType="fade"
           transparent
-          onRequestClose={() => setShowModal(false)}
+          onRequestClose={() => {
+            if (selectedSeat && socketRef.current) {
+              socketRef.current.emit('seat:release', { seat_id: selectedSeat.seat_id });
+            }
+            setShowModal(false);
+            setSelectedSeat(null);
+            selectedSeatRef.current = null;
+          }}
         >
           <View style={[styles.modalOverlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
             <ScrollView 

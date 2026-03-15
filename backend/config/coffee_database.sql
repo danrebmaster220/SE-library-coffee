@@ -585,7 +585,7 @@ CREATE TABLE `transactions` (
   `total_amount` decimal(10,2) NOT NULL,
   `cash_tendered` decimal(10,2) DEFAULT NULL,
   `change_due` decimal(10,2) DEFAULT NULL,
-  `status` enum('pending','paid','preparing','ready','completed','voided') DEFAULT 'pending',
+  `status` enum('pending','paid','preparing','ready','completed','voided','refunded') DEFAULT 'pending',
   `paid_at` datetime DEFAULT NULL,
   `processed_by` int(11) DEFAULT NULL,
   `voided_by` int(11) DEFAULT NULL,

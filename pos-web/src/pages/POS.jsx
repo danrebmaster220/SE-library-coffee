@@ -29,7 +29,8 @@ export default function POS() {
   const [activeAddonTab, setActiveAddonTab] = useState(null); // For tabbed add-ons
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState(null);
-  const [voidReason, setVoidReason] = useState('');
+  const [voidReasonType, setVoidReasonType] = useState('');
+  const [voidOtherReason, setVoidOtherReason] = useState('');
   const [adminCredentials, setAdminCredentials] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -43,7 +44,8 @@ export default function POS() {
   const [showItemRemovalModal, setShowItemRemovalModal] = useState(false);
   const [removingItem, setRemovingItem] = useState(null); // { itemId, action: 'remove' | 'decrease', itemName }
   const [itemRemovalCredentials, setItemRemovalCredentials] = useState({ username: '', password: '' });
-  const [itemRemovalReason, setItemRemovalReason] = useState('');
+  const [itemRemovalReasonType, setItemRemovalReasonType] = useState('');
+  const [itemRemovalOtherReason, setItemRemovalOtherReason] = useState('');
   
   // Bulk Void UI
   const [showBulkVoidModal, setShowBulkVoidModal] = useState(false);
@@ -442,7 +444,8 @@ export default function POS() {
         libraryBooking: pendingLibraryBooking
       });
       setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReason('');
+      setItemRemovalReasonType('');
+      setItemRemovalOtherReason('');
       setShowItemRemovalModal(true);
     } else {
       // POS direct order - simple confirmation
@@ -460,7 +463,8 @@ export default function POS() {
       // Kiosk order - require admin auth
       setRemovingItem({ itemId: item.id, action: 'remove', name: item.name, size: item.size, quantity: item.quantity });
       setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReason('');
+      setItemRemovalReasonType('');
+      setItemRemovalOtherReason('');
       setShowItemRemovalModal(true);
     } else {
       // POS direct order - simple confirmation
@@ -475,7 +479,8 @@ export default function POS() {
       // Kiosk order - require admin auth for any decrease
       setRemovingItem({ itemId: item.id, action: 'decrease', name: item.name, size: item.size, quantity: item.quantity });
       setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReason('');
+      setItemRemovalReasonType('');
+      setItemRemovalOtherReason('');
       setShowItemRemovalModal(true);
     } else {
       // POS direct order
@@ -508,7 +513,8 @@ export default function POS() {
       showToast('Please enter admin credentials', 'warning');
       return;
     }
-    if (!itemRemovalReason) {
+    const finalReason = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
+    if (!finalReason.trim()) {
       showToast('Please select a reason', 'warning');
       return;
     }
@@ -537,7 +543,8 @@ export default function POS() {
         setShowItemRemovalModal(false);
         setRemovingItem(null);
         setItemRemovalCredentials({ username: '', password: '' });
-        setItemRemovalReason('');
+        setItemRemovalReasonType('');
+        setItemRemovalOtherReason('');
       } else {
         showToast('Invalid admin credentials', 'error');
       }
@@ -837,29 +844,34 @@ export default function POS() {
 
   const openVoidModal = (order) => {
     setVoidingOrder(order);
-    setVoidReason('');
+    setVoidReasonType('');
+    setVoidOtherReason('');
     setAdminCredentials({ username: '', password: '' });
     setShowVoidModal(true);
   };
 
   const handleVoid = async () => {
     if (!voidingOrder) return;
-    if (!voidReason.trim()) {
-      setError('Please enter a reason for voiding this order');
+    const finalReason = voidReasonType === 'Other - Please specify' ? voidOtherReason : voidReasonType;
+    if (!finalReason.trim()) {
+      setError('Please select a reason for voiding this order');
       return;
     }
     setLoading(true);
     setError(null);
 
     try {
-      const voidData = { reason: voidReason.trim() };
+      const voidData = { reason: finalReason.trim() };
       
       if (currentUser?.role === 'admin') {
         await api.post(`/pos/transactions/${voidingOrder.id}/void`, voidData);
       } else {
         const authRes = await api.post('/auth/verify-admin', adminCredentials);
         if (authRes.data.valid) {
-          await api.post(`/pos/transactions/${voidingOrder.id}/void`, voidData);
+          await api.post(`/pos/transactions/${voidingOrder.id}/void`, {
+            ...voidData,
+            adminUsername: adminCredentials.username
+          });
         } else {
           throw new Error('Invalid admin credentials');
         }
@@ -867,7 +879,8 @@ export default function POS() {
       showToast('Order voided successfully', 'success');
       setShowVoidModal(false);
       setVoidingOrder(null);
-      setVoidReason('');
+      setVoidReasonType('');
+      setVoidOtherReason('');
       setAdminCredentials({ username: '', password: '' });
       fetchOrders();
       fetchBeepers();
@@ -1486,31 +1499,52 @@ export default function POS() {
                 <p>Total: ₱{parseFloat(voidingOrder.total_amount).toFixed(2)}</p>
               </div>
               
-              <div className="void-form">
-                <label>Reason for voiding: *</label>
-                <textarea
-                  placeholder="Enter reason for voiding this order..."
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  rows={3}
-                />
+              <div style={{ width: '80%', margin: '0 auto' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for voiding: *</label>
+                <select 
+                  value={voidReasonType}
+                  onChange={(e) => setVoidReasonType(e.target.value)}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '20px' }}
+                >
+                  <option value="" disabled>Select a reason...</option>
+                  <option value="Wrong order punched">Wrong order punched</option>
+                  <option value="Customer changed mind">Customer changed mind</option>
+                  <option value="Payment failed">Payment failed</option>
+                  <option value="Test transaction">Test transaction</option>
+                  <option value="Other - Please specify">Other - Please specify</option>
+                </select>
+                
+                {voidReasonType === 'Other - Please specify' && (
+                  <input 
+                    type="text"
+                    placeholder="Enter custom reason..."
+                    value={voidOtherReason}
+                    onChange={e => setVoidOtherReason(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', marginBottom: '20px' }}
+                  />
+                )}
               </div>
               
               {currentUser?.role !== 'admin' && (
-                <div className="void-admin-auth">
-                  <p className="auth-label">Admin authorization required:</p>
-                  <input
-                    type="text"
-                    placeholder="Admin Username"
-                    value={adminCredentials.username}
-                    onChange={(e) => setAdminCredentials(prev => ({ ...prev, username: e.target.value }))}
-                  />
-                  <input
-                    type="password"
-                    placeholder="Admin Password"
-                    value={adminCredentials.password}
-                    onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
-                  />
+                <div style={{ width: '80%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                  <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization Required</h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Admin Username" 
+                      value={adminCredentials.username}
+                      onChange={e => setAdminCredentials(prev => ({ ...prev, username: e.target.value }))}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                    />
+                    <input 
+                      type="password" 
+                      placeholder="Admin Password" 
+                      value={adminCredentials.password}
+                      onChange={e => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                    />
+                  </div>
                 </div>
               )}
               {error && <div className="error-message">{error}</div>}
@@ -1604,7 +1638,8 @@ export default function POS() {
                 setShowItemRemovalModal(false);
                 setRemovingItem(null);
                 setItemRemovalCredentials({ username: '', password: '' });
-                setItemRemovalReason('');
+                setItemRemovalReasonType('');
+                setItemRemovalOtherReason('');
               }} className="modal-close">×</button>
             </div>
             <div className="modal-body">
@@ -1617,28 +1652,51 @@ export default function POS() {
                 {removingItem.action !== 'remove-library' && <span className="item-qty">× {removingItem.quantity}</span>}
               </div>
               
-              <div className="removal-form">
-                <label>Admin authorization required:</label>
-                <input 
-                  type="text" 
-                  value={itemRemovalCredentials.username}
-                  onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, username: e.target.value})}
-                  placeholder="Admin Username"
-                  autoFocus
-                />
-                <input 
-                  type="password" 
-                  value={itemRemovalCredentials.password}
-                  onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, password: e.target.value})}
-                  placeholder="Admin Password"
-                />
-                <label>Reason for modification: *</label>
-                <textarea 
-                  value={itemRemovalReason}
-                  onChange={(e) => setItemRemovalReason(e.target.value)}
-                  placeholder="Enter reason (e.g., Customer request, Item unavailable)"
-                  rows={2}
-                />
+              <div style={{ width: '90%', margin: '0 auto' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for modification: *</label>
+                <select 
+                  value={itemRemovalReasonType}
+                  onChange={(e) => setItemRemovalReasonType(e.target.value)}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: itemRemovalReasonType === 'Other - Please specify' ? '10px' : '20px' }}
+                >
+                  <option value="" disabled>Select a reason...</option>
+                  <option value="Customer request">Customer request</option>
+                  <option value="Item unavailable">Item unavailable</option>
+                  <option value="Wrong item prepared">Wrong item prepared</option>
+                  <option value="Other - Please specify">Other - Please specify</option>
+                </select>
+                
+                {itemRemovalReasonType === 'Other - Please specify' && (
+                  <input 
+                    type="text"
+                    placeholder="Enter custom reason..."
+                    value={itemRemovalOtherReason}
+                    onChange={e => setItemRemovalOtherReason(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', marginBottom: '20px' }}
+                  />
+                )}
+              </div>
+
+              <div style={{ width: '90%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization Required</h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input 
+                    type="text" 
+                    value={itemRemovalCredentials.username}
+                    onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, username: e.target.value})}
+                    placeholder="Admin Username"
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                    autoFocus
+                  />
+                  <input 
+                    type="password" 
+                    value={itemRemovalCredentials.password}
+                    onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, password: e.target.value})}
+                    placeholder="Admin Password"
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                  />
+                </div>
               </div>
             </div>
             <div className="modal-footer">
@@ -1647,7 +1705,8 @@ export default function POS() {
                   setShowItemRemovalModal(false);
                   setRemovingItem(null);
                   setItemRemovalCredentials({ username: '', password: '' });
-                  setItemRemovalReason('');
+                  setItemRemovalReasonType('');
+                  setItemRemovalOtherReason('');
                 }} 
                 className="btn-cancel"
               >

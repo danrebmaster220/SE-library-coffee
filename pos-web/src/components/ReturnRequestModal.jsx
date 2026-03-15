@@ -8,12 +8,15 @@ export default function ReturnRequestModal({
   transactionId,
   onRefundComplete
 }) {
+  const [step, setStep] = useState(1);
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
   const [refundLibrary, setRefundLibrary] = useState(false);
   
-  const [refundReason, setRefundReason] = useState('');
+  const [refundMethod, setRefundMethod] = useState(''); // 'cash' or 'item'
+  const [reasonType, setReasonType] = useState('');
+  const [otherReason, setOtherReason] = useState('');
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   
@@ -37,11 +40,13 @@ export default function ReturnRequestModal({
     if (isOpen && transactionId) {
       fetchTransactionDetails();
     } else {
-      // Reset state on close
+      setStep(1);
       setTransaction(null);
       setSelectedItemIds(new Set());
       setRefundLibrary(false);
-      setRefundReason('');
+      setRefundMethod('');
+      setReasonType('');
+      setOtherReason('');
       setAdminUsername('');
       setAdminPassword('');
       setErrorMsg('');
@@ -60,13 +65,23 @@ export default function ReturnRequestModal({
 
   const hasSelections = selectedItemIds.size > 0 || refundLibrary;
 
-  const handleConfirmRefund = async () => {
+  const handleProceed = () => {
     setErrorMsg('');
     if (!hasSelections) {
       setErrorMsg('Please select at least one item to refund.');
       return;
     }
-    if (!refundReason.trim()) {
+    if (!refundMethod) {
+      setErrorMsg('Please select a Refund Method (Cash or Item Replacement).');
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleConfirmRefund = async () => {
+    setErrorMsg('');
+    const finalReason = reasonType === 'Other - Please specify' ? otherReason : reasonType;
+    if (!finalReason.trim()) {
       setErrorMsg('Please provide a reason for the refund.');
       return;
     }
@@ -91,7 +106,8 @@ export default function ReturnRequestModal({
 
       // 2. Process Refund
       await api.post(`/pos/transactions/${transactionId}/refund`, {
-        reason: refundReason,
+        reason: finalReason,
+        refundMethod: refundMethod,
         adminUsername,
         refundedItems: Array.from(selectedItemIds),
         refundLibrary
@@ -111,127 +127,208 @@ export default function ReturnRequestModal({
 
   return (
     <div className="modal-overlay" onClick={!processing ? onClose : undefined}>
-      <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#e67e22', color: 'white' }}>
-          <h3>Process Return/Refund</h3>
-          <button onClick={onClose} className="modal-close" style={{ color: 'white' }} disabled={processing}>×</button>
+      <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
+        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+          <h3 style={{ color: '#333' }}>Process Return/Refund</h3>
+          <button onClick={onClose} className="modal-close" style={{ color: '#666' }} disabled={processing}>×</button>
         </div>
         
-        <div className="modal-body">
+        <div className="modal-body" style={{ padding: '20px' }}>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>Loading transaction details...</div>
           ) : transaction ? (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                <div><strong>Order #{transaction.beeper_number || transaction.transaction_id}</strong></div>
-                <div>{new Date(transaction.created_at).toLocaleString()}</div>
-              </div>
+              {step === 1 ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                    <div><strong>Order #{transaction.beeper_number || transaction.transaction_id}</strong></div>
+                    <div>{new Date(transaction.created_at).toLocaleString()}</div>
+                  </div>
 
-              <p style={{ marginBottom: '10px', color: '#333', fontWeight: 'bold' }}>Select Items to Refund:</p>
+                  <p style={{ marginBottom: '10px', color: '#333', fontWeight: 'bold' }}>Select Items to Refund:</p>
 
-              <div className="void-items-list" style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '10px', marginBottom: '20px' }}>
-                {transaction.library_booking && (
-                  <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: refundLibrary ? '#fff3e0' : 'transparent' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={refundLibrary} 
-                      onChange={() => setRefundLibrary(!refundLibrary)}
-                      style={{ marginRight: '15px', transform: 'scale(1.2)' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 'bold' }}>Study Area Booking</span>
-                      <div style={{ fontSize: '0.85em', color: '#666' }}>
-                        {transaction.library_booking.table_name}, Seat {transaction.library_booking.seat_number}
-                      </div>
-                    </div>
-                    <span style={{ fontWeight: 'bold' }}>₱{parseFloat(transaction.library_booking.amount || 0).toFixed(2)}</span>
-                  </label>
-                )}
-
-                {transaction.items && transaction.items.map(item => {
-                  const itemTotal = parseFloat(item.unit_price) * parseInt(item.quantity);
-                  return (
-                  <label key={item.order_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.order_item_id) ? '#fff3e0' : 'transparent' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedItemIds.has(item.order_item_id)}
-                      onChange={() => toggleItem(item.order_item_id)}
-                      style={{ marginRight: '15px', transform: 'scale(1.2)' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 'bold' }}>{item.quantity}x {item.item_name}</span>
-                      {item.customizations && item.customizations.length > 0 && (
-                        <div style={{ fontSize: '0.85em', color: '#666' }}>
-                          {item.customizations.map(c => `+ ${c.option_name}`).join(', ')}
+                  <div className="void-items-list" style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '10px', marginBottom: '20px' }}>
+                    {transaction.library_booking && (
+                      <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: refundLibrary ? '#fff3e0' : 'transparent' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={refundLibrary} 
+                          onChange={() => setRefundLibrary(!refundLibrary)}
+                          style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 'bold' }}>Study Area Booking</span>
+                          <div style={{ fontSize: '0.85em', color: '#666' }}>
+                            {transaction.library_booking.table_name}, Seat {transaction.library_booking.seat_number}
+                          </div>
                         </div>
-                      )}
+                        <span style={{ fontWeight: 'bold' }}>₱{parseFloat(transaction.library_booking.amount || 0).toFixed(2)}</span>
+                      </label>
+                    )}
+
+                    {transaction.items && transaction.items.map(item => {
+                      const itemTotal = parseFloat(item.unit_price) * parseInt(item.quantity);
+                      return (
+                      <label key={item.order_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.order_item_id) ? '#fff3e0' : 'transparent' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedItemIds.has(item.order_item_id)}
+                          onChange={() => toggleItem(item.order_item_id)}
+                          style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 'bold' }}>{item.quantity}x {item.item_name}</span>
+                          {item.customizations && item.customizations.length > 0 && (
+                            <div style={{ fontSize: '0.85em', color: '#666' }}>
+                              {item.customizations.map(c => `+ ${c.option_name}`).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{ fontWeight: 'bold' }}>₱{itemTotal.toFixed(2)}</span>
+                      </label>
+                    )})}
+                  </div>
+
+                  <div className="refund-method-section" style={{ backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                    <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>Refund Method <span style={{color:'red'}}>*</span></p>
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold', padding: '10px 15px', border: '1px solid #ccc', borderRadius: '6px', flex: 1, backgroundColor: refundMethod === 'cash' ? '#fdebd0' : 'white', borderColor: refundMethod === 'cash' ? '#e67e22' : '#ccc' }}>
+                        <input 
+                          type="radio" 
+                          name="refund-method" 
+                          value="cash"
+                          checked={refundMethod === 'cash'} 
+                          onChange={() => setRefundMethod('cash')}
+                          style={{ marginRight: '10px' }}
+                        />
+                        Cash Return
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold', padding: '10px 15px', border: '1px solid #ccc', borderRadius: '6px', flex: 1, backgroundColor: refundMethod === 'item' ? '#fdebd0' : 'white', borderColor: refundMethod === 'item' ? '#e67e22' : '#ccc' }}>
+                        <input 
+                          type="radio" 
+                          name="refund-method" 
+                          value="item"
+                          checked={refundMethod === 'item'} 
+                          onChange={() => setRefundMethod('item')}
+                          style={{ marginRight: '10px' }}
+                        />
+                        Item Replacement
+                      </label>
                     </div>
-                    <span style={{ fontWeight: 'bold' }}>₱{itemTotal.toFixed(2)}</span>
-                  </label>
-                )})}
-              </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <p style={{ marginBottom: '20px', color: '#555', fontWeight: 'bold' }}>Authorization Needed</p>
+                  
+                  <div style={{ width: '80%', marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for {refundMethod === 'cash' ? 'Refund' : 'Replacement'} <span style={{color:'red'}}>*</span></label>
+                    <select 
+                      value={reasonType}
+                      onChange={(e) => setReasonType(e.target.value)}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0' }}
+                    >
+                      <option value="" disabled>Select a reason...</option>
+                      <option value="Wrong item prepared">Wrong item prepared</option>
+                      <option value="Defective product">Defective product</option>
+                      <option value="Customer dissatisfied">Customer dissatisfied</option>
+                      <option value="Other - Please specify">Other - Please specify</option>
+                    </select>
+                    
+                    {reasonType === 'Other - Please specify' && (
+                      <input 
+                        type="text"
+                        placeholder="Enter custom reason..."
+                        value={otherReason}
+                        onChange={e => setOtherReason(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
+                      />
+                    )}
+                  </div>
 
-              {errorMsg && <div style={{ color: '#e74c3c', marginBottom: '15px', padding: '10px', backgroundColor: '#ffebee', borderRadius: '4px' }}>{errorMsg}</div>}
-
-              <div className="void-auth-section" style={{ backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#333' }}>Admin Authorization Required</h4>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Admin Username" 
-                    value={adminUsername}
-                    onChange={e => setAdminUsername(e.target.value)}
-                    style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-                  />
-                  <input 
-                    type="password" 
-                    placeholder="Admin Password" 
-                    value={adminPassword}
-                    onChange={e => setAdminPassword(e.target.value)}
-                    style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-                  />
+                  <div style={{ width: '80%', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                    <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e67e22', textAlign: 'center' }}>Admin Credentials</h4>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Admin Username" 
+                        value={adminUsername}
+                        onChange={e => setAdminUsername(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Admin Password" 
+                        value={adminPassword}
+                        onChange={e => setAdminPassword(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="void-reason-section">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>Reason for Return/Refund *</label>
-                <input 
-                  type="text"
-                  placeholder="e.g. Wrong item prepared, Defective product"
-                  value={refundReason}
-                  onChange={e => setRefundReason(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-                />
-              </div>
+              )}
             </>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: '#e74c3c' }}>Failed to load transaction.</div>
           )}
+
+          {errorMsg && <div style={{ color: '#e74c3c', marginTop: '15px', padding: '10px', backgroundColor: '#ffebee', borderRadius: '6px', textAlign: 'center', fontSize: '13px' }}>{errorMsg}</div>}
         </div>
         
-        <div className="modal-footer" style={{ borderTop: '1px solid #eee', marginTop: '15px', paddingTop: '15px' }}>
+        <div className="modal-footer" style={{ borderTop: '1px solid #eee', marginTop: '10px', paddingTop: '15px', gap: '10px' }}>
+          {step === 2 && (
+            <button 
+              onClick={() => setStep(1)} 
+              className="btn-cancel"
+              style={{ flex: '0 0 auto', padding: '10px 20px' }}
+              disabled={processing}
+            >
+              Back
+            </button>
+          )}
           <button 
             onClick={onClose} 
             className="btn-cancel"
+            style={{ flex: 1 }}
             disabled={processing}
           >
             Cancel
           </button>
-          <button 
-            onClick={handleConfirmRefund}
-            style={{ 
-              backgroundColor: hasSelections ? '#e67e22' : '#ccc', 
-              color: 'white', 
-              padding: '10px 20px', 
-              border: 'none', 
-              borderRadius: '4px', 
-              fontWeight: 'bold',
-              cursor: hasSelections && !processing ? 'pointer' : 'not-allowed'
-            }}
-            disabled={!hasSelections || processing}
-          >
-            {processing ? 'Processing...' : 'Complete Refund'}
-          </button>
+          
+          {step === 1 ? (
+            <button 
+              onClick={handleProceed}
+              style={{ 
+                flex: 1,
+                backgroundColor: hasSelections && refundMethod ? '#e67e22' : '#ccc', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                fontWeight: 'bold',
+                cursor: hasSelections && refundMethod ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!hasSelections || !refundMethod}
+            >
+              Proceed to Refund
+            </button>
+          ) : (
+            <button 
+              onClick={handleConfirmRefund}
+              style={{ 
+                flex: 1,
+                backgroundColor: '#e67e22', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                fontWeight: 'bold',
+                cursor: processing ? 'not-allowed' : 'pointer'
+              }}
+              disabled={processing}
+            >
+              {processing ? 'Processing...' : 'Complete Refund'}
+            </button>
+          )}
         </div>
       </div>
     </div>

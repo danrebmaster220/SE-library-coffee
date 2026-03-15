@@ -11,7 +11,7 @@ exports.getDashboardStats = async (req, res) => {
                 COALESCE(AVG(total_amount), 0) as avg_order_value
             FROM transactions 
             WHERE DATE(created_at) = CURDATE() 
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
         `);
 
         // Order status counts for today
@@ -23,7 +23,7 @@ exports.getDashboardStats = async (req, res) => {
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
             FROM transactions 
             WHERE DATE(created_at) = CURDATE()
-            AND status != 'voided'
+            AND status NOT IN ('voided', 'refunded')
         `);
 
         // Unique customers today (by beeper number as proxy)
@@ -31,7 +31,7 @@ exports.getDashboardStats = async (req, res) => {
             SELECT COUNT(DISTINCT beeper_number) as unique_customers
             FROM transactions 
             WHERE DATE(created_at) = CURDATE()
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
         `);
 
         // Library seats status
@@ -100,7 +100,7 @@ exports.getSalesChart = async (req, res) => {
                 COALESCE(SUM(total_amount), 0) as sales
             FROM transactions 
             WHERE DATE(created_at) = CURDATE()
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
             GROUP BY HOUR(created_at)
             ORDER BY hour ASC
         `);
@@ -123,7 +123,7 @@ exports.getSalesChart = async (req, res) => {
                 COALESCE(SUM(total_amount), 0) as sales
             FROM transactions 
             WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
             GROUP BY DAYOFWEEK(created_at)
             ORDER BY day_num ASC
         `);
@@ -147,7 +147,7 @@ exports.getSalesChart = async (req, res) => {
             FROM transactions 
             WHERE MONTH(created_at) = MONTH(CURDATE())
             AND YEAR(created_at) = YEAR(CURDATE())
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
             GROUP BY week_num
             ORDER BY week_num ASC
         `);
@@ -169,7 +169,7 @@ exports.getSalesChart = async (req, res) => {
                 COALESCE(SUM(total_amount), 0) as sales
             FROM transactions 
             WHERE YEAR(created_at) = YEAR(CURDATE())
-            AND status NOT IN ('voided', 'pending')
+            AND status NOT IN ('voided', 'pending', 'refunded')
             GROUP BY MONTH(created_at)
             ORDER BY month_num ASC
         `);
@@ -208,7 +208,7 @@ exports.getCategorySales = async (req, res) => {
             LEFT JOIN transaction_items ti ON i.item_id = ti.item_id
             LEFT JOIN transactions t ON ti.transaction_id = t.transaction_id 
                 AND DATE(t.created_at) = CURDATE()
-                AND t.status NOT IN ('voided', 'pending')
+                AND t.status NOT IN ('voided', 'pending', 'refunded')
             WHERE c.status = 'active'
             GROUP BY c.category_id, c.name
             ORDER BY total_sales DESC
@@ -219,7 +219,7 @@ exports.getCategorySales = async (req, res) => {
             SELECT COALESCE(SUM(amount_paid), 0) as total_sales
             FROM library_sessions
             WHERE DATE(start_time) = CURDATE()
-            AND status != 'voided'
+            AND status NOT IN ('voided', 'refunded')
         `);
 
         // Combine with predefined categories structure

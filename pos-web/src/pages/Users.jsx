@@ -356,7 +356,7 @@ export default function Users() {
                   onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
                   required
                 >
-                  <option value="">Select Role</option>
+                  <option value="" disabled>Select Role</option>
                   {roles.map((role) => (
                     <option key={role.role_id} value={role.role_id}>
                       {role.role_name}

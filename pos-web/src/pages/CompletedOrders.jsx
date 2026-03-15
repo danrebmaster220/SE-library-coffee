@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { printCustomerReceipt } from '../services/webPrinter';
+import ReturnRequestModal from '../components/ReturnRequestModal';
 import '../styles/menu-management-styles/index.css';
 import '../styles/orders.css';
 
@@ -8,6 +9,7 @@ export default function CompletedOrders() {
   const [completedOrders, setCompletedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(null);
+  const [refundingTransactionId, setRefundingTransactionId] = useState(null);
   
   // Search and Pagination
   const [searchTerm, setSearchTerm] = useState('');
@@ -202,6 +204,25 @@ export default function CompletedOrders() {
                         >
                           🖨️ {printing === order.transaction_id ? 'Printing...' : 'Reprint'}
                         </button>
+                        <button
+                          onClick={() => setRefundingTransactionId(order.transaction_id)}
+                          style={{
+                            background: '#e67e22',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '13px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginLeft: '8px'
+                          }}
+                        >
+                          ↩️ Refund
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -266,6 +287,16 @@ export default function CompletedOrders() {
           </div>
         </div>
       )}
+
+      {/* Return Request Modal */}
+      <ReturnRequestModal 
+        isOpen={!!refundingTransactionId}
+        onClose={() => setRefundingTransactionId(null)}
+        transactionId={refundingTransactionId}
+        onRefundComplete={() => {
+          fetchCompletedOrders(); // Refresh table
+        }}
+      />
     </div>
   );
 }
