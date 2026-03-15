@@ -91,14 +91,13 @@
 }
 
 .btn-confirm:hover {
-  background: #8b5a2b !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
 }
 
 /* Danger Button */
 .btn-danger {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef5350, #c62828);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -110,14 +109,14 @@
 }
 
 .btn-danger:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #c62828, #b71c1c);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3);
 }
 
 /* Delete Confirm Button */
 .btn-delete-confirm {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef5350, #c62828);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -129,7 +128,7 @@
 }
 
 .btn-delete-confirm:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #c62828, #b71c1c);
 }
 
 /* Icon Button */

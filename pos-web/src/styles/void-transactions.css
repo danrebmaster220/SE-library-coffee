@@ -380,7 +380,7 @@
 .void-submit-btn {
   width: 100%;
   padding: 14px;
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   border: none;
   border-radius: 12px;
   color: #fff;
@@ -395,7 +395,7 @@
 }
 
 .void-submit-btn:hover:not(:disabled) {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
 }
@@ -472,7 +472,7 @@
 
 /* Danger Button */
 .btn-danger {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
   border: none;
   padding: 14px 24px;
@@ -483,7 +483,7 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-1px);
 }
 
@@ -548,7 +548,6 @@
 }
 
 .alert-modal .btn-primary:hover {
-  background: #8b5a2b !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
 }
@@ -986,12 +985,12 @@
 
 /* Danger Button */
 .btn-danger {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
 /* Alert Modal - Updated for cream theme */
@@ -1180,7 +1179,7 @@
   display: block;
   width: 100%;
   padding: 14px 24px;
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -1193,7 +1192,7 @@
 }
 
 .refund-submit-btn:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 15px rgba(217, 119, 6, 0.3);
 }
@@ -1228,7 +1227,7 @@
 
 /* Confirm refund button in modal */
 .btn-refund {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -1239,7 +1238,7 @@
 }
 
 .btn-refund:hover:not(:disabled) {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
 }
 
 .btn-refund:disabled {

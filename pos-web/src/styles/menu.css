@@ -549,7 +549,6 @@ input.search-input::placeholder {
 }
 
 .btn-confirm:hover {
-  background: #8b5a2b !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
 }
@@ -1277,7 +1276,7 @@ input.search-input::placeholder {
   border-radius: 20px;
   font-size: 13px;
   font-weight: 600;
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
   color: #2e7d32;
   border: 1px solid #a5d6a7;
 }
@@ -1294,19 +1293,19 @@ input.search-input::placeholder {
 }
 
 .role-admin {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #fff3e0, #ffe0b2);
   color: #e65100;
   border: 1px solid #ffcc80;
 }
 
 .role-cashier {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
   color: #1565c0;
   border: 1px solid #90caf9;
 }
 
 .role-barista {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #efebe9, #d7ccc8);
   color: var(--coffee-dark);
   border: 1px solid var(--caramel);
 }
@@ -1361,7 +1360,7 @@ input.search-input::placeholder {
 }
 
 .btn-danger {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef5350, #c62828);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -1373,7 +1372,7 @@ input.search-input::placeholder {
 }
 
 .btn-danger:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #c62828, #b71c1c);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3);
 }
@@ -1652,7 +1651,7 @@ input.search-input::placeholder {
 }
 
 .btn-delete-confirm {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef5350, #c62828);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -1664,7 +1663,7 @@ input.search-input::placeholder {
 }
 
 .btn-delete-confirm:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #c62828, #b71c1c);
 }
 
 /* Form Enhancements */

@@ -355,9 +355,9 @@ export default function MenuItems() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
-              <h3 className="modal-title" style={{ color: '#fff' }}>{editingItem ? "Edit Item" : "Add New Item"}</h3>
-              <button className="modal-close" onClick={closeModal} style={{ color: '#fff' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>{editingItem ? "Edit Item" : "Add New Item"}</h3>
+              <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-row">
@@ -509,7 +509,7 @@ export default function MenuItems() {
                     <small className="form-hint">Choose which customization options apply to this item</small>
                     
                     {customizationGroups.filter(g => g.status === 'active').length > 0 && (
-                      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #6b4423eb' }}>
+                      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #eee' }}>
                         <label className="checkbox-label" style={{ fontWeight: '600', color: '#5d4037', cursor: 'pointer' }}>
                           <input
                             type="checkbox"
@@ -575,9 +575,9 @@ export default function MenuItems() {
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
-              <h3 className="modal-title" style={{ color: '#fff' }}>Delete Item</h3>
-              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#fff' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Delete Item</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">

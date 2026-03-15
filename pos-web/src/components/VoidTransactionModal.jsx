@@ -94,12 +94,12 @@ export default function VoidTransactionModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb', position: 'relative' }}>
+        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee', position: 'relative' }}>
           {step === 2 && (
             <button 
               onClick={() => setStep(1)} 
               className="modal-close" 
-              style={{ position: 'absolute', left: '15px', color: '#fff' }}
+              style={{ position: 'absolute', left: '15px', color: '#666' }}
               title="Back"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -109,7 +109,7 @@ export default function VoidTransactionModal({
             </button>
           )}
           <h3 style={{ color: '#333', margin: '0 auto' }}>Void Items</h3>
-          <button onClick={onClose} className="modal-close" style={{ color: '#fff', position: 'absolute', right: '15px' }}>×</button>
+          <button onClick={onClose} className="modal-close" style={{ color: '#666', position: 'absolute', right: '15px' }}>×</button>
         </div>
         
         <div className="modal-body" style={{ padding: '20px' }}>
@@ -129,7 +129,7 @@ export default function VoidTransactionModal({
 
               <div className="void-items-list" style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>
                 {libraryBooking && (
-                  <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #6b4423eb', cursor: 'pointer', backgroundColor: voidLibrary ? '#ffebee' : 'transparent' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: voidLibrary ? '#ffebee' : 'transparent' }}>
                     <input 
                       type="checkbox" 
                       checked={voidLibrary} 
@@ -147,7 +147,7 @@ export default function VoidTransactionModal({
                 )}
 
                 {cartItems.map(item => (
-                  <label key={item.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #6b4423eb', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.id) ? '#ffebee' : 'transparent' }}>
+                  <label key={item.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.id) ? '#ffebee' : 'transparent' }}>
                     <input 
                       type="checkbox" 
                       checked={selectedItemIds.has(item.id)}

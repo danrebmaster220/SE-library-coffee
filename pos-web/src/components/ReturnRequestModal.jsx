@@ -128,7 +128,7 @@ export default function ReturnRequestModal({
   return (
     <div className="modal-overlay" onClick={!processing ? onClose : undefined}>
       <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
           <h3 style={{ color: '#333' }}>Process Return/Refund</h3>
           <button onClick={onClose} className="modal-close" style={{ color: '#666' }} disabled={processing}>×</button>
         </div>
@@ -140,7 +140,7 @@ export default function ReturnRequestModal({
             <>
               {step === 1 ? (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color: '#666', borderBottom: '1px solid #6b4423eb', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
                     <div><strong>Order #{transaction.beeper_number || transaction.transaction_id}</strong></div>
                     <div>{new Date(transaction.created_at).toLocaleString()}</div>
                   </div>
@@ -149,7 +149,7 @@ export default function ReturnRequestModal({
 
                   <div className="void-items-list" style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '10px', marginBottom: '20px' }}>
                     {transaction.library_booking && (
-                      <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #6b4423eb', cursor: 'pointer', backgroundColor: refundLibrary ? '#fff3e0' : 'transparent' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: refundLibrary ? '#fff3e0' : 'transparent' }}>
                         <input 
                           type="checkbox" 
                           checked={refundLibrary} 
@@ -169,7 +169,7 @@ export default function ReturnRequestModal({
                     {transaction.items && transaction.items.map(item => {
                       const itemTotal = parseFloat(item.unit_price) * parseInt(item.quantity);
                       return (
-                      <label key={item.order_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #6b4423eb', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.order_item_id) ? '#fff3e0' : 'transparent' }}>
+                      <label key={item.order_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.order_item_id) ? '#fff3e0' : 'transparent' }}>
                         <input 
                           type="checkbox" 
                           checked={selectedItemIds.has(item.order_item_id)}

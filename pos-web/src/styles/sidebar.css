@@ -274,7 +274,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #a1887f 0%, #8d6e63 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -688,12 +688,12 @@
 }
 
 .btn-confirm-logout {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
 }
 
 .btn-confirm-logout:hover {
-  background: #6b4423eb;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
 }

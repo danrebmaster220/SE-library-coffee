@@ -963,7 +963,7 @@ function VoidSessionModal(props) {
         {/* Header */}
         <div style={headerStyle}>
           <h3 style={{color: '#dc3545', margin: 0, fontSize: '18px'}}>Void Library Session</h3>
-          <button className="modal-close" onClick={onClose} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#fff', padding: '0', lineHeight: 1}}>×</button>
+          <button className="modal-close" onClick={onClose} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666', padding: '0', lineHeight: 1}}>×</button>
         </div>
 
         {/* Warning */}

@@ -303,9 +303,9 @@ export default function Users() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
-              <h3 className="modal-title" style={{ color: '#fff' }}>{editingUser ? "Edit User" : "Add New User"}</h3>
-              <button className="modal-close" onClick={closeModal} style={{ color: '#fff' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>{editingUser ? "Edit User" : "Add New User"}</h3>
+              <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -401,9 +401,9 @@ export default function Users() {
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
-              <h3 className="modal-title" style={{ color: '#fff' }}>Delete User</h3>
-              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#fff' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Delete User</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">

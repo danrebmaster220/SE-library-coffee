@@ -117,9 +117,9 @@ export default function Beepers() {
       {showConfigModal && (
         <div className="modal-overlay" onClick={closeConfigModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
-              <h3 className="modal-title" style={{ color: '#fff' }}>Configure Beepers</h3>
-              <button className="modal-close" onClick={closeConfigModal} style={{ color: '#fff' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Configure Beepers</h3>
+              <button className="modal-close" onClick={closeConfigModal} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto', textAlign: 'center' }}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
