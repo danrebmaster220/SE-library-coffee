@@ -121,7 +121,7 @@ export default function Beepers() {
               <h3 className="modal-title" style={{ color: '#333' }}>Configure Beepers</h3>
               <button className="modal-close" onClick={closeConfigModal} style={{ color: '#666' }}>×</button>
             </div>
-            <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto', textAlign: 'center' }}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Total Beeper Count (1-100)</label>
                 <input 

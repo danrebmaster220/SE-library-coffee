@@ -225,7 +225,7 @@ export default function LibraryTables() {
               <h3 className="modal-title" style={{ color: '#333' }}>Add New Table</h3>
               <button className="modal-close" onClick={() => setShowAddTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
-            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+            <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
               <div className="form-group">
                 <label>Table Name (optional):</label>
                 <input
@@ -270,7 +270,7 @@ export default function LibraryTables() {
               <h3 className="modal-title" style={{ color: '#333' }}>Edit Table</h3>
               <button className="modal-close" onClick={() => setShowEditTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
-            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+            <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
               <div className="form-group">
                 <label>Table Name:</label>
                 <input
@@ -312,7 +312,7 @@ export default function LibraryTables() {
               <h3 className="modal-title" style={{ color: '#ef4444' }}>⚠️ Remove Table</h3>
               <button className="modal-close" onClick={() => setShowDeleteModal(false)} style={{ color: '#666' }}>×</button>
             </div>
-            <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto', textAlign: 'center' }}>
               <p>Are you sure you want to remove <strong>{selectedTable.table_name || `Table ${selectedTable.table_number}`}</strong>?</p>
               <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
               
@@ -337,7 +337,7 @@ export default function LibraryTables() {
               <h3 className="modal-title" style={{ color: '#333' }}>⚙️ Quick Configure Library</h3>
               <button className="modal-close" onClick={() => setShowConfigureModal(false)} style={{ color: '#666' }}>×</button>
             </div>
-            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+            <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
               <p className="warning-text" style={{ textAlign: 'center', marginBottom: '20px' }}>
                 ⚠️ This will replace ALL existing tables and seats!
               </p>
