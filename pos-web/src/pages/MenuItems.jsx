@@ -512,6 +512,35 @@ export default function MenuItems() {
                   <div className="customization-groups-selection">
                     <label className="form-label">Select Customization Groups</label>
                     <small className="form-hint">Choose which customization options apply to this item</small>
+                    
+                    {customizationGroups.filter(g => g.status === 'active').length > 0 && (
+                      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #eee' }}>
+                        <label className="checkbox-label" style={{ fontWeight: '600', color: '#5d4037', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={
+                              customizationGroups.filter(g => g.status === 'active').length > 0 &&
+                              formData.selected_groups.length === customizationGroups.filter(g => g.status === 'active').length
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  selected_groups: customizationGroups.filter(g => g.status === 'active').map(g => g.group_id)
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  selected_groups: []
+                                });
+                              }
+                            }}
+                          />
+                          <span>Select All Groups</span>
+                        </label>
+                      </div>
+                    )}
+
                     <div className="groups-checkbox-list">
                       {customizationGroups.filter(g => g.status === 'active').map((group) => (
                         <label key={group.group_id} className="group-checkbox-item">

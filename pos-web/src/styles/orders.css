@@ -144,6 +144,7 @@
 .status-ready { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
 .status-completed { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
 .status-voided { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.status-refunded { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
 
 .order-meta {
   display: flex;

@@ -130,7 +130,7 @@ export default function Users() {
       full_name: "",
       username: "",
       password: "",
-      role_id: roles.length > 0 ? roles[0].role_id.toString() : "",
+      role_id: "",
       status: "active"
     });
     setShowModal(true);

@@ -452,6 +452,11 @@
   color: #c62828;
 }
 
+.status-badge.refunded {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
 .status-badge.active {
   background: #e3f2fd;
   color: #1976d2;
