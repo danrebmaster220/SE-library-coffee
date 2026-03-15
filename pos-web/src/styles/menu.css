@@ -162,7 +162,7 @@ input.search-input::placeholder {
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  background: linear-gradient(135deg, var(--caramel) 0%, var(--coffee-light) 100%);
+  background: #6b4423eb;
   color: white;
   border: none;
   border-radius: 10px;
@@ -175,6 +175,7 @@ input.search-input::placeholder {
 .btn-primary-action:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
+  background: #8b5a2b !important;
 }
 
 /* Table Card */
@@ -538,7 +539,7 @@ input.search-input::placeholder {
 .btn-confirm {
   flex: 1;
   padding: 14px 20px;
-  background: linear-gradient(135deg, var(--caramel) 0%, var(--coffee-light) 100%);
+  background: #6b4423eb;
   color: white;
   border: none;
   border-radius: 10px;
@@ -551,6 +552,7 @@ input.search-input::placeholder {
 .btn-confirm:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
+  background: #8b5a2b !important;
 }
 
 /* ========================================

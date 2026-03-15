@@ -1,4 +1,4 @@
-﻿/* POS Terminal Styles */
+/* POS Terminal Styles */
 .pos-container {
   display: grid;
   grid-template-columns: 250px 1fr 320px;
@@ -1610,7 +1610,7 @@
 }
 
 .beeper-modal .modal-header {
-  background: linear-gradient(135deg, #6b4423, #8b5a2b);
+  background: #6b4423eb;
   color: white;
   padding: 16px 20px;
   border-radius: 12px 12px 0 0;
