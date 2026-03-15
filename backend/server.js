@@ -152,6 +152,9 @@ app.use('/api/dashboard', dashboardRoutes);
 // Track connected print agents
 const printAgents = new Map();
 
+// Track locked library seats
+const lockedSeats = new Map();
+
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
 
