@@ -221,38 +221,47 @@ export default function LibraryTables() {
       {showAddTableModal && (
         <div className="modal-overlay" onClick={() => setShowAddTableModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <h3>Add New Table</h3>
-            <hr />
-            <div className="form-group">
-              <label>Table Name (optional):</label>
-              <input
-                type="text"
-                placeholder={`Table ${config.tables.length + 1}`}
-                value={newTableName}
-                onChange={e => setNewTableName(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Number of Seats:</label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={newTableSeats}
-                onChange={e => setNewTableSeats(e.target.value)}
-              />
-            </div>
-            <p className="modal-info">
-              This will create "{newTableName.trim() || `Table ${config.tables.length + 1}`}" with {parseInt(newTableSeats) || 0} seats.
-            </p>
-            <hr />
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => { setShowAddTableModal(false); setNewTableName(''); }}>
-                Cancel
+            <div className="modal-header">
+              <h3 className="modal-title">Add New Table</h3>
+              <button className="modal-close" onClick={() => setShowAddTableModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
-              <button className="btn-confirm" onClick={handleAddTable}>
-                ✓ Add Table
-              </button>
+            </div>
+            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+              <div className="form-group">
+                <label>Table Name (optional):</label>
+                <input
+                  type="text"
+                  placeholder={`Table ${config.tables.length + 1}`}
+                  value={newTableName}
+                  onChange={e => setNewTableName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Number of Seats:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={newTableSeats}
+                  onChange={e => setNewTableSeats(e.target.value)}
+                />
+              </div>
+              <p className="modal-info">
+                This will create "{newTableName.trim() || `Table ${config.tables.length + 1}`}" with {parseInt(newTableSeats) || 0} seats.
+              </p>
+              
+              <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <button className="btn-cancel" onClick={() => { setShowAddTableModal(false); setNewTableName(''); }}>
+                  Cancel
+                </button>
+                <button className="btn-confirm" onClick={handleAddTable}>
+                  ✓ Add Table
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -262,35 +271,44 @@ export default function LibraryTables() {
       {showEditTableModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowEditTableModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <h3>Edit Table</h3>
-            <hr />
-            <div className="form-group">
-              <label>Table Name:</label>
-              <input
-                type="text"
-                placeholder={`Table ${selectedTable.table_number}`}
-                value={editTableName}
-                onChange={e => setEditTableName(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Number of Seats:</label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={editSeatsCount}
-                onChange={e => setEditSeatsCount(e.target.value)}
-              />
-            </div>
-            <hr />
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => { setShowEditTableModal(false); setEditTableName(''); setEditSeatsCount('8'); }}>
-                Cancel
+            <div className="modal-header">
+              <h3 className="modal-title">Edit Table</h3>
+              <button className="modal-close" onClick={() => setShowEditTableModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
-              <button className="btn-confirm" onClick={handleUpdateTable}>
-                ✓ Update Table
-              </button>
+            </div>
+            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+              <div className="form-group">
+                <label>Table Name:</label>
+                <input
+                  type="text"
+                  placeholder={`Table ${selectedTable.table_number}`}
+                  value={editTableName}
+                  onChange={e => setEditTableName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Number of Seats:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={editSeatsCount}
+                  onChange={e => setEditSeatsCount(e.target.value)}
+                />
+              </div>
+              
+              <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <button className="btn-cancel" onClick={() => { setShowEditTableModal(false); setEditTableName(''); setEditSeatsCount('8'); }}>
+                  Cancel
+                </button>
+                <button className="btn-confirm" onClick={handleUpdateTable}>
+                  ✓ Update Table
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -300,18 +318,27 @@ export default function LibraryTables() {
       {showDeleteModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <h3>⚠️ Remove Table</h3>
-            <hr />
-            <p>Are you sure you want to remove <strong>{selectedTable.table_name || `Table ${selectedTable.table_number}`}</strong>?</p>
-            <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
-            <hr />
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowDeleteModal(false)}>
-                Cancel
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: '#ef4444' }}>⚠️ Remove Table</h3>
+              <button className="modal-close" onClick={() => setShowDeleteModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
-              <button className="btn-danger" onClick={handleDeleteTable}>
-                Yes, Remove Table
-              </button>
+            </div>
+            <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
+              <p>Are you sure you want to remove <strong>{selectedTable.table_name || `Table ${selectedTable.table_number}`}</strong>?</p>
+              <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
+              
+              <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <button className="btn-cancel" onClick={() => setShowDeleteModal(false)}>
+                  Cancel
+                </button>
+                <button className="btn-danger" onClick={handleDeleteTable}>
+                  Yes, Remove Table
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -321,42 +348,51 @@ export default function LibraryTables() {
       {showConfigureModal && (
         <div className="modal-overlay" onClick={() => setShowConfigureModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <h3>⚙️ Quick Configure Library</h3>
-            <hr />
-            <p className="warning-text">
-              ⚠️ This will replace ALL existing tables and seats!
-            </p>
-            <div className="form-group">
-              <label>Number of Tables:</label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={configTables}
-                onChange={e => setConfigTables(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Seats per Table:</label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={configSeatsPerTable}
-                onChange={e => setConfigSeatsPerTable(e.target.value)}
-              />
-            </div>
-            <p className="modal-info">
-              This will create {parseInt(configTables) || 0} tables × {parseInt(configSeatsPerTable) || 0} seats = <strong>{(parseInt(configTables) || 0) * (parseInt(configSeatsPerTable) || 0)} total seats</strong>
-            </p>
-            <hr />
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowConfigureModal(false)}>
-                Cancel
+            <div className="modal-header">
+              <h3 className="modal-title">⚙️ Quick Configure Library</h3>
+              <button className="modal-close" onClick={() => setShowConfigureModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
-              <button className="btn-confirm" onClick={handleConfigureAll}>
-                ✓ Apply Configuration
-              </button>
+            </div>
+            <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
+              <p className="warning-text" style={{ textAlign: 'center', marginBottom: '20px' }}>
+                ⚠️ This will replace ALL existing tables and seats!
+              </p>
+              <div className="form-group">
+                <label>Number of Tables:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={configTables}
+                  onChange={e => setConfigTables(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Seats per Table:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={configSeatsPerTable}
+                  onChange={e => setConfigSeatsPerTable(e.target.value)}
+                />
+              </div>
+              <p className="modal-info" style={{ textAlign: 'center' }}>
+                This will create {parseInt(configTables) || 0} tables × {parseInt(configSeatsPerTable) || 0} seats = <strong>{(parseInt(configTables) || 0) * (parseInt(configSeatsPerTable) || 0)} total seats</strong>
+              </p>
+              
+              <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <button className="btn-cancel" onClick={() => setShowConfigureModal(false)}>
+                  Cancel
+                </button>
+                <button className="btn-confirm" onClick={handleConfigureAll}>
+                  ✓ Apply Configuration
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -86,7 +86,30 @@
 }
 
 .modal-content form {
-  padding: 25px 30px;
+  padding: 25px;
+  width: 85%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Fix sharp corners on modals with scrollbars */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: var(--latte);
+  border-radius: 10px;
+}
+
+.modal-content::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Modal Actions */

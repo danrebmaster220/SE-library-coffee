@@ -118,12 +118,17 @@ export default function Beepers() {
         <div className="modal-overlay" onClick={closeConfigModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Configure Beepers</h2>
-              <button className="modal-close" onClick={closeConfigModal}>×</button>
+              <h3 className="modal-title">Configure Beepers</h3>
+              <button className="modal-close" onClick={closeConfigModal}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Total Beeper Count (1-100)</label>
+            <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Total Beeper Count (1-100)</label>
                 <input 
                   type="number" 
                   min="1" 
@@ -131,17 +136,19 @@ export default function Beepers() {
                   value={newBeeperCount}
                   onChange={(e) => setNewBeeperCount(e.target.value)}
                   placeholder="Enter beeper count"
+                  style={{ width: '100px', padding: '8px 12px', textAlign: 'center', borderRadius: '6px', border: '1px solid #ccc' }}
                 />
               </div>
-              <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+              <p style={{ fontSize: '13px', color: '#666', marginTop: '16px', marginBottom: '24px' }}>
                 Note: Beepers that are in use cannot be removed.
               </p>
-            </div>
-            <div className="modal-footer" style={{ justifyContent: 'center' }}>
-              <button className="btn-secondary" onClick={closeConfigModal}>Cancel</button>
-              <button className="btn-primary" onClick={handleUpdateCount} disabled={updating}>
-                {updating ? 'Updating...' : 'Update Count'}
-              </button>
+              
+              <div className="modal-actions" style={{ borderTop: '1px solid #eee', paddingTop: '20px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                <button className="btn-cancel" onClick={closeConfigModal} style={{ flex: 1 }}>Cancel</button>
+                <button className="btn-confirm" onClick={handleUpdateCount} disabled={updating} style={{ flex: 1 }}>
+                  {updating ? 'Updating...' : 'Update Count'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
