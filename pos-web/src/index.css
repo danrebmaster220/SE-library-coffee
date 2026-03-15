@@ -23,7 +23,7 @@ html {
 
 body {
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #f5f0e8 0%, #e8ddd0 100%);
+  background: #6b4423eb;
   min-height: 100vh;
   overflow-x: hidden;
 }

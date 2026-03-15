@@ -195,9 +195,9 @@ export default function MenuCategories() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-              <h3 className="modal-title" style={{ color: '#333' }}>{editingCategory ? "Edit Category" : "Add New Category"}</h3>
-              <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+              <h3 className="modal-title" style={{ color: '#fff' }}>{editingCategory ? "Edit Category" : "Add New Category"}</h3>
+              <button className="modal-close" onClick={closeModal} style={{ color: '#fff' }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -239,9 +239,9 @@ export default function MenuCategories() {
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-              <h3 className="modal-title" style={{ color: '#333' }}>Delete Category</h3>
-              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+              <h3 className="modal-title" style={{ color: '#fff' }}>Delete Category</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#fff' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">

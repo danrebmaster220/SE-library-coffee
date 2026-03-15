@@ -427,9 +427,9 @@ export default function Customizations() {
       {showGroupModal && (
         <div className="modal-overlay" onClick={closeGroupModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-              <h3 className="modal-title" style={{ color: '#333' }}>{editingGroup ? "Edit Customization Group" : "Add Customization Group"}</h3>
-              <button className="modal-close" onClick={closeGroupModal} style={{ color: '#666' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+              <h3 className="modal-title" style={{ color: '#fff' }}>{editingGroup ? "Edit Customization Group" : "Add Customization Group"}</h3>
+              <button className="modal-close" onClick={closeGroupModal} style={{ color: '#fff' }}>×</button>
             </div>
             <form onSubmit={handleGroupSubmit}>
               <div className="form-group">
@@ -520,9 +520,9 @@ export default function Customizations() {
       {showOptionModal && (
         <div className="modal-overlay" onClick={closeOptionModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-              <h3 className="modal-title" style={{ color: '#333' }}>{editingOption ? "Edit Option" : "Add New Option"}</h3>
-              <button className="modal-close" onClick={closeOptionModal} style={{ color: '#666' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+              <h3 className="modal-title" style={{ color: '#fff' }}>{editingOption ? "Edit Option" : "Add New Option"}</h3>
+              <button className="modal-close" onClick={closeOptionModal} style={{ color: '#fff' }}>×</button>
             </div>
             <form onSubmit={handleOptionSubmit}>
               <div className="form-group">
@@ -609,9 +609,9 @@ export default function Customizations() {
       {showDeleteModal && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-              <h3 className="modal-title" style={{ color: '#333' }}>Delete {deleteType === "group" ? "Group" : "Option"}</h3>
-              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
+            <div className="modal-header" style={{ backgroundColor: '#6b4423eb', borderBottom: '1px solid #6b4423eb' }}>
+              <h3 className="modal-title" style={{ color: '#fff' }}>Delete {deleteType === "group" ? "Group" : "Option"}</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#fff' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">

@@ -53,7 +53,7 @@
   border-radius: 20px;
   font-size: 13px;
   font-weight: 600;
-  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  background: #6b4423eb;
   color: #2e7d32;
   border: 1px solid #a5d6a7;
 }
@@ -70,19 +70,19 @@
 }
 
 .role-admin {
-  background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+  background: #6b4423eb;
   color: #e65100;
   border: 1px solid #ffcc80;
 }
 
 .role-cashier {
-  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  background: #6b4423eb;
   color: #1565c0;
   border: 1px solid #90caf9;
 }
 
 .role-barista {
-  background: linear-gradient(135deg, #efebe9, #d7ccc8);
+  background: #6b4423eb;
   color: var(--coffee-dark);
   border: 1px solid var(--caramel);
 }

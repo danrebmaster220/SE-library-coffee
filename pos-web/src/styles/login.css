@@ -19,7 +19,7 @@
   min-height: 100vh;
   min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
   padding: 16px;
-  background: linear-gradient(135deg, #f5f0e8 0%, #e8ddd0 100%);
+  background: #6b4423eb;
   box-sizing: border-box;
 }
 

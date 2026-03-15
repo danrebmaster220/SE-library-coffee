@@ -185,7 +185,7 @@
 /* Section Divider */
 .settings-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+  background: #6b4423eb;
   margin: 24px 0;
 }
 

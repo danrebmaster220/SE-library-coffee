@@ -216,17 +216,17 @@
 }
 
 .status-pending {
-    background: linear-gradient(135deg, #fff4e6 0%, #ffe4c4 100%);
+    background: #6b4423eb;
     color: #ff8c00;
 }
 
 .status-preparing {
-    background: linear-gradient(135deg, #e6f7ff 0%, #cceeff 100%);
+    background: #6b4423eb;
     color: #0066cc;
 }
 
 .status-complete {
-    background: linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%);
+    background: #6b4423eb;
     color: #00a000;
 }
 
@@ -542,7 +542,7 @@
 }
 
 .btn-pending {
-    background: linear-gradient(135deg, #fff4e6 0%, #ffe4c4 100%);
+    background: #6b4423eb;
     color: #ff8c00;
 }
 
@@ -552,7 +552,7 @@
 }
 
 .btn-preparing {
-    background: linear-gradient(135deg, #e6f7ff 0%, #cceeff 100%);
+    background: #6b4423eb;
     color: #0066cc;
 }
 
@@ -562,7 +562,7 @@
 }
 
 .btn-complete {
-    background: linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%);
+    background: #6b4423eb;
     color: #00a000;
 }
 
@@ -2281,7 +2281,7 @@
    ==================================== */
 .apk-download-banner {
   display: block;
-  background: linear-gradient(135deg, #3D2415 0%, #6F4E37 50%, #3D2415 100%);
+  background: #6b4423eb;
   border-radius: 10px;
   margin-bottom: 16px;
   padding: 12px 0;
