@@ -220,15 +220,10 @@ export default function LibraryTables() {
       {/* Add Table Modal */}
       {showAddTableModal && (
         <div className="modal-overlay" onClick={() => setShowAddTableModal(false)}>
-          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Add New Table</h3>
-              <button className="modal-close" onClick={() => setShowAddTableModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Add New Table</h3>
+              <button className="modal-close" onClick={() => setShowAddTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
               <div className="form-group">
@@ -270,15 +265,10 @@ export default function LibraryTables() {
       {/* Edit Table Modal (Combined Name + Seats) */}
       {showEditTableModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowEditTableModal(false)}>
-          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Edit Table</h3>
-              <button className="modal-close" onClick={() => setShowEditTableModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Edit Table</h3>
+              <button className="modal-close" onClick={() => setShowEditTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
               <div className="form-group">
@@ -317,15 +307,10 @@ export default function LibraryTables() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
-          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
               <h3 className="modal-title" style={{ color: '#ef4444' }}>⚠️ Remove Table</h3>
-              <button className="modal-close" onClick={() => setShowDeleteModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+              <button className="modal-close" onClick={() => setShowDeleteModal(false)} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
               <p>Are you sure you want to remove <strong>{selectedTable.table_name || `Table ${selectedTable.table_number}`}</strong>?</p>
@@ -347,15 +332,10 @@ export default function LibraryTables() {
       {/* Quick Configure Modal */}
       {showConfigureModal && (
         <div className="modal-overlay" onClick={() => setShowConfigureModal(false)}>
-          <div className="modal-content library-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">⚙️ Quick Configure Library</h3>
-              <button className="modal-close" onClick={() => setShowConfigureModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>⚙️ Quick Configure Library</h3>
+              <button className="modal-close" onClick={() => setShowConfigureModal(false)} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '85%', margin: '0 auto' }}>
               <p className="warning-text" style={{ textAlign: 'center', marginBottom: '20px' }}>

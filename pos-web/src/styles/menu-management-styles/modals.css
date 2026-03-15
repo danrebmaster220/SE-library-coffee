@@ -23,7 +23,7 @@
 /* Modal Content */
 .modal-content {
   background: white;
-  border-radius: 20px;
+  border-radius: 16px;
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
@@ -59,7 +59,7 @@
   padding: 20px 25px;
   background: linear-gradient(135deg, var(--foam) 0%, var(--cream) 100%);
   border-bottom: 1px solid var(--latte);
-  border-radius: 20px 20px 0 0;
+  border-radius: 16px 16px 0 0;
 }
 
 .modal-title {
@@ -99,8 +99,8 @@
 
 .modal-content::-webkit-scrollbar-track {
   background: transparent;
-  border-top-right-radius: 20px;
-  border-bottom-right-radius: 20px;
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
 
 .modal-content::-webkit-scrollbar-thumb {

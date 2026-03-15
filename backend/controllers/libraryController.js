@@ -73,6 +73,8 @@ exports.getAvailableSeatsPublic = async (req, res) => {
 
 exports.getSeats = async (req, res) => {
     try {
+        const lockedSeats = req.app.get('lockedSeats');
+        
         const [seats] = await db.query(`
             SELECT 
                 s.seat_id,
@@ -93,7 +95,15 @@ exports.getSeats = async (req, res) => {
             ORDER BY s.table_number, s.seat_number
         `);
         
-        res.json(seats);
+        // Inject Kiosk memory locks so Admins see them as occupied/locked
+        const seatsWithLocks = seats.map(seat => {
+            if (lockedSeats && lockedSeats.has(seat.seat_id) && seat.status === 'available') {
+                return { ...seat, status: 'occupied', temporary_lock: true };
+            }
+            return seat;
+        });
+
+        res.json(seatsWithLocks);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

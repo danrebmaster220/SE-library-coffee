@@ -116,15 +116,10 @@ export default function Beepers() {
       {/* Configure Beepers Modal */}
       {showConfigModal && (
         <div className="modal-overlay" onClick={closeConfigModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Configure Beepers</h3>
-              <button className="modal-close" onClick={closeConfigModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Configure Beepers</h3>
+              <button className="modal-close" onClick={closeConfigModal} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '85%', margin: '0 auto', textAlign: 'center' }}>
               <div className="form-group" style={{ marginBottom: '16px' }}>

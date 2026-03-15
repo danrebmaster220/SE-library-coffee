@@ -1,5 +1,6 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api';
+import socketService from '../services/socketService';
 import { printLibraryCheckinReceipt, printLibraryExtensionReceipt } from '../services/webPrinter';
 import Toast from '../components/Toast';
 import '../styles/library.css';
@@ -183,7 +184,29 @@ export default function LibraryTransactions() {
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    
+    const handleSeatLocked = (data) => {
+      setSeats(prev => prev.map(s => 
+        s.seat_id === data.seatId ? { ...s, status: 'occupied', temporary_lock: true } : s
+      ));
+    };
+
+    const handleSeatReleased = (data) => {
+      setSeats(prev => prev.map(s => 
+        (s.seat_id === data.seatId || s.seat_id === data.seat_id) && s.temporary_lock 
+          ? { ...s, status: 'available', temporary_lock: false } 
+          : s
+      ));
+    };
+
+    socketService.on('seat:locked', handleSeatLocked);
+    socketService.on('seat:released', handleSeatReleased);
+    
+    return () => {
+      clearInterval(interval);
+      socketService.off('seat:locked', handleSeatLocked);
+      socketService.off('seat:released', handleSeatReleased);
+    };
   }, [fetchData]);
 
   useEffect(() => {
@@ -194,16 +217,24 @@ export default function LibraryTransactions() {
 
   const handleSeatClick = (seat) => {
     setSelectedSeat(seat);
-    if (seat.status === 'available') {
+    if (seat.status === 'available' && !seat.temporary_lock) {
       setShowCheckinModal(true);
+    } else if (seat.temporary_lock) {
+      showToast('This seat is currently being booked by a Kiosk customer.', 'warning');
+      setSelectedSeat(null);
     } else if (seat.status === 'occupied') {
       const session = activeSessions.find(s => s.seat_id === seat.seat_id);
       if (session) {
         setSelectedSession(session);
         setShowSessionModal(true);
+      } else {
+        // Fallback for when session info isn't found
+        showToast('Seat is occupied but session info is missing or still synchronizing.', 'warning');
+        setSelectedSeat(null);
       }
     } else if (seat.status === 'maintenance') {
       showToast('This seat is under maintenance', 'warning');
+      setSelectedSeat(null);
     }
   };
 
@@ -438,9 +469,10 @@ export default function LibraryTransactions() {
                         else if (seat.status === 'occupied') seatClass += 'seat-occupied';
                         else seatClass += 'seat-maintenance';
                         return (
-                          <div key={seat.seat_id} className={seatClass} onClick={function() { handleSeatClick(seat); }} title={seat.status === 'occupied' ? (seat.customer_name || 'Customer') + ' - ' + (seat.elapsed_minutes || 0) + ' mins' : seat.status}>
+                          <div key={seat.seat_id} className={seatClass} onClick={function() { handleSeatClick(seat); }} title={seat.temporary_lock ? 'Being booked by Kiosk...' : seat.status === 'occupied' ? (seat.customer_name || 'Customer') + ' - ' + (seat.elapsed_minutes || 0) + ' mins' : seat.status}>
                             <span className="seat-number">{seat.seat_number}</span>
                             {seat.status === 'occupied' && seat.remaining_minutes <= 5 && seat.remaining_minutes > 0 && (<span className="warning-indicator">!</span>)}
+                            {seat.temporary_lock && <span className="warning-indicator" style={{background: 'orange', color: 'white'}}>⏰</span>}
                           </div>
                         );
                       })}

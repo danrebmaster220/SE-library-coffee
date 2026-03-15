@@ -426,15 +426,10 @@ export default function Customizations() {
       {/* Group Modal */}
       {showGroupModal && (
         <div className="modal-overlay" onClick={closeGroupModal}>
-          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{editingGroup ? "Edit Customization Group" : "Add Customization Group"}</h3>
-              <button className="modal-close" onClick={closeGroupModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>{editingGroup ? "Edit Customization Group" : "Add Customization Group"}</h3>
+              <button className="modal-close" onClick={closeGroupModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleGroupSubmit}>
               <div className="form-group">
@@ -524,15 +519,10 @@ export default function Customizations() {
       {/* Option Modal */}
       {showOptionModal && (
         <div className="modal-overlay" onClick={closeOptionModal}>
-          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{editingOption ? "Edit Option" : "Add New Option"}</h3>
-              <button className="modal-close" onClick={closeOptionModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>{editingOption ? "Edit Option" : "Add New Option"}</h3>
+              <button className="modal-close" onClick={closeOptionModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleOptionSubmit}>
               <div className="form-group">
@@ -618,15 +608,10 @@ export default function Customizations() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
-          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Delete {deleteType === "group" ? "Group" : "Option"}</h3>
-              <button className="modal-close" onClick={closeDeleteModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Delete {deleteType === "group" ? "Group" : "Option"}</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">

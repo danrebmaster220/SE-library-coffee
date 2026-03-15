@@ -354,15 +354,10 @@ export default function MenuItems() {
       {/* Add/Edit Item Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{editingItem ? "Edit Item" : "Add New Item"}</h3>
-              <button className="modal-close" onClick={closeModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>{editingItem ? "Edit Item" : "Add New Item"}</h3>
+              <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-row">
@@ -579,15 +574,10 @@ export default function MenuItems() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
-          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Delete Item</h3>
-              <button className="modal-close" onClick={closeDeleteModal}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
+            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+              <h3 className="modal-title" style={{ color: '#333' }}>Delete Item</h3>
+              <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>
             <div className="delete-modal-body">
               <div className="delete-icon">
