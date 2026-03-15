@@ -94,9 +94,22 @@ export default function VoidTransactionModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
-          <h3 style={{ color: '#333' }}>Void Items</h3>
-          <button onClick={onClose} className="modal-close" style={{ color: '#666' }}>×</button>
+        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee', position: 'relative' }}>
+          {step === 2 && (
+            <button 
+              onClick={() => setStep(1)} 
+              className="modal-close" 
+              style={{ position: 'absolute', left: '15px', color: '#666' }}
+              title="Back"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+            </button>
+          )}
+          <h3 style={{ color: '#333', margin: '0 auto' }}>Void Items</h3>
+          <button onClick={onClose} className="modal-close" style={{ color: '#666', position: 'absolute', right: '15px' }}>×</button>
         </div>
         
         <div className="modal-body" style={{ padding: '20px' }}>
@@ -215,15 +228,6 @@ export default function VoidTransactionModal({
         </div>
         
         <div className="modal-footer" style={{ borderTop: '1px solid #eee', marginTop: '10px', paddingTop: '15px', gap: '10px' }}>
-          {step === 2 && (
-            <button 
-              onClick={() => setStep(1)} 
-              className="btn-cancel"
-              style={{ flex: '0 0 auto', padding: '10px 20px' }}
-            >
-              Back
-            </button>
-          )}
           <button 
             onClick={onClose} 
             className="btn-cancel"

@@ -433,46 +433,6 @@ export default function POS() {
     });
   };
 
-  // Handle library booking removal
-  const handleRemoveLibraryBooking = () => {
-    if (pendingOrderId) {
-      // Kiosk order - require admin auth
-      setRemovingItem({ 
-        itemId: 'library-booking', 
-        action: 'remove-library', 
-        name: 'Study Area Booking',
-        libraryBooking: pendingLibraryBooking
-      });
-      setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReasonType('');
-      setItemRemovalOtherReason('');
-      setShowItemRemovalModal(true);
-    } else {
-      // POS direct order - simple confirmation
-      setConfirmAction({ 
-        action: 'remove-library', 
-        name: 'Study Area Booking'
-      });
-      setShowConfirmModal(true);
-    }
-  };
-
-  // Handle item removal with proper auth flow
-  const handleRemoveItem = (item) => {
-    if (pendingOrderId) {
-      // Kiosk order - require admin auth
-      setRemovingItem({ itemId: item.id, action: 'remove', name: item.name, size: item.size, quantity: item.quantity });
-      setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReasonType('');
-      setItemRemovalOtherReason('');
-      setShowItemRemovalModal(true);
-    } else {
-      // POS direct order - simple confirmation
-      setConfirmAction({ action: 'remove', itemId: item.id, name: item.name, size: item.size, quantity: item.quantity });
-      setShowConfirmModal(true);
-    }
-  };
-
   // Handle quantity decrease with proper auth flow
   const handleDecreaseQuantity = (item) => {
     if (pendingOrderId) {
@@ -555,18 +515,12 @@ export default function POS() {
 
   // Process item removal after confirmation (for POS direct orders)
   const confirmItemRemoval = () => {
-    if (confirmAction.action === 'remove') {
-      removeFromCart(confirmAction.itemId);
-      showToast(`Removed ${confirmAction.name} from cart`, 'success');
-    } else if (confirmAction.action === 'decrease') {
+    if (confirmAction.action === 'decrease') {
       updateQuantity(confirmAction.itemId, -1);
       showToast(`Decreased quantity of ${confirmAction.name}`, 'success');
     } else if (confirmAction.action === 'clear') {
       resetOrder();
       showToast('Cart cleared', 'success');
-    } else if (confirmAction.action === 'remove-library') {
-      setPendingLibraryBooking(null);
-      showToast('Removed Study Area Booking', 'success');
     }
     setShowConfirmModal(false);
     setConfirmAction(null);
@@ -1202,11 +1156,6 @@ export default function POS() {
               <div className="library-booking-header">
                 <span className="library-icon">📚</span>
                 <span className="library-title">Study Area Booking</span>
-                <button 
-                  className="btn-remove-library" 
-                  onClick={handleRemoveLibraryBooking}
-                  title="Remove booking"
-                >×</button>
               </div>
               <div className="library-booking-details">
                 <p><strong>Customer:</strong> {pendingLibraryBooking.customer_name}</p>
@@ -1228,7 +1177,6 @@ export default function POS() {
               <div key={item.id} className="cart-item">
                 <div className="cart-item-header">
                   <span className="cart-item-name">{item.name}</span>
-                  <button onClick={() => handleRemoveItem(item)} className="btn-remove" title="Remove item">×</button>
                 </div>
                 {item.customizations && item.customizations.length > 0 && (
                   <div className="cart-item-customizations">
@@ -1629,7 +1577,8 @@ export default function POS() {
           setShowItemRemovalModal(false);
           setRemovingItem(null);
           setItemRemovalCredentials({ username: '', password: '' });
-          setItemRemovalReason('');
+          setItemRemovalReasonType('');
+          setItemRemovalOtherReason('');
         }}>
           <div className="modal item-removal-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">

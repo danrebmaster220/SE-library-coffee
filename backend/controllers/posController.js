@@ -1172,70 +1172,7 @@ exports.startPreparing = async (req, res) => {
     }
 };
 
-// Get single transaction details
-exports.getTransactionById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        // Get main transaction
-        const [transactions] = await db.query(
-            `SELECT t.*, u.username as cashier_name 
-             FROM transactions t 
-             LEFT JOIN users u ON t.processed_by = u.user_id 
-             WHERE t.transaction_id = ?`,
-            [id]
-        );
-        
-        if (transactions.length === 0) {
-            return res.status(404).json({ error: 'Transaction not found' });
-        }
-        
-        const transaction = transactions[0];
-        
-        // Get order items
-        const [items] = await db.query(
-            `SELECT oi.*, mi.name as item_name, mi.image as item_image 
-             FROM order_items oi 
-             JOIN menu_items mi ON oi.item_id = mi.item_id 
-             WHERE oi.transaction_id = ?`,
-            [id]
-        );
-        
-        // Format items and fetch their customizations
-        const formattedItems = await Promise.all(items.map(async (item) => {
-            const [customizations] = await db.query(
-                `SELECT ic.*, cg.name as group_name, co.name as option_name 
-                 FROM item_customizations ic 
-                 JOIN customization_groups cg ON ic.group_id = cg.group_id 
-                 JOIN customization_options co ON ic.option_id = co.option_id 
-                 WHERE ic.order_item_id = ?`,
-                [item.order_item_id]
-            );
-            
-            return {
-                ...item,
-                customizations
-            };
-        }));
-        
-        // Get library booking if exists
-        let library_booking = null;
-        if (transaction.library_booking) {
-            library_booking = typeof transaction.library_booking === 'string' 
-                ? JSON.parse(transaction.library_booking) 
-                : transaction.library_booking;
-        }
-        
-        res.json({
-            ...transaction,
-            items: formattedItems,
-            library_booking
-        });
-    } catch (error) {
-        console.error('Error fetching transaction by ID:', error);
-        res.status(500).json({ error: 'Failed to fetch transaction details' });
-    }
-};
+
 
 // Refund a transaction
 exports.refundTransaction = async (req, res) => {
