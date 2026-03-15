@@ -119,6 +119,22 @@ class SocketService {
       this.socket.off(event);
     }
   }
+
+  on(event, callback) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+  }
+
+  off(event, callback) {
+    if (this.socket) {
+      if (callback) {
+        this.socket.off(event, callback);
+      } else {
+        this.socket.off(event);
+      }
+    }
+  }
 }
 
 const socketService = new SocketService();
