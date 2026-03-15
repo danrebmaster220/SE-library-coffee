@@ -1,21 +1,12 @@
-const mysql = require('mysql2/promise');
-require('dotenv').config({ path: '../.env' }); // Assuming script is run from backend/scripts/
+const db = require('../config/db.js');
 
 async function run() {
     console.log("🛠️ Starting ID Resequencing Script for TiDB...");
 
     let connection;
     try {
-        connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD || process.env.DB_PASS,
-            database: process.env.DB_NAME,
-            port: process.env.DB_PORT || 3306,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
-        });
-
-        console.log("✅ Connected to Database.");
+        connection = await db.getConnection();
+        console.log("✅ Connected to Database via Pool.");
         
         // Disable Foreign Key Checks temporarily
         await connection.query('SET FOREIGN_KEY_CHECKS = 0');
@@ -96,7 +87,10 @@ async function run() {
         console.log("🎉 ID Resequencing Complete!");
         
     } catch (err) {
-        console.error("❌ Error running script:", err);
+        console.error("❌ Error running script:", err.message);
+        if (err.sqlMessage) console.error("SQL Message:", err.sqlMessage);
+        if (err.sql) console.error("Failing Query:", err.sql);
+        
         if (connection) {
             try {
                 await connection.query('SET FOREIGN_KEY_CHECKS = 1');
@@ -105,9 +99,9 @@ async function run() {
         }
     } finally {
         if (connection) {
-            await connection.end();
+            connection.release();
         }
     }
 }
 
-run();
+module.exports = run;

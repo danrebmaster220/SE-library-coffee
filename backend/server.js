@@ -119,6 +119,18 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
+// TEMPORARY DB ID FIX SCRIPT ROUTE - Hit this URL once in the browser to fix jumping TiDB IDs
+app.get('/api/fix-tidb-ids', async (req, res) => {
+    try {
+        const fixScript = require('./scripts/fix_jumping_ids');
+        await fixScript();
+        res.json({ message: '🎉 ID Resequencing Complete! Check Render logs for details.' });
+    } catch (error) {
+        console.error('API Error running fix script:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // REGISTER ROUTES
 
@@ -214,7 +226,65 @@ io.on('connection', (socket) => {
         io.to('library-room').emit('library:seats-update', data);
     });
 
+    // Transient Seat Locks for Kiosk Concurrency
+    const lockedSeats = new Map(); // seatId -> { socketId, expiresAt }
+    const SEAT_LOCK_DURATION = 3 * 60 * 1000; // 3 minutes lock
+
+    socket.on('seat:lock', (data) => {
+        const { seat_id } = data;
+        const now = Date.now();
+        
+        // Check if already locked by someone else
+        if (lockedSeats.has(seat_id)) {
+            const lockInfo = lockedSeats.get(seat_id);
+            if (lockInfo.socketId !== socket.id && lockInfo.expiresAt > now) {
+                // Deny lock, already locked by another active session
+                socket.emit('seat:lock-failed', { seat_id, message: 'Seat is currently reserved by another customer' });
+                return;
+            }
+        }
+        
+        // Grant lock
+        lockedSeats.set(seat_id, {
+            socketId: socket.id,
+            expiresAt: now + SEAT_LOCK_DURATION
+        });
+        
+        console.log(`🔒 Seat ${seat_id} locked by socket ${socket.id}`);
+        // Broadcast lock to all clients so they instantly mark it yellow/red
+        io.emit('seat:locked', { seat_id, lockedBy: socket.id });
+    });
+
+    socket.on('seat:release', (data) => {
+        const { seat_id } = data;
+        
+        if (lockedSeats.has(seat_id)) {
+            const lockInfo = lockedSeats.get(seat_id);
+            // Only the one who locked it (or an expired lock) can release it
+            if (lockInfo.socketId === socket.id || lockInfo.expiresAt <= Date.now()) {
+                lockedSeats.delete(seat_id);
+                console.log(`🔓 Seat ${seat_id} released by socket ${socket.id}`);
+                io.emit('seat:released', { seat_id });
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
+        // Automatically release any seats locked by this disconnected client
+        const seatsToRelease = [];
+        for (const [seat_id, lockInfo] of lockedSeats.entries()) {
+            if (lockInfo.socketId === socket.id) {
+                seatsToRelease.push(seat_id);
+                lockedSeats.delete(seat_id);
+            }
+        }
+        
+        if (seatsToRelease.length > 0) {
+            console.log(`🔓 Auto-released seats on disconnect: ${seatsToRelease.join(', ')}`);
+            seatsToRelease.forEach(seat_id => {
+                io.emit('seat:released', { seat_id });
+            });
+        }
         // Check if this was a print agent
         if (printAgents.has(socket.id)) {
             const agent = printAgents.get(socket.id);
@@ -247,8 +317,9 @@ const sendPrintJob = (type, data) => {
 app.set('sendPrintJob', sendPrintJob);
 app.set('printAgents', printAgents);
 
-// Make io accessible to routes (optional, for emitting from controllers)
+// Make io and lockedSeats accessible to routes (optional, for emitting from controllers)
 app.set('io', io);
+app.set('lockedSeats', lockedSeats);
 
 
 // START SERVER — Run migrations first, then listen
