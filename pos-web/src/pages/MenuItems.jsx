@@ -355,7 +355,7 @@ export default function MenuItems() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>{editingItem ? "Edit Item" : "Add New Item"}</h3>
               <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
             </div>
@@ -575,7 +575,7 @@ export default function MenuItems() {
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>Delete Item</h3>
               <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>

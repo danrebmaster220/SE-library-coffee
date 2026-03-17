@@ -427,7 +427,7 @@ export default function Customizations() {
       {showGroupModal && (
         <div className="modal-overlay" onClick={closeGroupModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>{editingGroup ? "Edit Customization Group" : "Add Customization Group"}</h3>
               <button className="modal-close" onClick={closeGroupModal} style={{ color: '#666' }}>×</button>
             </div>
@@ -520,7 +520,7 @@ export default function Customizations() {
       {showOptionModal && (
         <div className="modal-overlay" onClick={closeOptionModal}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>{editingOption ? "Edit Option" : "Add New Option"}</h3>
               <button className="modal-close" onClick={closeOptionModal} style={{ color: '#666' }}>×</button>
             </div>
@@ -609,7 +609,7 @@ export default function Customizations() {
       {showDeleteModal && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>Delete {deleteType === "group" ? "Group" : "Option"}</h3>
               <button className="modal-close" onClick={closeDeleteModal} style={{ color: '#666' }}>×</button>
             </div>

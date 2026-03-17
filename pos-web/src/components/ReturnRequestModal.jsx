@@ -128,7 +128,7 @@ export default function ReturnRequestModal({
   return (
     <div className="modal-overlay" onClick={!processing ? onClose : undefined}>
       <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+        <div className="modal-header">
           <h3 style={{ color: '#333' }}>Process Return/Refund</h3>
           <button onClick={onClose} className="modal-close" style={{ color: '#666' }} disabled={processing}>×</button>
         </div>

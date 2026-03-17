@@ -221,7 +221,7 @@ export default function LibraryTables() {
       {showAddTableModal && (
         <div className="modal-overlay" onClick={() => setShowAddTableModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>Add New Table</h3>
               <button className="modal-close" onClick={() => setShowAddTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
@@ -266,7 +266,7 @@ export default function LibraryTables() {
       {showEditTableModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowEditTableModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>Edit Table</h3>
               <button className="modal-close" onClick={() => setShowEditTableModal(false)} style={{ color: '#666' }}>×</button>
             </div>
@@ -308,7 +308,7 @@ export default function LibraryTables() {
       {showDeleteModal && selectedTable && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#ef4444' }}>⚠️ Remove Table</h3>
               <button className="modal-close" onClick={() => setShowDeleteModal(false)} style={{ color: '#666' }}>×</button>
             </div>
@@ -333,7 +333,7 @@ export default function LibraryTables() {
       {showConfigureModal && (
         <div className="modal-overlay" onClick={() => setShowConfigureModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-            <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee' }}>
+            <div className="modal-header">
               <h3 className="modal-title" style={{ color: '#333' }}>⚙️ Quick Configure Library</h3>
               <button className="modal-close" onClick={() => setShowConfigureModal(false)} style={{ color: '#666' }}>×</button>
             </div>

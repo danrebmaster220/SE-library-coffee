@@ -94,7 +94,7 @@ export default function VoidTransactionModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal void-selection-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
-        <div className="modal-header" style={{ backgroundColor: '#fcfcfc', borderBottom: '1px solid #eee', position: 'relative' }}>
+        <div className="modal-header">
           {step === 2 && (
             <button 
               onClick={() => setStep(1)} 

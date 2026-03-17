@@ -507,29 +507,44 @@ body {
   color: #666;
 }
 
-/* Global Modal Header Color Overrides */
+/* ========================================
+   GLOBAL MODAL OVERRIDES
+   Forces all modal headers to #6b4423eb,
+   removes container padding so headers
+   span edge-to-edge, and matches radii.
+   ======================================== */
+
+/* Remove any padding from modal containers so headers sit flush */
+.modal-content,
+.modal,
+.confirm-modal,
+.beeper-modal {
+  padding: 0 !important;
+  border-radius: 16px !important;
+}
+
+/* Header: brown background, matches container top corners exactly */
 .modal-header {
   background-color: #6b4423eb !important;
-  border-bottom: 1px solid #6b4423eb !important;
+  border-bottom: 1px solid #5a3a1e !important;
   color: white !important;
   margin: 0 !important;
-  border-radius: 0 !important;
-  width: 100%;
-  box-sizing: border-box;
+  border-radius: 16px 16px 0 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* Ensure container clips header perfectly */
-.modal-content, .modal, .confirm-modal, .beeper-modal {
-  border-radius: 16px !important;
-  overflow: hidden !important;
-}
-
-.modal-title, .modal-header h2, .modal-header h3 {
+/* White text on header */
+.modal-title,
+.modal-header h2,
+.modal-header h3 {
   color: #fff !important;
 }
+
 .modal-close {
   color: #fff !important;
 }
+
 .modal-close:hover {
   background: rgba(255, 255, 255, 0.2) !important;
   color: #fff !important;
