@@ -1,4 +1,4 @@
-﻿// components/OrderDetails.jsx
+// components/OrderDetails.jsx
 import { useRouter } from "expo-router";
 import { useState, useCallback, useMemo } from "react";
 import {
@@ -26,6 +26,7 @@ const OrderDetails = ({
   onRemoveLibraryBooking = null,
   isPhone: isPhoneProp,
   onClose, // For phone modal close callback
+  onOrderSuccess, // Callback to clear saved cart after order
 }) => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,6 +149,11 @@ const OrderDetails = ({
       const result = await submitOrder(orderData);
       
       setModalVisible(false);
+
+      // Clear saved cart from AsyncStorage
+      if (onOrderSuccess) {
+        onOrderSuccess();
+      }
 
       // Navigate to order success page with order details
       router.push({

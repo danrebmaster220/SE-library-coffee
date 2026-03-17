@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import '../styles/login.css';
@@ -12,6 +12,27 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        const role = userData.role?.toLowerCase() || 'cashier';
+        if (role === 'admin') {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/pos', { replace: true });
+        }
+      } catch {
+        // Invalid stored data, clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({

@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   StyleSheet, 
@@ -10,10 +10,12 @@ import {
   Modal,
   TextInput,
   Alert,
+  BackHandler,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ShoppingCart, X, ChevronLeft, ChevronRight, Search } from "lucide-react-native";
 import { io } from "socket.io-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Header from "../../components/Header";
 import MenuContent from "../../components/MenuContent";
@@ -23,7 +25,12 @@ import { useResponsive } from "../../hooks/useResponsive";
 
 import { getCategories, getMenuItems, API_BASE_URL } from "../../services/api";
 
+// AsyncStorage keys for cart persistence
+const CART_STORAGE_KEY = '@kiosk_cart_items';
+const BOOKING_STORAGE_KEY = '@kiosk_library_booking';
+
 export default function MenuPage() {
+  const router = useRouter();
   const { customerName = "Guest", orderType = "Dine-In", libraryBooking } = useLocalSearchParams();
   const { isPhone } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -51,6 +58,7 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cartRestored, setCartRestored] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false); // For phone cart modal
   
@@ -100,6 +108,88 @@ export default function MenuPage() {
       socket.disconnect();
     };
   }, [currentLibraryBooking]);
+
+  // Restore cart from AsyncStorage on mount
+  useEffect(() => {
+    const restoreCart = async () => {
+      try {
+        const savedCart = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        const savedBooking = await AsyncStorage.getItem(BOOKING_STORAGE_KEY);
+        if (savedCart) {
+          const parsedCart = JSON.parse(savedCart);
+          if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+            setOrders(parsedCart);
+          }
+        }
+        if (savedBooking && !currentLibraryBooking) {
+          const parsedBooking = JSON.parse(savedBooking);
+          if (parsedBooking) {
+            setCurrentLibraryBooking(parsedBooking);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to restore cart:', e);
+      } finally {
+        setCartRestored(true);
+      }
+    };
+    restoreCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save cart to AsyncStorage whenever orders or booking changes
+  useEffect(() => {
+    if (!cartRestored) return; // Don't save until initial restore is done
+    const saveCart = async () => {
+      try {
+        await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(orders));
+        if (currentLibraryBooking) {
+          await AsyncStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(currentLibraryBooking));
+        } else {
+          await AsyncStorage.removeItem(BOOKING_STORAGE_KEY);
+        }
+      } catch (e) {
+        console.log('Failed to save cart:', e);
+      }
+    };
+    saveCart();
+  }, [orders, currentLibraryBooking, cartRestored]);
+
+  // Clear saved cart (called after successful order submission)
+  const clearSavedCart = useCallback(async () => {
+    try {
+      await AsyncStorage.multiRemove([CART_STORAGE_KEY, BOOKING_STORAGE_KEY]);
+    } catch (e) {
+      console.log('Failed to clear saved cart:', e);
+    }
+  }, []);
+
+  // Intercept hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (orders.length > 0 || currentLibraryBooking) {
+        Alert.alert(
+          "Leave Menu?",
+          "Your cart items will be saved. You can return to continue your order.",
+          [
+            { text: "Stay", style: "cancel" },
+            {
+              text: "Go Back",
+              onPress: () => {
+                // Cart is already auto-saved via the useEffect above
+                router.back();
+              },
+            },
+          ]
+        );
+        return true; // Prevent default back
+      }
+      return false; // Allow default back if cart is empty
+    };
+
+    BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+  }, [orders, currentLibraryBooking, router]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -392,6 +482,7 @@ export default function MenuPage() {
               onRemoveLibraryBooking={handleRemoveLibraryBooking}
               isPhone={isPhone}
               onClose={() => setShowCartModal(false)}
+              onOrderSuccess={clearSavedCart}
             />
           </SafeAreaView>
         </Modal>
@@ -458,6 +549,7 @@ export default function MenuPage() {
           libraryBooking={currentLibraryBooking}
           onRemoveLibraryBooking={handleRemoveLibraryBooking}
           isPhone={isPhone}
+          onOrderSuccess={clearSavedCart}
         />
       </View>
     </SafeAreaView>
