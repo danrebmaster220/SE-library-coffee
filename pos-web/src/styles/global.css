@@ -509,21 +509,50 @@ body {
 
 /* ========================================
    GLOBAL MODAL OVERRIDES
-   Forces all modal headers to #6b4423eb,
-   removes container padding so headers
-   span edge-to-edge, and matches radii.
+   - All modal containers: padding: 0, border-radius: 16px
+   - All modal headers: brown bg, consistent height, perfect alignment
+   - Styled scrollbar for modals
    ======================================== */
 
-/* Remove any padding from modal containers so headers sit flush */
+/* Remove any padding from ALL modal containers so headers sit flush */
 .modal-content,
 .modal,
 .confirm-modal,
-.beeper-modal {
+.beeper-modal,
+.void-selection-modal,
+.library-modal,
+.void-modal,
+.session-modal,
+.warning-modal {
   padding: 0 !important;
   border-radius: 16px !important;
 }
 
-/* Header: brown background, matches container top corners exactly */
+/* Styled scrollbar for modals - thin, themed, auto-hiding */
+.modal-content,
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: #c4a882 transparent;
+}
+.modal-content::-webkit-scrollbar,
+.modal::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-content::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-content::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb {
+  background: #c4a882;
+  border-radius: 3px;
+}
+.modal-content::-webkit-scrollbar-thumb:hover,
+.modal::-webkit-scrollbar-thumb:hover {
+  background: #a68b6b;
+}
+
+/* Header: brown background, consistent height, perfect text-X alignment */
 .modal-header {
   background-color: #6b4423eb !important;
   border-bottom: 1px solid #5a3a1e !important;
@@ -532,20 +561,43 @@ body {
   border-radius: 16px 16px 0 0 !important;
   width: 100% !important;
   box-sizing: border-box !important;
+  padding: 16px 20px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
 }
 
-/* White text on header */
+/* White text on header - vertically centered with X */
 .modal-title,
 .modal-header h2,
 .modal-header h3 {
   color: #fff !important;
+  margin: 0 !important;
+  line-height: 1.3 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
 }
 
+/* Close button - fixed size, centered icon, aligned with title */
 .modal-close {
   color: #fff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
 }
 
 .modal-close:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.3) !important;
   color: #fff !important;
 }

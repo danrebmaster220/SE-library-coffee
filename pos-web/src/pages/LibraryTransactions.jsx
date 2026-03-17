@@ -702,9 +702,11 @@ function CheckinModal(props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content library-modal" onClick={function(e) { e.stopPropagation(); }}>
-        <h3>Check-in Customer</h3>
-        <div className="modal-divider"></div>
-        <form onSubmit={handleSubmit}>
+        <div className="modal-header">
+          <h3 className="modal-title">Check-in Customer</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <form onSubmit={handleSubmit} style={{padding: '20px'}}>
           <div className="modal-info-row"><span className="info-label">Table:</span><span className="info-value">{seat.table_name || `Table ${seat.table_number}`}</span></div>
           <div className="modal-info-row"><span className="info-label">Seat:</span><span className="info-value">{seat.seat_number}</span></div>
           
@@ -774,30 +776,31 @@ function SessionModal(props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content library-modal session-modal" onClick={function(e) { e.stopPropagation(); }}>
-        <h3>Session Details</h3>
-        <div className="modal-divider"></div>
-        <div className="session-details">
+        <div className="modal-header">
+          <h3 className="modal-title">Session Details</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="session-details" style={{padding: '20px 20px 0'}}>
           <div className="detail-row"><span className="detail-label">Location:</span><span className="detail-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
           <div className="detail-row"><span className="detail-label">Customer:</span><span className="detail-value">{session.customer_name || '-'}</span></div>
           <div className="detail-row"><span className="detail-label">Start Time:</span><span className="detail-value">{formatTime(session.start_time)}</span></div>
           <div className="detail-row"><span className="detail-label">Duration:</span><span className="detail-value">{formatDuration(session.elapsed_minutes)}</span></div>
           <div className="detail-row"><span className="detail-label">Remaining:</span><span className={'detail-value ' + (session.remaining_minutes <= 5 ? 'time-warning' : '')}>{formatDuration(session.remaining_minutes)}</span></div>
         </div>
-        <div className="fee-breakdown">
+        <div className="fee-breakdown" style={{padding: '0 20px'}}>
           <h4>Fee Calculation</h4>
           <div className="fee-row"><span>Base (first 2 hours):</span><span>P100.00</span></div>
           {session.elapsed_minutes > 120 && (<div className="fee-row"><span>Extension ({Math.ceil((session.elapsed_minutes - 120) / 30)} x 30min):</span><span>P{(Math.ceil((session.elapsed_minutes - 120) / 30) * 50).toFixed(2)}</span></div>)}
           <div className="fee-row total"><span>Total:</span><span>P{fee.toFixed(2)}</span></div>
         </div>
-        <div className="extend-section">
+        <div className="extend-section" style={{padding: '0 20px'}}>
           <h4>Extend Session:</h4>
           <div className="extend-buttons">
             <button className="btn-extend" onClick={function() { onExtend(30); }}>+30 min (P50)</button>
             <button className="btn-extend" onClick={function() { onExtend(60); }}>+60 min (P100)</button>
           </div>
         </div>
-        <div className="modal-divider"></div>
-        <div className="modal-actions">
+        <div className="modal-actions" style={{padding: '16px 20px', borderTop: '1px solid #eee'}}>
           <button className="btn-secondary" onClick={onClose}>Close</button>
           <button className="btn-checkout" onClick={onCheckout}>Checkout and Return ID</button>
         </div>
@@ -917,15 +920,7 @@ function VoidSessionModal(props) {
     width: '95%',
     maxHeight: '90vh',
     display: 'flex',
-    flexDirection: 'column',
-    padding: '20px'
-  };
-
-  var headerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px'
+    flexDirection: 'column'
   };
 
   var warningStyle = {
@@ -958,14 +953,15 @@ function VoidSessionModal(props) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content library-modal void-modal" onClick={function(e) { e.stopPropagation(); }} style={modalStyle}>
         {/* Header */}
-        <div style={headerStyle}>
-          <h3 style={{color: '#dc3545', margin: 0, fontSize: '18px'}}>Void Library Session</h3>
-          <button className="modal-close" onClick={onClose} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666', padding: '0', lineHeight: 1}}>×</button>
+        <div className="modal-header">
+          <h3 className="modal-title">Void Library Session</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
+        <div style={{padding: '20px'}}>
         {/* Warning */}
         <div style={warningStyle}>
           <span style={{color: '#856404'}}><strong>⚠️ Warning:</strong> This action cannot be undone.</span>
@@ -1028,7 +1024,7 @@ function VoidSessionModal(props) {
         )}
 
         {/* Action Buttons */}
-        <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: '8px', borderTop: '1px solid #eee'}}>
+        <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #eee'}}>
           <button 
             className="btn-secondary" 
             onClick={onClose} 
@@ -1053,6 +1049,7 @@ function VoidSessionModal(props) {
           >
             {isVoiding ? 'Voiding...' : 'Void Session'}
           </button>
+        </div>
         </div>
       </div>
     </div>
