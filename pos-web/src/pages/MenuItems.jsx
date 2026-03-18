@@ -359,7 +359,7 @@ export default function MenuItems() {
               <h3 className="modal-title">{editingItem ? "Edit Item" : "Add New Item"}</h3>
               <button type="button" className="modal-close" onClick={closeModal}>×</button>
             </div>
-            <div className="modal-body" style={{ overflowY: 'auto', padding: '20px', flex: 1 }}>
+            <div className="modal-body" style={{ overflowY: 'auto', padding: '20px', flex: 1, textAlign: 'left' }}>
               <form id="itemForm" onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">

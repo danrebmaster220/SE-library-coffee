@@ -203,6 +203,8 @@ body {
   border-radius: 10px;
   font-size: 14px;
   transition: all 0.2s ease;
+  height: 48px;
+  box-sizing: border-box;
 }
 
 .form-input:focus,
