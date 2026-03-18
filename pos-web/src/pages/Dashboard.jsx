@@ -289,7 +289,7 @@ export default function Dashboard() {
   const donutSegments = generateDonutSegments();
 
   // APK download URL from latest EAS build
-  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/59acr25U7MDs4bSotXAV8r.apk';
+  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/fock8GHw3fbK5d1aiEu5ZV.apk';
 
   if (loading) {
     return (
