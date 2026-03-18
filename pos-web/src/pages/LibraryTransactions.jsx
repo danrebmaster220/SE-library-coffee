@@ -412,7 +412,7 @@ export default function LibraryTransactions() {
   return (
     <div className="main-content" style={{ position: 'relative' }}>
       {/* Shift Restricted Overlay */}
-      {!hasActiveShift && !shiftChecking && (
+      {!hasActiveShift && !shiftChecking && !isAdmin && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(255, 255, 255, 0.95)', zIndex: 1000,
