@@ -187,8 +187,8 @@ export default function MenuPage() {
       return false; // Allow default back if cart is empty
     };
 
-    BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
   }, [orders, currentLibraryBooking, router]);
 
   const fetchCategories = useCallback(async () => {
@@ -564,7 +564,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: "row",
-    padding: 10,
+    paddingTop: 6,
+    paddingHorizontal: 6,
+    paddingBottom: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -745,9 +747,7 @@ const styles = StyleSheet.create({
     color: "#4C2B18",
   },
   tabletSidebarContainer: {
-    width: "25%",
-    minWidth: 200,
-    maxWidth: 250,
+    width: 170,
     flexDirection: "column",
   },
   tabletSearchContainer: {
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   tabletMainContent: {
     flex: 1,
     flexDirection: 'column',
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
   },
   clearSearchBtn: {
     padding: 4,

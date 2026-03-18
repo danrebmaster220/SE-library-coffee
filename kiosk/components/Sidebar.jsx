@@ -41,12 +41,12 @@ export default Sidebar;
 
 const styles = StyleSheet.create({
   container: {
-    width: 180,
+    width: 155,
     flexShrink: 0,
     backgroundColor: "#4C2B18",
     borderRadius: 20,
-    padding: 15,
-    marginRight: 10,
+    padding: 12,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,

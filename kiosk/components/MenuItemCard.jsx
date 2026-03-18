@@ -1,4 +1,4 @@
-﻿// components/MenuItemCard.jsx
+// components/MenuItemCard.jsx
 import React, { useState, useCallback, memo } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
@@ -84,10 +84,9 @@ export default MenuItemCard;
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    maxWidth: 280,
     backgroundColor: "#FFFDF9",
     borderRadius: 20,
-    margin: 10,
+    margin: 6,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#E8DFD5",

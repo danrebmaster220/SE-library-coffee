@@ -39,7 +39,7 @@ export default MenuContent;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 2,
   },
   categoryTitle: {
     fontSize: 22,
@@ -49,8 +49,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   rowSpacing: {
-    justifyContent: "space-between",
-    marginBottom: 12,
+    justifyContent: "flex-start",
+    marginBottom: 4,
   },
   rowSpacingPhone: {
     marginBottom: 8,
