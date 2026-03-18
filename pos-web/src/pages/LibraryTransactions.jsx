@@ -878,9 +878,8 @@ function VoidSessionModal(props) {
   var onSubmit = props.onSubmit;
   var _isAdmin = props.isAdmin;
   
-  var _reasonState = useState('');
-  var voidReason = _reasonState[0];
-  var setVoidReason = _reasonState[1];
+  var [voidReasonType, setVoidReasonType] = useState('');
+  var [voidOtherReason, setVoidOtherReason] = useState('');
   var _loadingState = useState(false);
   var isVoiding = _loadingState[0];
   var setIsVoiding = _loadingState[1];
@@ -897,13 +896,18 @@ function VoidSessionModal(props) {
   // Handle both active sessions (session_id) and history sessions (id)
   var sessionId = session.session_id || session.id;
   
-  // Cashiers need admin credentials to void
   // Always require admin credentials when voiding active sessions
   var needsAdminAuth = true;
 
   async function handleSubmit() {
     setErrorMessage('');
-    if (!voidReason.trim()) {
+    
+    let finalReason = voidReasonType;
+    if (voidReasonType === 'Other - Please specify') {
+      finalReason = voidOtherReason;
+    }
+    
+    if (!finalReason || !finalReason.trim()) {
       setErrorMessage('Please enter a reason for voiding this session.');
       return;
     }
@@ -913,148 +917,100 @@ function VoidSessionModal(props) {
     }
     setIsVoiding(true);
     var adminCredentials = needsAdminAuth ? { username: adminUsername, password: adminPassword } : null;
-    var success = await onSubmit(sessionId, voidReason, adminCredentials);
+    var success = await onSubmit(sessionId, finalReason, adminCredentials);
     if (!success) {
       setIsVoiding(false);
     }
   }
 
-  // Compact modal styles
-  var modalStyle = {
-    maxWidth: '480px',
-    width: '95%',
-    maxHeight: '90vh',
-    display: 'flex',
-    flexDirection: 'column'
-  };
-
-  var warningStyle = {
-    background: '#fff3cd',
-    border: '1px solid #ffc107',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    marginBottom: '12px',
-    fontSize: '13px'
-  };
-
-  var detailsGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '4px 12px',
-    fontSize: '13px',
-    background: '#f8f9fa',
-    borderRadius: '6px',
-    padding: '10px 12px',
-    marginBottom: '12px'
-  };
-
-  var inputStyle = {
-    width: '100%',
-    padding: '8px 10px',
-    borderRadius: '6px',
-    border: '1px solid #ced4da',
-    fontSize: '13px',
-    boxSizing: 'border-box'
-  };
-
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content library-modal void-modal" onClick={function(e) { e.stopPropagation(); }} style={modalStyle}>
+      <div className="modal void-modal" onClick={function(e) { e.stopPropagation(); }}>
         {/* Header */}
         <div className="modal-header">
           <h3 className="modal-title">Void Library Session</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
-        <div style={{padding: '20px'}}>
-        {/* Warning */}
-        <div style={warningStyle}>
-          <span style={{color: '#856404'}}><strong>⚠️ Warning:</strong> This action cannot be undone.</span>
-        </div>
-        
-        {/* Session Details - Compact */}
-        <div style={detailsGridStyle}>
-          <div><strong>ID:</strong> LIB-{String(sessionId).padStart(6, '0')}</div>
-          <div><strong>Customer:</strong> {session.customer_name}</div>
-          <div><strong>Location:</strong> {session.table_name || `T${session.table_number}`}-S{session.seat_number}</div>
-          <div><strong>Fee:</strong> ₱{session.total_fee ? parseFloat(session.total_fee).toFixed(2) : (100 + (session.elapsed_minutes > 120 ? Math.ceil((session.elapsed_minutes - 120) / 30) * 50 : 0)).toFixed(2)}</div>
-        </div>
+        <div className="modal-body">
+          <p className="void-question" style={{ textAlign: 'center', marginBottom: '15px' }}><strong>Authorization Needed</strong></p>
+          
+          <div style={{ width: '80%', margin: '0 auto', marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for voiding: *</label>
+            <select 
+              value={voidReasonType}
+              onChange={(e) => setVoidReasonType(e.target.value)}
+              style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', backgroundColor: '#fff', fontSize: '14px', marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '0' }}
+            >
+              <option value="" disabled>Select a reason...</option>
+              <option value="Duplicate entry">Duplicate entry</option>
+              <option value="Customer complaint">Customer complaint</option>
+              <option value="System error">System error</option>
+              <option value="Test transaction">Test transaction</option>
+              <option value="Other - Please specify">Other - Please specify</option>
+            </select>
+            
+            {voidReasonType === 'Other - Please specify' && (
+              <input 
+                type="text"
+                placeholder="Enter custom reason..."
+                value={voidOtherReason}
+                onChange={e => setVoidOtherReason(e.target.value)}
+                style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            )}
+          </div>
 
-        {/* Reason Input */}
-        <div style={{marginBottom: '12px'}}>
-          <label style={{display: 'block', marginBottom: '4px', fontWeight: '600', color: '#495057', fontSize: '13px'}}>
-            Reason for Voiding <span style={{color: '#dc3545'}}>*</span>
-          </label>
-          <textarea
-            value={voidReason}
-            onChange={function(e) { setVoidReason(e.target.value); }}
-            placeholder="e.g., duplicate entry, customer complaint, system error..."
-            rows="2"
-            style={{...inputStyle, resize: 'none'}}
-          />
-        </div>
-
-        {/* Admin Auth - Compact */}
-        {needsAdminAuth && (
-          <div style={{background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '6px', padding: '12px', marginBottom: '12px'}}>
-            <div style={{fontSize: '13px', fontWeight: '600', color: '#1565c0', marginBottom: '8px'}}>🔐 Admin Authorization Required</div>
-            <div style={{display: 'flex', gap: '10px'}}>
-              <div style={{flex: 1}}>
-                <input
-                  type="text"
+          {needsAdminAuth && (
+            <div style={{ width: '80%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+              <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Credentials</h4>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Admin Username" 
                   value={adminUsername}
-                  onChange={function(e) { setAdminUsername(e.target.value); }}
-                  placeholder="Admin username"
-                  style={inputStyle}
+                  onChange={e => setAdminUsername(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', boxSizing: 'border-box' }}
                 />
-              </div>
-              <div style={{flex: 1}}>
-                <input
-                  type="password"
+                <input 
+                  type="password" 
+                  placeholder="Admin Password" 
                   value={adminPassword}
-                  onChange={function(e) { setAdminPassword(e.target.value); }}
-                  placeholder="Admin password"
-                  style={inputStyle}
+                  onChange={e => setAdminPassword(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Error Message */}
-        {errorMessage && (
-          <div style={{background: '#ffebee', color: '#c62828', padding: '10px 12px', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', border: '1px solid #ef9a9a'}}>
-            {errorMessage}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #eee'}}>
+          {errorMessage && (
+            <div className="error-message" style={{ width: '80%', margin: '15px auto 0' }}>
+              {errorMessage}
+            </div>
+          )}
+        </div>
+        
+        <div className="modal-footer" style={{ justifyContent: 'center' }}>
           <button 
-            className="btn-secondary" 
+            className="btn-cancel" 
             onClick={onClose} 
             disabled={isVoiding}
-            style={{padding: '10px 20px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer', fontSize: '14px'}}
           >
             Cancel
           </button>
           <button 
+            className="btn-primary"
             onClick={handleSubmit} 
-            disabled={isVoiding || !voidReason.trim() || (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim()))}
-            style={{
-              background: isVoiding || !voidReason.trim() || (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim())) ? '#ccc' : '#dc3545',
-              color: 'white',
-              border: 'none',
-              padding: '10px 24px',
-              borderRadius: '6px',
-              cursor: isVoiding || !voidReason.trim() || (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim())) ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '600'
+            disabled={isVoiding || !voidReasonType || (voidReasonType === 'Other - Please specify' && !voidOtherReason.trim()) || (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim()))}
+            style={{ 
+              background: '#e65100', 
+              color: 'white', 
+              border: 'none' 
             }}
           >
-            {isVoiding ? 'Voiding...' : 'Void Session'}
+            {isVoiding ? "Processing..." : "Confirm Void"}
           </button>
-        </div>
         </div>
       </div>
     </div>

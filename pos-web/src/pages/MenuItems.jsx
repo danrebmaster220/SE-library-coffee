@@ -354,12 +354,13 @@ export default function MenuItems() {
       {/* Add/Edit Item Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: '#333' }}>{editingItem ? "Edit Item" : "Add New Item"}</h3>
-              <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
+          <div className="modal-content modal-large no-scroll" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '90%' }}>
+            <div className="modal-header" style={{ flexShrink: 0 }}>
+              <h3 className="modal-title">{editingItem ? "Edit Item" : "Add New Item"}</h3>
+              <button type="button" className="modal-close" onClick={closeModal}>×</button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <div className="modal-body" style={{ overflowY: 'auto', padding: '20px', flex: 1 }}>
+              <form id="itemForm" onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Item Name</label>
@@ -557,15 +558,16 @@ export default function MenuItems() {
                 )}
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={closeModal}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-confirm" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : (editingItem ? "Save Changes" : "Add Item")}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div className="modal-footer" style={{ padding: '16px 20px', display: 'flex', gap: '10px', borderTop: '1px solid #eee', background: '#fafafa', borderRadius: '0 0 16px 16px', flexShrink: 0 }}>
+              <button type="button" className="btn-cancel" onClick={closeModal}>
+                Cancel
+              </button>
+              <button type="submit" form="itemForm" className="btn-confirm" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : (editingItem ? "Save Changes" : "Add Item")}
+              </button>
+            </div>
           </div>
         </div>
       )}

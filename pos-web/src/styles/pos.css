@@ -897,11 +897,12 @@
 
 .cash-input-row input {
   flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 13px;
+  padding: 12px 16px;
+  border: 2px solid var(--latte);
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--coffee-dark);
 }
 
 .btn-clear-cash {

@@ -530,6 +530,13 @@ body {
   overflow-y: auto !important;
 }
 
+/* Modifiers to lock scrolling on container and pass to body wrapper */
+.modal-content.no-scroll {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
 /* Styled scrollbar for modals - thin, themed, auto-hiding */
 .modal-content,
 .modal {
