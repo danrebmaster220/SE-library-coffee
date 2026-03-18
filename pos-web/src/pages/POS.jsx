@@ -1656,7 +1656,7 @@ export default function POS() {
                 <label className="quick-select-label">Quick Select:</label>
                 <div className="quick-cash-buttons">
                   <button onClick={() => setCashAmount(String(calculateTotal()))} className="quick-cash-btn exact-btn">
-                    Exact ₱{calculateTotal().toFixed(0)}
+                    Exact
                   </button>
                   {[200, 500, 1000, 2000].map(amount => (
                     <button key={amount} onClick={() => setCashAmount(String(amount))} className="quick-cash-btn">

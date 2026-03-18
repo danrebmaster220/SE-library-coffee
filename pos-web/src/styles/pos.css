@@ -819,7 +819,7 @@
 .discount-selection {
   flex-shrink: 0;
   padding: 8px 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: none;
   font-family: 'Poppins', sans-serif;
 }
 
@@ -845,13 +845,17 @@
   padding: 6px 10px 4px;
   background: #f8f9fa;
   font-family: 'Poppins', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .total-row {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  margin-bottom: 1px;
+  margin-bottom: 0;
+  border-bottom: none;
 }
 
 .total-row.discount {
@@ -862,9 +866,10 @@
   font-size: 14px;
   font-weight: 700;
   color: #6b4423;
-  padding-top: 2px;
-  margin-top: 1px;
+  padding-top: 8px;
+  margin-top: 4px;
   margin-bottom: 0;
+  border-top: 2px solid #333;
 }
 
 /* Cash Section */
@@ -1056,8 +1061,8 @@
 
 .payment-cash-section .cash-input-row input:focus {
   outline: none;
-  border-color: #e65100;
-  box-shadow: 0 0 0 3px rgba(230, 81, 0, 0.1);
+  border-color: var(--caramel);
+  box-shadow: 0 0 0 3px rgba(161, 136, 127, 0.15);
 }
 
 .payment-cash-section .btn-clear-cash {
@@ -1084,30 +1089,32 @@
 
 .payment-cash-section .quick-cash-btn {
   padding: 8px 14px;
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-radius: 20px;
+  background: var(--cream);
+  border: 2px solid transparent;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #333;
+  color: var(--coffee-dark);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
 }
 
 .payment-cash-section .quick-cash-btn:hover {
-  border-color: #e65100;
-  color: #e65100;
+  background: var(--latte);
+  border-color: transparent;
+  color: var(--coffee-dark);
 }
 
 .payment-cash-section .quick-cash-btn.exact-btn {
-  background: #e65100;
+  background: var(--espresso);
   color: white;
-  border-color: #e65100;
+  border-color: var(--coffee-dark);
 }
 
 .payment-cash-section .quick-cash-btn.exact-btn:hover {
-  background: #d84315;
-  border-color: #d84315;
+  background: var(--coffee-dark);
+  border-color: var(--coffee-dark);
+  color: white;
 }
 
 .payment-change-display {
