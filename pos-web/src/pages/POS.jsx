@@ -127,8 +127,8 @@ export default function POS() {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     setCurrentUser(user);
-    // Check if user is admin (role_id = 1)
-    setIsAdmin(user?.role_id === 1);
+    // Check if user is admin
+    setIsAdmin(user?.role_id === 1 || user?.role?.toLowerCase() === 'admin');
 
     const checkShift = () => {
       api.get('/shifts/my-active')
