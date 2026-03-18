@@ -818,8 +818,10 @@
 /* Discount Selection */
 .discount-selection {
   flex-shrink: 0;
-  padding: 8px 10px;
-  border-bottom: none;
+  padding: 6px 10px 4px !important;
+  border: none !important;
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
   font-family: 'Poppins', sans-serif;
 }
 
@@ -842,34 +844,42 @@
 /* Cart Totals */
 .cart-totals {
   flex-shrink: 0;
-  padding: 6px 10px 4px;
+  padding: 2px 10px 4px !important;
   background: #f8f9fa;
   font-family: 'Poppins', sans-serif;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0px !important;
+  border: none !important;
 }
 
 .total-row {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 0;
-  border-bottom: none;
+  font-size: 13px !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+  line-height: 1.2 !important;
 }
 
 .total-row.discount {
   color: #4caf50;
+  margin-top: 0 !important;
 }
 
 .total-row.grand-total {
-  font-size: 14px;
+  font-size: 15px !important;
   font-weight: 700;
   color: #6b4423;
-  padding-top: 8px;
-  margin-top: 4px;
-  margin-bottom: 0;
-  border-top: 2px solid #333;
+  padding-top: 4px !important;
+  margin-top: 4px !important;
+  margin-bottom: 0 !important;
+  border-top: 2px solid #333 !important;
+  border-bottom: none !important;
 }
 
 /* Cash Section */
@@ -1089,32 +1099,32 @@
 
 .payment-cash-section .quick-cash-btn {
   padding: 8px 14px;
-  background: var(--cream);
-  border: 2px solid transparent;
-  border-radius: 8px;
-  font-size: 12px;
+  background: var(--cream) !important;
+  border: 2px solid var(--coffee-light) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
   font-weight: 600;
-  color: var(--coffee-dark);
+  color: var(--coffee-dark) !important;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .payment-cash-section .quick-cash-btn:hover {
-  background: var(--latte);
-  border-color: transparent;
-  color: var(--coffee-dark);
+  background: var(--coffee-light) !important;
+  border-color: var(--coffee-light) !important;
+  color: white !important;
 }
 
 .payment-cash-section .quick-cash-btn.exact-btn {
-  background: var(--espresso);
-  color: white;
-  border-color: var(--coffee-dark);
+  background: var(--espresso) !important;
+  color: white !important;
+  border-color: var(--coffee-dark) !important;
 }
 
 .payment-cash-section .quick-cash-btn.exact-btn:hover {
-  background: var(--coffee-dark);
-  border-color: var(--coffee-dark);
-  color: white;
+  background: var(--coffee-dark) !important;
+  border-color: var(--coffee-dark) !important;
+  color: white !important;
 }
 
 .payment-change-display {
