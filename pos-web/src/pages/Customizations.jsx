@@ -23,7 +23,8 @@ export default function Customizations() {
     selection_type: "single",
     input_type: "choice",
     is_required: false,
-    status: "active"
+    status: "active",
+    unit_label: ""
   });
 
   const [optionFormData, setOptionFormData] = useState({
@@ -84,7 +85,8 @@ export default function Customizations() {
       selection_type: "single",
       input_type: "choice",
       is_required: false,
-      status: "active"
+      status: "active",
+      unit_label: ""
     });
     setShowGroupModal(true);
   };
@@ -97,7 +99,8 @@ export default function Customizations() {
       selection_type: group.selection_type,
       input_type: group.input_type,
       is_required: group.is_required,
-      status: group.status
+      status: group.status,
+      unit_label: group.unit_label || ""
     });
     setShowGroupModal(true);
   };
@@ -111,7 +114,8 @@ export default function Customizations() {
       selection_type: "single",
       input_type: "choice",
       is_required: false,
-      status: "active"
+      status: "active",
+      unit_label: ""
     });
   };
 
@@ -473,6 +477,23 @@ export default function Customizations() {
                   </small>
                 </div>
               </div>
+              {/* Unit Label - only shown when input_type is 'quantity' */}
+              {groupFormData.input_type === 'quantity' && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Unit Label *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g., pump, piece, serving, shot"
+                      value={groupFormData.unit_label}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, unit_label: e.target.value })}
+                      required
+                    />
+                    <small className="form-helper">This label appears after the price (e.g., ₱5.00/pump). Required for quantity-based groups.</small>
+                  </div>
+                </div>
+              )}
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Display Order</label>

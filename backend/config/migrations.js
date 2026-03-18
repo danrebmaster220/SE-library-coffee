@@ -18,6 +18,9 @@ async function runMigrations() {
         // Migration 3: Add 'refund_amount' column to void_log
         await addVoidLogRefundAmount();
 
+        // Migration 4: Add 'unit_label' column to customization_groups
+        await addUnitLabelColumn();
+
         console.log('✅ Database migrations complete.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -93,6 +96,29 @@ async function addVoidLogRefundAmount() {
         }
     } catch (error) {
         console.error('   ⚠️ addVoidLogRefundAmount:', error.message);
+    }
+}
+
+async function addUnitLabelColumn() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'customization_groups' 
+            AND COLUMN_NAME = 'unit_label'
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        if (cols.length === 0) {
+            await db.query(`
+                ALTER TABLE customization_groups 
+                ADD COLUMN unit_label VARCHAR(50) DEFAULT NULL
+            `);
+            console.log('   ✅ Added "unit_label" column to customization_groups');
+        } else {
+            console.log('   ⏭️  customization_groups.unit_label already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addUnitLabelColumn:', error.message);
     }
 }
 

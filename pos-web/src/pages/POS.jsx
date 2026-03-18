@@ -539,23 +539,67 @@ export default function POS() {
     return Number(computedAmt.toFixed(2));
   }, [selectedDiscount, subtotal]);
 
-  const handleBulkVoidConfirm = ({ itemIds, voidLibrary }) => {
-    // Process removals based on selected item IDs
-    if (itemIds.length > 0) {
-      setCart(prev => prev.filter(item => !itemIds.includes(item.id)));
-    }
-    
-    // Process library booking void
-    if (voidLibrary && pendingLibraryBooking) {
-      // Un-reserve seat on WebSocket so it goes back to green instances
-      const socket = socketService.getSocket();
-      if (socket && pendingLibraryBooking.seat_id) {
-        socket.emit('seat:release', { seat_id: pendingLibraryBooking.seat_id });
+  const handleBulkVoidConfirm = async ({ itemIds, voidLibrary, reason, adminUsername }) => {
+    if (pendingOrderId) {
+      // --- PENDING ORDER: call backend ---
+      const allItemsSelected = itemIds.length === cart.length;
+      const allVoided = allItemsSelected && (!pendingLibraryBooking || voidLibrary);
+
+      try {
+        if (allVoided) {
+          // Full void — void the entire transaction
+          await api.post(`/pos/transactions/${pendingOrderId}/void`, {
+            reason: reason || 'Voided from cart panel',
+            voided_by: adminUsername || null
+          });
+          showToast('Order voided successfully', 'success');
+          resetOrder();
+        } else {
+          // Partial void — remove selected items from pending order
+          const transactionItemIds = cart
+            .filter(item => itemIds.includes(item.id))
+            .map(item => item.transaction_item_id)
+            .filter(Boolean);
+
+          const result = await api.put(`/pos/transactions/${pendingOrderId}/remove-items`, {
+            transaction_item_ids: transactionItemIds,
+            void_library: voidLibrary,
+            reason: reason || 'Partial void from cart panel',
+            admin_username: adminUsername || null
+          });
+
+          if (result.data.fully_voided) {
+            showToast('All items removed — order voided', 'success');
+            resetOrder();
+          } else {
+            // Remove voided items from local cart
+            setCart(prev => prev.filter(item => !itemIds.includes(item.id)));
+            if (voidLibrary && pendingLibraryBooking) {
+              setPendingLibraryBooking(null);
+            }
+            showToast(result.data.message, 'success');
+          }
+        }
+        fetchOrders();
+        fetchBeepers();
+      } catch (err) {
+        console.error('Void failed:', err);
+        showToast(err.response?.data?.error || 'Void failed', 'error');
       }
-      setPendingLibraryBooking(null);
+    } else {
+      // --- POS DIRECT ORDER: local cart removal ---
+      if (itemIds.length > 0) {
+        setCart(prev => prev.filter(item => !itemIds.includes(item.id)));
+      }
+      if (voidLibrary && pendingLibraryBooking) {
+        const socket = socketService.getSocket();
+        if (socket && pendingLibraryBooking.seat_id) {
+          socket.emit('seat:release', { seat_id: pendingLibraryBooking.seat_id });
+        }
+        setPendingLibraryBooking(null);
+      }
+      showToast(`Successfully voided ${itemIds.length + (voidLibrary ? 1 : 0)} items`, 'success');
     }
-    
-    showToast(`Successfully voided ${itemIds.length + (voidLibrary ? 1 : 0)} items`, 'success');
     setShowBulkVoidModal(false);
   };
 
@@ -756,6 +800,7 @@ export default function POS() {
         const basePrice = parseFloat(item.base_price) || parseFloat(item.unit_price) - customizationTotal / item.quantity;
         return {
           id: Date.now() + idx,
+          transaction_item_id: item.transaction_item_id, // Preserve DB ID for partial void
           item_id: item.item_id,
           name: item.item_name || item.item_name_db,
           base_price: basePrice,
@@ -1081,8 +1126,8 @@ export default function POS() {
               "Current Order"
             )}
           </h2>
-          {/* Only show Void button for POS direct orders, not for kiosk orders */}
-          {!pendingOrderId && (cart.length > 0 || pendingLibraryBooking) && (
+          {/* Void button for ALL orders (POS direct + pending kiosk) */}
+          {(cart.length > 0 || pendingLibraryBooking) && (
             <button 
               onClick={() => setShowBulkVoidModal(true)} 
               className="btn-clear-order"
@@ -1374,8 +1419,7 @@ export default function POS() {
                                     <div className="quantity-option-info">
                                       <span className="quantity-option-name">{option.name}</span>
                                       <span className="quantity-option-price">
-                                        ₱{optPrice.toFixed(2)}
-                                        {(currentAddonGroup?.name?.toLowerCase().includes('syrup') || currentAddonGroup?.name?.toLowerCase().includes('sauce')) ? '/pump' : '/qty'}
+                                        ₱{optPrice.toFixed(2)}/{currentAddonGroup.unit_label || 'qty'}
                                       </span>
                                     </div>
                                     <div className="quantity-controls">

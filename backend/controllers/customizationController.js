@@ -97,14 +97,14 @@ exports.getItemCustomizations = async (req, res) => {
 
 // Create a new customization group
 exports.createGroup = async (req, res) => {
-    const { name, display_order, selection_type, input_type, is_required, status } = req.body;
+    const { name, display_order, selection_type, input_type, is_required, status, unit_label } = req.body;
 
     try {
         const [result] = await db.query(
             `INSERT INTO customization_groups 
-            (name, display_order, selection_type, input_type, is_required, status) 
-            VALUES (?, ?, ?, ?, ?, ?)`,
-            [name, display_order || 0, selection_type || 'single', input_type || 'choice', is_required || false, status || 'active']
+            (name, display_order, selection_type, input_type, is_required, status, unit_label) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [name, display_order || 0, selection_type || 'single', input_type || 'choice', is_required || false, status || 'active', input_type === 'quantity' ? (unit_label || 'qty') : null]
         );
 
         res.json({ message: 'Group created successfully', group_id: result.insertId });
@@ -116,14 +116,14 @@ exports.createGroup = async (req, res) => {
 // Update a customization group
 exports.updateGroup = async (req, res) => {
     const { id } = req.params;
-    const { name, display_order, selection_type, input_type, is_required, status } = req.body;
+    const { name, display_order, selection_type, input_type, is_required, status, unit_label } = req.body;
 
     try {
         await db.query(
             `UPDATE customization_groups 
-            SET name = ?, display_order = ?, selection_type = ?, input_type = ?, is_required = ?, status = ?
+            SET name = ?, display_order = ?, selection_type = ?, input_type = ?, is_required = ?, status = ?, unit_label = ?
             WHERE group_id = ?`,
-            [name, display_order, selection_type, input_type, is_required, status, id]
+            [name, display_order, selection_type, input_type, is_required, status, input_type === 'quantity' ? (unit_label || 'qty') : null, id]
         );
 
         res.json({ message: 'Group updated successfully' });

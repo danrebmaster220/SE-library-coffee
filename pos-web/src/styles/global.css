@@ -526,6 +526,8 @@ body {
 .warning-modal {
   padding: 0 !important;
   border-radius: 16px !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
 }
 
 /* Styled scrollbar for modals - thin, themed, auto-hiding */
@@ -552,7 +554,7 @@ body {
   background: #a68b6b;
 }
 
-/* Header: brown background, consistent height, perfect text-X alignment */
+/* Header: brown background, consistent height, perfect text-X alignment, STICKY */
 .modal-header {
   background-color: #6b4423eb !important;
   border-bottom: 1px solid #5a3a1e !important;
@@ -565,6 +567,9 @@ body {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
 }
 
 /* White text on header - vertically centered with X */

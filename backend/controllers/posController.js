@@ -583,6 +583,166 @@ exports.voidTransaction = async (req, res) => {
     }
 };
 
+// Remove specific items from a pending transaction (partial void)
+exports.removeItemsFromPending = async (req, res) => {
+    const connection = await db.getConnection();
+    
+    try {
+        await connection.beginTransaction();
+        
+        const { id } = req.params;
+        const { transaction_item_ids, void_library, reason, admin_username } = req.body;
+
+        // Get the transaction
+        const [orders] = await connection.query(
+            'SELECT * FROM transactions WHERE transaction_id = ? FOR UPDATE',
+            [id]
+        );
+
+        if (orders.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+
+        const order = orders[0];
+        if (order.status !== 'pending') {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Can only remove items from pending orders' });
+        }
+
+        // Remove specified transaction items and their customizations
+        if (transaction_item_ids && transaction_item_ids.length > 0) {
+            for (const tiId of transaction_item_ids) {
+                // Delete customizations first (FK constraint)
+                await connection.query(
+                    'DELETE FROM transaction_item_customizations WHERE transaction_item_id = ?',
+                    [tiId]
+                );
+                // Delete the transaction item
+                await connection.query(
+                    'DELETE FROM transaction_items WHERE id = ? AND transaction_id = ?',
+                    [tiId, id]
+                );
+            }
+        }
+
+        // Handle library booking void
+        if (void_library) {
+            // Release the seat if library booking had a seat
+            let libraryBooking = null;
+            if (order.library_booking) {
+                try {
+                    libraryBooking = typeof order.library_booking === 'string' 
+                        ? JSON.parse(order.library_booking) 
+                        : order.library_booking;
+                } catch(e) { /* ignore parse errors */ }
+            }
+            
+            if (libraryBooking && libraryBooking.seat_id) {
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('seat:released', { seat_id: libraryBooking.seat_id });
+                    io.to('library-room').emit('library:seats-update', { action: 'released' });
+                }
+            }
+
+            await connection.query(
+                'UPDATE transactions SET library_booking = NULL WHERE transaction_id = ?',
+                [id]
+            );
+        }
+
+        // Check remaining items
+        const [remainingItems] = await connection.query(
+            'SELECT ti.id as transaction_item_id, ti.item_name, ti.quantity, ti.unit_price, ti.total_price FROM transaction_items ti WHERE ti.transaction_id = ?',
+            [id]
+        );
+
+        // Check remaining library booking
+        const [updatedOrder] = await connection.query(
+            'SELECT library_booking FROM transactions WHERE transaction_id = ?',
+            [id]
+        );
+        const hasLibraryBooking = updatedOrder[0]?.library_booking != null;
+
+        if (remainingItems.length === 0 && !hasLibraryBooking) {
+            // Nothing left — void the entire transaction
+            const userId = req.user?.user_id || req.user?.id || null;
+            await connection.query(`
+                UPDATE transactions SET
+                    status = 'voided',
+                    voided_by = ?,
+                    void_reason = ?,
+                    voided_at = NOW()
+                WHERE transaction_id = ?
+            `, [userId, reason || 'All items removed', id]);
+
+            // Release beeper
+            if (order.beeper_number) {
+                await connection.query(
+                    "UPDATE beepers SET status = 'available', transaction_id = NULL, assigned_at = NULL WHERE beeper_number = ?",
+                    [order.beeper_number]
+                );
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('beepers:update', { beeper_number: order.beeper_number, status: 'available' });
+                }
+            }
+
+            // Log the void
+            try {
+                await connection.query(`
+                    INSERT INTO void_log (transaction_id, beeper_number, voided_by, void_reason, original_amount)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [id, order.beeper_number, userId, reason || 'All items removed', order.total_amount]);
+            } catch(logErr) { /* ignore */ }
+
+            await connection.commit();
+            return res.json({ 
+                success: true, 
+                fully_voided: true, 
+                message: 'All items removed — order voided' 
+            });
+        }
+
+        // Recalculate totals from remaining items
+        let newSubtotal = remainingItems.reduce((sum, item) => {
+            return sum + parseFloat(item.total_price || 0);
+        }, 0);
+
+        // Add library booking amount if still present
+        if (hasLibraryBooking && updatedOrder[0].library_booking) {
+            try {
+                const lb = typeof updatedOrder[0].library_booking === 'string'
+                    ? JSON.parse(updatedOrder[0].library_booking)
+                    : updatedOrder[0].library_booking;
+                newSubtotal += parseFloat(lb.amount || 0);
+            } catch(e) { /* ignore */ }
+        }
+
+        await connection.query(
+            'UPDATE transactions SET subtotal = ?, total_amount = ? WHERE transaction_id = ?',
+            [newSubtotal, newSubtotal, id]
+        );
+
+        await connection.commit();
+
+        // Return updated order data for the frontend to reload
+        res.json({ 
+            success: true, 
+            fully_voided: false, 
+            message: `${transaction_item_ids?.length || 0} item(s) removed`,
+            remaining_items: remainingItems,
+            new_total: newSubtotal
+        });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+};
+
 // Refund a completed/preparing/ready transaction
 exports.refundTransaction = async (req, res) => {
     try {

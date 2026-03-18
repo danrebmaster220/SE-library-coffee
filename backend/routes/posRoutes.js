@@ -67,4 +67,7 @@ router.post('/transactions/:id/void', verifyToken, posController.voidTransaction
 // Refund transaction
 router.post('/transactions/:id/refund', verifyToken, posController.refundTransaction);
 
+// Remove items from pending transaction (partial void)
+router.put('/transactions/:id/remove-items', verifyToken, posController.removeItemsFromPending);
+
 module.exports = router;
