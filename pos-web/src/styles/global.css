@@ -556,7 +556,7 @@ body {
 
 /* Header: brown background, consistent height, perfect text-X alignment, STICKY */
 .modal-header {
-  background-color: #6b4423eb !important;
+  background-color: #6b4423 !important;
   border-bottom: 1px solid #5a3a1e !important;
   color: white !important;
   margin: 0 !important;

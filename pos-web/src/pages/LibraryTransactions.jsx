@@ -818,22 +818,26 @@ function CheckoutModal(props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content library-modal" onClick={function(e) { e.stopPropagation(); }}>
-        <h3>Checkout - Return ID</h3>
-        <div className="modal-divider"></div>
-        <div className="modal-info-row"><span className="info-label">Location:</span><span className="info-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
-        <div className="modal-info-row"><span className="info-label">Customer:</span><span className="info-value">{session.customer_name}</span></div>
-        <div className="modal-info-row"><span className="info-label">Duration Used:</span><span className="info-value">{formatDuration(session.elapsed_minutes)}</span></div>
-        <div className="modal-info-row"><span className="info-label">Time Paid:</span><span className="info-value">{formatDuration(session.paid_minutes || 120)}</span></div>
-        
-        <div className="checkout-note success">
-          <strong>Ready to checkout!</strong><br/>
-          The customer has already paid. Please return their ID.
+        <div className="modal-header">
+          <h3 className="modal-title">Checkout - Return ID</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        
-        <div className="modal-divider"></div>
-        <div className="modal-actions">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={onSubmit}>Return ID & Complete</button>
+        <div style={{padding: '20px'}}>
+          <div className="modal-info-row"><span className="info-label">Location:</span><span className="info-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
+          <div className="modal-info-row"><span className="info-label">Customer:</span><span className="info-value">{session.customer_name}</span></div>
+          <div className="modal-info-row"><span className="info-label">Duration Used:</span><span className="info-value">{formatDuration(session.elapsed_minutes)}</span></div>
+          <div className="modal-info-row"><span className="info-label">Time Paid:</span><span className="info-value">{formatDuration(session.paid_minutes || 120)}</span></div>
+          
+          <div className="checkout-note success">
+            <strong>Ready to checkout!</strong><br/>
+            The customer has already paid. Please return their ID.
+          </div>
+          
+          <div className="modal-divider"></div>
+          <div className="modal-actions">
+            <button className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn-primary" onClick={onSubmit}>Return ID & Complete</button>
+          </div>
         </div>
       </div>
     </div>
@@ -872,7 +876,7 @@ function VoidSessionModal(props) {
   var session = props.session;
   var onClose = props.onClose;
   var onSubmit = props.onSubmit;
-  var isAdmin = props.isAdmin;
+  var _isAdmin = props.isAdmin;
   
   var _reasonState = useState('');
   var voidReason = _reasonState[0];
@@ -894,7 +898,8 @@ function VoidSessionModal(props) {
   var sessionId = session.session_id || session.id;
   
   // Cashiers need admin credentials to void
-  var needsAdminAuth = !isAdmin;
+  // Always require admin credentials when voiding active sessions
+  var needsAdminAuth = true;
 
   async function handleSubmit() {
     setErrorMessage('');

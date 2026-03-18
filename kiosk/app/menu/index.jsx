@@ -191,18 +191,6 @@ export default function MenuPage() {
     return () => BackHandler.removeEventListener("hardwareBackPress", onBackPress);
   }, [orders, currentLibraryBooking, router]);
 
-  // Fetch categories on mount
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  // Fetch items when category changes
-  useEffect(() => {
-    if (selectedCategory) {
-      fetchItemsForCategory(selectedCategory);
-    }
-  }, [selectedCategory, fetchItemsForCategory]);
-
   const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
@@ -249,6 +237,18 @@ export default function MenuPage() {
       setLoadingItems(false);
     }
   }, [categories]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  // Fetch items when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      fetchItemsForCategory(selectedCategory);
+    }
+  }, [selectedCategory, fetchItemsForCategory]);
 
   // Add item or increase quantity
   const handleAddToOrder = useCallback((item) => {
