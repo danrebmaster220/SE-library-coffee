@@ -1292,9 +1292,10 @@ export default function POS() {
           <label>Cash Amount:</label>
           <div className="cash-input-row">
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={cashAmount}
-              onChange={(e) => setCashAmount(e.target.value)}
+              onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setCashAmount(e.target.value); }}
               placeholder="Enter cash amount"
             />
             <button onClick={clearCash} className="btn-clear-cash">Clear</button>

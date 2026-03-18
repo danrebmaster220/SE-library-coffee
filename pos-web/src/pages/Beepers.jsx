@@ -125,11 +125,10 @@ export default function Beepers() {
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Total Beeper Count (1-100)</label>
                 <input 
-                  type="number" 
-                  min="1" 
-                  max="100"
+                  type="text"
+                  inputMode="numeric"
                   value={newBeeperCount}
-                  onChange={(e) => setNewBeeperCount(e.target.value)}
+                  onChange={(e) => { if (e.target.value === '' || /^\d{1,3}$/.test(e.target.value)) setNewBeeperCount(e.target.value); }}
                   placeholder="Enter beeper count"
                   style={{ width: '100px', padding: '8px 12px', textAlign: 'center', borderRadius: '6px', border: '1px solid #ccc' }}
                 />

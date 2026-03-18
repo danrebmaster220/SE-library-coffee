@@ -393,12 +393,11 @@ export default function MenuItems() {
                 <div className="form-group">
                   <label className="form-label">Price (PHP)</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     className="form-input"
                     value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setFormData({ ...formData, price: e.target.value }); }}
                     placeholder="0.00"
                     required
                   />

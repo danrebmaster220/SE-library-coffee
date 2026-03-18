@@ -104,6 +104,16 @@ const Icons = {
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
+  ),
+  cash: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+      <circle cx="12" cy="12" r="3"></circle>
+      <line x1="1" y1="8" x2="4" y2="8"></line>
+      <line x1="20" y1="8" x2="23" y2="8"></line>
+      <line x1="1" y1="16" x2="4" y2="16"></line>
+      <line x1="20" y1="16" x2="23" y2="16"></line>
+    </svg>
   )
 };
 
@@ -159,6 +169,9 @@ export default function Sidebar() {
     }
     if (['/library', '/library/tables', '/library/transactions'].some(p => path.startsWith(p))) {
       setOpenMenus(prev => ({ ...prev, library: true }));
+    }
+    if (['/cash/active', '/cash/history'].some(p => path.startsWith(p))) {
+      setOpenMenus(prev => ({ ...prev, cash: true }));
     }
   }, [location.pathname]);
 
@@ -218,6 +231,14 @@ export default function Sidebar() {
       ]
     },
     { id: 'users', label: 'Staff Management', icon: 'users', path: '/users', type: 'link' },
+    {
+      id: 'cash', label: 'Cash Management', icon: 'cash', type: 'dropdown',
+      paths: ['/cash/active', '/cash/history'],
+      children: [
+        { label: 'Active Shifts', path: '/cash/active' },
+        { label: 'Shift History', path: '/cash/history' }
+      ]
+    },
     { id: 'reports', label: 'Reports', icon: 'reports', path: '/reports', type: 'link' },
     { id: 'settings', label: 'Settings', icon: 'settings', path: '/config', type: 'link' }
   ];

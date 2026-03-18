@@ -21,6 +21,9 @@ async function runMigrations() {
         // Migration 4: Add 'unit_label' column to customization_groups
         await addUnitLabelColumn();
 
+        // Migration 5: Create shifts table for cash management
+        await createShiftsTable();
+
         console.log('✅ Database migrations complete.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -119,6 +122,43 @@ async function addUnitLabelColumn() {
         }
     } catch (error) {
         console.error('   ⚠️ addUnitLabelColumn:', error.message);
+    }
+}
+
+async function createShiftsTable() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'shifts' 
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        if (tables.length === 0) {
+            await db.query(`
+                CREATE TABLE shifts (
+                    shift_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    end_time DATETIME DEFAULT NULL,
+                    starting_cash DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    expected_cash DECIMAL(10,2) DEFAULT NULL,
+                    actual_cash DECIMAL(10,2) DEFAULT NULL,
+                    cash_difference DECIMAL(10,2) DEFAULT NULL,
+                    total_sales DECIMAL(10,2) DEFAULT 0.00,
+                    total_transactions INT DEFAULT 0,
+                    total_voids INT DEFAULT 0,
+                    total_refunds DECIMAL(10,2) DEFAULT 0.00,
+                    status VARCHAR(10) NOT NULL DEFAULT 'active',
+                    notes TEXT DEFAULT NULL,
+                    closed_by INT DEFAULT NULL
+                )
+            `);
+            console.log('   ✅ Created "shifts" table');
+        } else {
+            console.log('   ⏭️  shifts table already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ createShiftsTable:', error.message);
     }
 }
 

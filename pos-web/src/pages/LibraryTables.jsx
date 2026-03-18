@@ -238,11 +238,10 @@ export default function LibraryTables() {
               <div className="form-group">
                 <label>Number of Seats:</label>
                 <input
-                  type="number"
-                  min="1"
-                  max="20"
+                  type="text"
+                  inputMode="numeric"
                   value={newTableSeats}
-                  onChange={e => setNewTableSeats(e.target.value)}
+                  onChange={e => { if (e.target.value === '' || /^\d{1,2}$/.test(e.target.value)) setNewTableSeats(e.target.value); }}
                 />
               </div>
               <p className="modal-info">
@@ -283,11 +282,10 @@ export default function LibraryTables() {
               <div className="form-group">
                 <label>Number of Seats:</label>
                 <input
-                  type="number"
-                  min="1"
-                  max="20"
+                  type="text"
+                  inputMode="numeric"
                   value={editSeatsCount}
-                  onChange={e => setEditSeatsCount(e.target.value)}
+                  onChange={e => { if (e.target.value === '' || /^\d{1,2}$/.test(e.target.value)) setEditSeatsCount(e.target.value); }}
                 />
               </div>
               
@@ -344,21 +342,19 @@ export default function LibraryTables() {
               <div className="form-group">
                 <label>Number of Tables:</label>
                 <input
-                  type="number"
-                  min="1"
-                  max="20"
+                  type="text"
+                  inputMode="numeric"
                   value={configTables}
-                  onChange={e => setConfigTables(e.target.value)}
+                  onChange={e => { if (e.target.value === '' || /^\d{1,2}$/.test(e.target.value)) setConfigTables(e.target.value); }}
                 />
               </div>
               <div className="form-group">
                 <label>Seats per Table:</label>
                 <input
-                  type="number"
-                  min="1"
-                  max="20"
+                  type="text"
+                  inputMode="numeric"
                   value={configSeatsPerTable}
-                  onChange={e => setConfigSeatsPerTable(e.target.value)}
+                  onChange={e => { if (e.target.value === '' || /^\d{1,2}$/.test(e.target.value)) setConfigSeatsPerTable(e.target.value); }}
                 />
               </div>
               <p className="modal-info" style={{ textAlign: 'center' }}>

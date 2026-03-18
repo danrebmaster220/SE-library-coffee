@@ -235,13 +235,11 @@ export default function Discounts() {
               <div className="form-group">
                 <label className="form-label">Percentage (%)</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
+                  type="text"
+                  inputMode="decimal"
                   className="form-input"
                   value={formData.percentage}
-                  onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
+                  onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setFormData({ ...formData, percentage: e.target.value }); }}
                   placeholder="e.g., 20"
                   required
                 />

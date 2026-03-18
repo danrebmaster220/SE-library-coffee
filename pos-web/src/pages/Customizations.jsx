@@ -498,11 +498,11 @@ export default function Customizations() {
                 <div className="form-group">
                   <label className="form-label">Display Order</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-input"
-                    min="0"
                     value={groupFormData.display_order}
-                    onChange={(e) => setGroupFormData({ ...groupFormData, display_order: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d{1,3}$/.test(e.target.value)) setGroupFormData({ ...groupFormData, display_order: e.target.value }); }}
                   />
                 </div>
                 <div className="form-group">
@@ -561,24 +561,22 @@ export default function Customizations() {
                 <div className="form-group">
                   <label className="form-label">Fixed Price (₱)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="form-input"
-                    min="0"
-                    step="0.01"
                     value={optionFormData.price}
-                    onChange={(e) => setOptionFormData({ ...optionFormData, price: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setOptionFormData({ ...optionFormData, price: e.target.value }); }}
                   />
                   <small className="form-helper">Additional price for this option (0 for free)</small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Price Per Unit (₱)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="form-input"
-                    min="0"
-                    step="0.01"
                     value={optionFormData.price_per_unit}
-                    onChange={(e) => setOptionFormData({ ...optionFormData, price_per_unit: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setOptionFormData({ ...optionFormData, price_per_unit: e.target.value }); }}
                   />
                   <small className="form-helper">For quantity-based options (e.g., ₱5/pump)</small>
                 </div>
@@ -587,22 +585,22 @@ export default function Customizations() {
                 <div className="form-group">
                   <label className="form-label">Max Quantity</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-input"
-                    min="1"
                     value={optionFormData.max_quantity}
-                    onChange={(e) => setOptionFormData({ ...optionFormData, max_quantity: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d{1,3}$/.test(e.target.value)) setOptionFormData({ ...optionFormData, max_quantity: e.target.value }); }}
                   />
                   <small className="form-helper">Maximum allowed quantity</small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Display Order</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-input"
-                    min="0"
                     value={optionFormData.display_order}
-                    onChange={(e) => setOptionFormData({ ...optionFormData, display_order: e.target.value })}
+                    onChange={(e) => { if (e.target.value === '' || /^\d{1,3}$/.test(e.target.value)) setOptionFormData({ ...optionFormData, display_order: e.target.value }); }}
                   />
                 </div>
               </div>

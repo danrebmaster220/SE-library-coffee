@@ -284,9 +284,10 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
             <div className="form-group">
               <label>Cash Tendered:</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={cashTendered}
-                onChange={(e) => setCashTendered(e.target.value)}
+                onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setCashTendered(e.target.value); }}
                 placeholder="Enter amount"
                 required
               />
@@ -382,9 +383,10 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
             <div className="form-group">
               <label>Cash Tendered:</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={cashTendered}
-                onChange={(e) => setCashTendered(e.target.value)}
+                onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setCashTendered(e.target.value); }}
                 placeholder="Enter amount"
               />
             </div>

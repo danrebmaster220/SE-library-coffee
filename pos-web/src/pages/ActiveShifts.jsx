@@ -1,0 +1,160 @@
+import { useState, useEffect } from "react";
+import api from "../api";
+import "../styles/cash-management.css";
+
+export default function ActiveShifts() {
+  const [shifts, setShifts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForceCloseModal, setShowForceCloseModal] = useState(false);
+  const [selectedShift, setSelectedShift] = useState(null);
+  const [forceCloseNotes, setForceCloseNotes] = useState('');
+
+  useEffect(() => {
+    fetchActiveShifts();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchActiveShifts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchActiveShifts = async () => {
+    try {
+      const response = await api.get("/shifts/active");
+      setShifts(response.data.shifts || []);
+    } catch (error) {
+      console.error("Error fetching active shifts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDuration = (startTime) => {
+    const start = new Date(startTime);
+    const now = new Date();
+    const diffMs = now - start;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const openForceClose = (shift) => {
+    setSelectedShift(shift);
+    setForceCloseNotes('');
+    setShowForceCloseModal(true);
+  };
+
+  const handleForceClose = async () => {
+    try {
+      await api.post(`/shifts/${selectedShift.shift_id}/force-close`, {
+        notes: forceCloseNotes || 'Force-closed by admin'
+      });
+      setShowForceCloseModal(false);
+      setSelectedShift(null);
+      fetchActiveShifts();
+    } catch (error) {
+      console.error("Error force-closing shift:", error);
+      alert(error.response?.data?.error || 'Failed to force-close shift');
+    }
+  };
+
+  return (
+    <div className="cash-management-page">
+      <div className="page-header-bar">
+        <div>
+          <h1 className="page-title">Active Shifts</h1>
+          <p className="page-subtitle">Currently open cashier shifts</p>
+        </div>
+        <button className="btn-refresh" onClick={fetchActiveShifts}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="loading-state">Loading...</div>
+      ) : shifts.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🕐</div>
+          <h3>No Active Shifts</h3>
+          <p>No cashiers are currently on shift.</p>
+        </div>
+      ) : (
+        <div className="shifts-table-container">
+          <table className="shifts-table">
+            <thead>
+              <tr>
+                <th>Cashier</th>
+                <th>Start Time</th>
+                <th>Duration</th>
+                <th>Starting Cash</th>
+                <th>Running Sales</th>
+                <th>Transactions</th>
+                <th>Voids</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shifts.map((shift) => (
+                <tr key={shift.shift_id}>
+                  <td>
+                    <div className="cashier-cell">
+                      <div className="cashier-avatar">{(shift.full_name || 'C').charAt(0).toUpperCase()}</div>
+                      <div>
+                        <div className="cashier-name">{shift.full_name}</div>
+                        <div className="cashier-username">@{shift.username}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{new Date(shift.start_time).toLocaleString()}</td>
+                  <td>
+                    <span className="duration-badge">{formatDuration(shift.start_time)}</span>
+                  </td>
+                  <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
+                  <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
+                  <td>{shift.total_transactions || 0}</td>
+                  <td>{shift.total_voids || 0}</td>
+                  <td>
+                    <button className="btn-force-close" onClick={() => openForceClose(shift)}>
+                      Force Close
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Force Close Modal */}
+      {showForceCloseModal && selectedShift && (
+        <div className="modal-overlay" onClick={() => setShowForceCloseModal(false)}>
+          <div className="modal-content force-close-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Force Close Shift</h3>
+              <button className="modal-close" onClick={() => setShowForceCloseModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '12px' }}>
+                Force-close the shift for <strong>{selectedShift.full_name}</strong>?
+              </p>
+              <p style={{ fontSize: '13px', color: '#888', marginBottom: '16px' }}>
+                Started: {new Date(selectedShift.start_time).toLocaleString()} ({formatDuration(selectedShift.start_time)})
+              </p>
+              <div className="form-group">
+                <label>Reason / Notes</label>
+                <textarea
+                  value={forceCloseNotes}
+                  onChange={(e) => setForceCloseNotes(e.target.value)}
+                  placeholder="e.g., Power outage, cashier absent..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowForceCloseModal(false)}>Cancel</button>
+              <button className="btn-danger" onClick={handleForceClose}>Force Close Shift</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

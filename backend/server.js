@@ -68,6 +68,7 @@ const printerRoutes = require('./routes/printerRoutes');
 const customizationRoutes = require('./routes/customizationRoutes');
 const posRoutes = require('./routes/posRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const shiftRoutes = require('./routes/shiftRoutes');
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -145,6 +146,7 @@ app.use('/api/printer', printerRoutes);
 app.use('/api/customizations', customizationRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/shifts', shiftRoutes);
 
 
 // SOCKET.IO REAL-TIME EVENTS
