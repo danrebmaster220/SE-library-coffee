@@ -60,6 +60,8 @@ export default function Library() {
     setSelectedSeat(seat);
     if (seat.status === 'available') {
       setShowCheckinModal(true);
+    } else if (seat.status === 'reserved') {
+      showToast('This seat is reserved by a pending Kiosk order.', 'warning');
     } else if (seat.status === 'occupied') {
       // Show options: Extend or Checkout
       setShowExtendModal(true);
@@ -77,6 +79,7 @@ export default function Library() {
   // Count stats
   const availableCount = seats.filter(s => s.status === 'available').length;
   const occupiedCount = seats.filter(s => s.status === 'occupied').length;
+  const reservedCount = seats.filter(s => s.status === 'reserved').length;
   const maintenanceCount = seats.filter(s => s.status === 'maintenance').length;
 
   return (
@@ -86,6 +89,7 @@ export default function Library() {
         <p className="subtitle">{tables.length} Tables × {seats.length} Total Seats</p>
         <div className="legend">
           <span className="legend-item"><span className="legend-dot available"></span> Available ({availableCount})</span>
+          <span className="legend-item"><span className="legend-dot reserved"></span> Reserved ({reservedCount})</span>
           <span className="legend-item"><span className="legend-dot occupied"></span> Occupied ({occupiedCount})</span>
           {maintenanceCount > 0 && (
             <span className="legend-item"><span className="legend-dot maintenance"></span> Maintenance ({maintenanceCount})</span>
@@ -109,6 +113,7 @@ export default function Library() {
                     key={seat.seat_id}
                     className={`seat-box ${
                       seat.status === 'available' ? 'seat-available' : 
+                      seat.status === 'reserved' ? 'seat-reserved' :
                       seat.status === 'occupied' ? (seat.remaining_minutes <= 10 ? 'seat-warning' : 'seat-occupied') : 
                       'seat-maintenance'
                     }`}
@@ -132,6 +137,7 @@ export default function Library() {
       <div className="library-instructions">
         <p><strong>Tap occupied seat →</strong> View session / Extend / Checkout</p>
         <p><strong>Tap green seat →</strong> Check-in (Pay first)</p>
+        <p><strong>Orange seat →</strong> Reserved by a pending Kiosk order</p>
         <p><span className="timer-note">⏱ Yellow seats = less than 10 mins remaining</span></p>
       </div>
 

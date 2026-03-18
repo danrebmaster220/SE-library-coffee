@@ -380,6 +380,22 @@
   transform: scale(1.05);
 }
 
+/* Reserved Seat (booked by kiosk pending order) */
+.seat-reserved {
+  background: #ffb74d;
+  color: white;
+  cursor: not-allowed;
+}
+
+.seat-reserved:hover {
+  background: #ffa726;
+  border-color: #fb8c00;
+}
+
+.legend-dot.reserved {
+  background: #ffb74d;
+}
+
 /* Warning Seat (less than 10 mins remaining) */
 .seat-warning {
   background: #ffc107;

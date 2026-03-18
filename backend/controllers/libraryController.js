@@ -75,6 +75,28 @@ exports.getSeats = async (req, res) => {
     try {
         const lockedSeats = req.app.get('lockedSeats');
         
+        // Check pending kiosk orders with library bookings for reserved seats
+        const [pendingOrders] = await db.query(`
+            SELECT library_booking 
+            FROM transactions 
+            WHERE status = 'pending' 
+            AND library_booking IS NOT NULL
+        `);
+        
+        // Extract seat_ids from pending library bookings
+        const reservedSeatIds = pendingOrders
+            .map(order => {
+                try {
+                    const booking = typeof order.library_booking === 'string' 
+                        ? JSON.parse(order.library_booking) 
+                        : order.library_booking;
+                    return booking?.seat_id;
+                } catch (_e) {
+                    return null;
+                }
+            })
+            .filter(id => id !== null);
+        
         const [seats] = await db.query(`
             SELECT 
                 s.seat_id,
@@ -95,20 +117,25 @@ exports.getSeats = async (req, res) => {
             ORDER BY s.table_number, s.seat_number
         `);
         
-        // Inject Kiosk memory locks so Admins see them as occupied/locked
-        const seatsWithLocks = seats.map(seat => {
+        // Mark seats with reservations from pending kiosk orders AND memory locks
+        const seatsWithReservations = seats.map(seat => {
+            // Check pending kiosk order reservations first
+            if (reservedSeatIds.includes(seat.seat_id) && seat.status === 'available') {
+                return { ...seat, status: 'reserved', kiosk_reserved: true };
+            }
+            // Then check in-memory locks
             const isLocked = lockedSeats && (
                 lockedSeats.has(seat.seat_id) || 
                 lockedSeats.has(String(seat.seat_id)) || 
                 lockedSeats.has(Number(seat.seat_id))
             );
             if (isLocked && seat.status === 'available') {
-                return { ...seat, status: 'occupied', temporary_lock: true };
+                return { ...seat, status: 'reserved', temporary_lock: true };
             }
             return seat;
         });
 
-        res.json(seatsWithLocks);
+        res.json(seatsWithReservations);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -235,8 +235,8 @@ export default function LibraryTransactions() {
     setSelectedSeat(seat);
     if (seat.status === 'available' && !seat.temporary_lock) {
       setShowCheckinModal(true);
-    } else if (seat.temporary_lock) {
-      showToast('This seat is currently being booked by a Kiosk customer.', 'warning');
+    } else if (seat.status === 'reserved' || seat.kiosk_reserved || seat.temporary_lock) {
+      showToast('This seat is reserved by a pending Kiosk order. It will become available if the order is voided or completed.', 'warning');
       setSelectedSeat(null);
     } else if (seat.status === 'occupied') {
       const session = activeSessions.find(s => s.seat_id === seat.seat_id);
@@ -244,7 +244,6 @@ export default function LibraryTransactions() {
         setSelectedSession(session);
         setShowSessionModal(true);
       } else {
-        // Fallback for when session info isn't found
         showToast('Seat is occupied but session info is missing or still synchronizing.', 'warning');
         setSelectedSeat(null);
       }
@@ -388,6 +387,7 @@ export default function LibraryTransactions() {
 
   const availableCount = seats.filter(s => s.status === 'available').length;
   const occupiedCount = seats.filter(s => s.status === 'occupied').length;
+  const reservedCount = seats.filter(s => s.status === 'reserved').length;
   const maintenanceCount = seats.filter(s => s.status === 'maintenance').length;
   const activeRevenue = activeSessions.reduce((sum, s) => sum + calculateFee(s.elapsed_minutes), 0);
 
@@ -440,6 +440,12 @@ export default function LibraryTransactions() {
           <div className="stat-value">{occupiedCount}</div>
           <div className="stat-label">Occupied</div>
         </div>
+        {reservedCount > 0 && (
+          <div className="stat-card" style={{borderLeft: '4px solid #ffb74d'}}>
+            <div className="stat-value">{reservedCount}</div>
+            <div className="stat-label">Reserved (Kiosk)</div>
+          </div>
+        )}
         {maintenanceCount > 0 && (
           <div className="stat-card stat-maintenance">
             <div className="stat-value">{maintenanceCount}</div>
@@ -461,6 +467,7 @@ export default function LibraryTransactions() {
         {viewMode !== 'history' && (
           <div className="legend">
             <span className="legend-item"><span className="legend-dot available"></span> Available</span>
+            <span className="legend-item"><span className="legend-dot reserved"></span> Reserved</span>
             <span className="legend-item"><span className="legend-dot occupied"></span> Occupied</span>
             {maintenanceCount > 0 && (<span className="legend-item"><span className="legend-dot maintenance"></span> Maintenance</span>)}
           </div>
@@ -497,6 +504,7 @@ export default function LibraryTransactions() {
                       {group.seats.map(function(seat) {
                         var seatClass = 'seat-item ';
                         if (seat.status === 'available') seatClass += 'seat-available';
+                        else if (seat.status === 'reserved') seatClass += 'seat-reserved';
                         else if (seat.status === 'occupied') seatClass += 'seat-occupied';
                         else seatClass += 'seat-maintenance';
                         return (
@@ -693,6 +701,7 @@ export default function LibraryTransactions() {
 
       <div className="library-instructions">
         <p><strong>Green seat:</strong> Tap to check-in customer</p>
+        <p><strong>Orange seat:</strong> Reserved by a pending Kiosk order</p>
         <p><strong>Red seat:</strong> Tap to view session / extend / checkout</p>
         <p><strong>Warning:</strong> Session has less than 5 minutes remaining</p>
       </div>
