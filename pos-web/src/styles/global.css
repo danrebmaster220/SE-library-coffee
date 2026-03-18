@@ -529,7 +529,19 @@ body {
   padding: 0 !important;
   border-radius: 16px !important;
   max-height: 80vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Scrollable body/form inside modals */
+.modal-content > form,
+.modal > .modal-body,
+.modal-content > .modal-body,
+.modal-content > .delete-modal-body {
   overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
 }
 
 /* Modifiers to lock scrolling on container and pass to body wrapper */

@@ -23,6 +23,7 @@ export default function POS() {
   const [discounts, setDiscounts] = useState([]);
   const [selectedDiscount, setSelectedDiscount] = useState(null);
   const [cashAmount, setCashAmount] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [customizingItem, setCustomizingItem] = useState(null);
   const [customizationGroups, setCustomizationGroups] = useState([]);
@@ -660,13 +661,6 @@ export default function POS() {
       return beeperNum.includes(searchNum) || orderNum.includes(searchNum);
     });
   }, [orders.pending, orderSearchQuery]);
-
-  const handleQuickCash = useCallback((amount) => {
-    setCashAmount(prev => {
-      const current = parseFloat(prev) || 0;
-      return String(current + amount);
-    });
-  }, []);
 
   const clearCash = useCallback(() => {
     setCashAmount('');
@@ -1318,43 +1312,30 @@ export default function POS() {
           </div>
         </div>
 
-        {/* Cash Input with Quick Amounts */}
-        <div className="cash-section">
-          <label>Cash Amount:</label>
-          <div className="cash-input-row">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={cashAmount}
-              onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setCashAmount(e.target.value); }}
-              placeholder="Enter cash amount"
-            />
-            <button onClick={clearCash} className="btn-clear-cash">Clear</button>
-          </div>
-          <div className="quick-cash-buttons">
-            <button onClick={() => setCashAmount(String(calculateTotal()))} className="quick-cash-btn exact-btn">
-              Exact
-            </button>
-            {[50, 100, 200, 500, 1000].map(amount => (
-              <button key={amount} onClick={() => handleQuickCash(amount)} className="quick-cash-btn">
-                +{amount}
-              </button>
-            ))}
-          </div>
-          <div className="change-display">
-            Change: ₱{parseFloat(cashAmount) > 0 ? calculateChange().toFixed(2) : '0.00'}
-          </div>
-        </div>
-
         </div>{/* End of cart-payment-section */}
 
-          {/* Pay Button - outside payment section so it's always pinned at bottom */}
+          {/* Proceed to Payment Button - opens payment modal */}
           <button
-            onClick={handlePayment}
+            onClick={() => {
+              if (!orderType) {
+                showToast('Please select order type first!', 'warning');
+                return;
+              }
+              if (!pendingOrderId && !selectedBeeper) {
+                showToast('Please select a beeper number!', 'warning');
+                return;
+              }
+              if (cart.length === 0 && !pendingOrderId && !pendingLibraryBooking) {
+                showToast('Cart is empty!', 'warning');
+                return;
+              }
+              setCashAmount('');
+              setShowPaymentModal(true);
+            }}
             disabled={loading || (cart.length === 0 && !pendingOrderId && !pendingLibraryBooking) || !orderType}
             className="btn-pay"
           >
-            {loading ? 'Processing...' : 'Pay & Complete'}
+            {loading ? 'Processing...' : 'Proceed to Payment'}
           </button>
 
           {error && <div className="error-message">{error}</div>}
@@ -1639,6 +1620,69 @@ export default function POS() {
                 <span>{availableBeepers.length} of {beepers.length} beepers available</span>
               </div>
               <button onClick={() => setShowBeeperModal(false)} className="btn-cancel">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+          <div className="modal payment-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Cash Payment</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="payment-total-display">
+                <span className="payment-total-label">Total:</span>
+                <span className="payment-total-amount">₱{calculateTotal().toFixed(2)}</span>
+              </div>
+
+              <div className="payment-cash-section">
+                <label>Amount Received:</label>
+                <div className="cash-input-row">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={cashAmount}
+                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setCashAmount(e.target.value); }}
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                  <button onClick={clearCash} className="btn-clear-cash">Clear</button>
+                </div>
+
+                <label className="quick-select-label">Quick Select:</label>
+                <div className="quick-cash-buttons">
+                  <button onClick={() => setCashAmount(String(calculateTotal()))} className="quick-cash-btn exact-btn">
+                    Exact ₱{calculateTotal().toFixed(0)}
+                  </button>
+                  {[200, 500, 1000, 2000].map(amount => (
+                    <button key={amount} onClick={() => setCashAmount(String(amount))} className="quick-cash-btn">
+                      ₱{amount}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="payment-change-display">
+                  <span className="change-label">Change:</span>
+                  <span className="change-amount">₱{parseFloat(cashAmount) > 0 ? calculateChange().toFixed(2) : '0.00'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowPaymentModal(false)} className="btn-cancel">Cancel</button>
+              <button
+                onClick={() => {
+                  handlePayment();
+                  setShowPaymentModal(false);
+                }}
+                disabled={loading || !cashAmount || parseFloat(cashAmount) < calculateTotal()}
+                className="btn-confirm-payment"
+              >
+                {loading ? 'Processing...' : 'Confirm Payment'}
+              </button>
             </div>
           </div>
         </div>
