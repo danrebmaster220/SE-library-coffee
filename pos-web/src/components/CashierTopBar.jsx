@@ -298,8 +298,33 @@ export default function CashierTopBar() {
 
       {/* Start Shift Modal */}
       {showStartShiftModal && (
-        <div className="logout-modal-overlay">
-          <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+        <div className="logout-modal-overlay" onClick={() => setShowStartShiftModal(false)}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
+            <button 
+              onClick={() => setShowStartShiftModal(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#888',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: '1',
+                transition: 'color 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.color = '#333'}
+              onMouseOut={(e) => e.target.style.color = '#888'}
+              title="Close"
+              aria-label="Close modal"
+            >
+              &times;
+            </button>
             <div className="logout-modal-icon">💰</div>
             <h3>Start New Shift</h3>
             <p style={{ marginBottom: '16px', color: '#666' }}>Enter the starting cash amount in your drawer.</p>
