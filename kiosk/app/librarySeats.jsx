@@ -55,10 +55,16 @@ export default function LibrarySeats() {
   const fetchSeatsSilent = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/library/seats/available`);
-      const data = await response.json();
-      setSeats(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Silent seat refresh failed:", error);
+      if (!response.ok) return; // Silently ignore failed responses
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        setSeats(Array.isArray(data) ? data : []);
+      } catch (_parseErr) {
+        // Response was not valid JSON, ignore silently
+      }
+    } catch (_error) {
+      // Network error, ignore silently
     }
   };
 
