@@ -24,6 +24,9 @@ async function runMigrations() {
         // Migration 5: Create shifts table for cash management
         await createShiftsTable();
 
+        // Migration 6: Add 'processed_by' column to library_sessions
+        await addLibraryProcessedBy();
+
         console.log('✅ Database migrations complete.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -159,6 +162,29 @@ async function createShiftsTable() {
         }
     } catch (error) {
         console.error('   ⚠️ createShiftsTable:', error.message);
+    }
+}
+
+async function addLibraryProcessedBy() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'library_sessions' 
+            AND COLUMN_NAME = 'processed_by'
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        if (cols.length === 0) {
+            await db.query(`
+                ALTER TABLE library_sessions 
+                ADD COLUMN processed_by INT DEFAULT NULL
+            `);
+            console.log('   ✅ Added "processed_by" column to library_sessions');
+        } else {
+            console.log('   ⏭️  library_sessions.processed_by already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addLibraryProcessedBy:', error.message);
     }
 }
 

@@ -143,19 +143,22 @@ exports.checkin = async (req, res) => {
 
         const actualCashTendered = cash_tendered || amount_paid;
         const changeDue = actualCashTendered - amount_paid;
+        
+        const userId = req.user?.user_id || req.user?.id || null;
 
         // Create session with paid time
         const [result] = await db.query(`
             INSERT INTO library_sessions 
-            (seat_id, customer_name, paid_minutes, amount_paid, cash_tendered, change_due, status, start_time) 
-            VALUES (?, ?, ?, ?, ?, ?, 'active', NOW())
+            (seat_id, customer_name, paid_minutes, amount_paid, cash_tendered, change_due, status, start_time, processed_by) 
+            VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), ?)
         `, [
             seat_id, 
             customer_name, 
             duration_minutes, 
             amount_paid,
             actualCashTendered,
-            changeDue
+            changeDue,
+            userId
         ]);
 
         // Update seat status

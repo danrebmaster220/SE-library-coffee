@@ -9,6 +9,8 @@ import '../styles/pos.css';
 export default function POS() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasActiveShift, setHasActiveShift] = useState(true);
+  const [shiftChecking, setShiftChecking] = useState(true);
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -127,6 +129,18 @@ export default function POS() {
     setCurrentUser(user);
     // Check if user is admin (role_id = 1)
     setIsAdmin(user?.role_id === 1);
+
+    const checkShift = () => {
+      api.get('/shifts/my-active')
+        .then(res => {
+          setHasActiveShift(!!res.data.shift);
+          setShiftChecking(false);
+        })
+        .catch(() => setShiftChecking(false));
+    };
+    checkShift();
+    window.addEventListener('shiftUpdated', checkShift);
+
     fetchMenuData();
     fetchOrders();
     fetchBeepers();
@@ -144,6 +158,7 @@ export default function POS() {
     return () => {
       clearInterval(interval);
       socketService.removeListener('beepers:update');
+      window.removeEventListener('shiftUpdated', checkShift);
     };
   }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts]);
 
@@ -922,6 +937,22 @@ export default function POS() {
 
   return (
     <div className="pos-container" ref={posContainerRef}>
+      {/* Shift Restricted Overlay */}
+      {!hasActiveShift && !shiftChecking && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+          textAlign: 'center', padding: '20px', borderRadius: '8px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
+          <h2 style={{ fontSize: '24px', color: '#333', marginBottom: '8px', fontWeight: 'bold' }}>Shift Not Started</h2>
+          <p style={{ color: '#666', fontSize: '15px', maxWidth: '400px' }}>
+            You must start your shift using the 'Start Shift' button in the top bar to process orders.
+          </p>
+        </div>
+      )}
+
       {/* Left Panel - Order Queue */}
       <div className="pos-orders-panel">
         <h2>Order Queue</h2>

@@ -265,6 +265,20 @@ async function getShiftSummary(shift) {
             : [shift.user_id, shift.start_time]
         );
 
+        // Total library sales during this shift
+        const [librarySalesResult] = await db.query(`
+            SELECT 
+                COALESCE(SUM(amount_paid), 0) as library_sales
+            FROM library_sessions
+            WHERE processed_by = ? 
+            AND status IN ('active', 'completed')
+            AND start_time >= ?
+            ${shift.end_time ? 'AND start_time <= ?' : ''}
+        `, shift.end_time
+            ? [shift.user_id, shift.start_time, shift.end_time]
+            : [shift.user_id, shift.start_time]
+        );
+
         // Total voids during this shift
         const [voidResult] = await db.query(`
             SELECT COUNT(*) as total_voids
@@ -292,8 +306,8 @@ async function getShiftSummary(shift) {
         );
 
         return {
-            running_sales: parseFloat(salesResult[0].total_sales) || 0,
-            total_sales: parseFloat(salesResult[0].total_sales) || 0,
+            running_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
+            total_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
             total_transactions: parseInt(salesResult[0].total_transactions) || 0,
             total_voids: parseInt(voidResult[0].total_voids) || 0,
             total_refunds: parseFloat(refundResult[0].total_refunds) || 0

@@ -92,12 +92,11 @@ export default function CashierTopBar() {
       if (response.data.shift) {
         setActiveShift(response.data.shift);
       } else {
-        // No active shift — show start shift modal
-        setShowStartShiftModal(true);
+        // No active shift found
+        setActiveShift(null);
       }
     } catch (error) {
       console.error('Error checking active shift:', error);
-      // Don't block the cashier if shift check fails
     } finally {
       setShiftLoading(false);
     }
@@ -111,6 +110,7 @@ export default function CashierTopBar() {
         setActiveShift(response.data.shift);
         setShowStartShiftModal(false);
         setStartingCash('');
+        window.dispatchEvent(new Event('shiftUpdated'));
       }
     } catch (error) {
       console.error('Error starting shift:', error);
@@ -147,8 +147,8 @@ export default function CashierTopBar() {
         setActualCash('');
         setEndShiftNotes('');
         setShiftSummary(null);
-        // Show start shift modal for new shift
-        setShowStartShiftModal(true);
+        window.dispatchEvent(new Event('shiftUpdated'));
+        // Clear active shift seamlessly
       }
     } catch (error) {
       console.error('Error ending shift:', error);
@@ -244,6 +244,21 @@ export default function CashierTopBar() {
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4CAF50', display: 'inline-block' }}></span>
               On Shift • {formatDuration(activeShift.start_time)}
             </div>
+          )}
+
+          {!activeShift && !shiftLoading && (
+            <button 
+              className="btn-start-shift" 
+              onClick={() => setShowStartShiftModal(true)}
+              style={{
+                backgroundColor: '#ff9800', color: '#fff', border: 'none',
+                padding: '6px 14px', borderRadius: '20px', fontSize: '12px',
+                fontWeight: '600', cursor: 'pointer', display: 'flex',
+                alignItems: 'center', gap: '6px'
+              }}
+            >
+              💰 Start Shift
+            </button>
           )}
 
           <button 

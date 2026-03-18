@@ -11,6 +11,8 @@ export default function LibraryTransactions() {
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasActiveShift, setHasActiveShift] = useState(true);
+  const [shiftChecking, setShiftChecking] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid', 'list', 'history'
   
   const [showCheckinModal, setShowCheckinModal] = useState(false);
@@ -210,6 +212,20 @@ export default function LibraryTransactions() {
   }, [fetchData]);
 
   useEffect(() => {
+    const checkShift = () => {
+      api.get('/shifts/my-active')
+        .then(res => {
+          setHasActiveShift(!!res.data.shift);
+          setShiftChecking(false);
+        })
+        .catch(() => setShiftChecking(false));
+    };
+    checkShift();
+    window.addEventListener('shiftUpdated', checkShift);
+    return () => window.removeEventListener('shiftUpdated', checkShift);
+  }, []);
+
+  useEffect(() => {
     if (viewMode === 'history') {
       fetchHistory();
     }
@@ -394,7 +410,22 @@ export default function LibraryTransactions() {
   }
 
   return (
-    <div className="main-content">
+    <div className="main-content" style={{ position: 'relative' }}>
+      {/* Shift Restricted Overlay */}
+      {!hasActiveShift && !shiftChecking && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+          textAlign: 'center', padding: '20px', borderRadius: '8px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
+          <h2 style={{ fontSize: '24px', color: '#333', marginBottom: '8px', fontWeight: 'bold' }}>Shift Not Started</h2>
+          <p style={{ color: '#666', fontSize: '15px', maxWidth: '400px' }}>
+            You must start your shift using the 'Start Shift' button in the top bar to process library sessions.
+          </p>
+        </div>
+      )}
       <div className="page-header">
         <h2 className="page-title">Library Management</h2>
         <p className="page-subtitle">Transactions and Monitoring</p>
