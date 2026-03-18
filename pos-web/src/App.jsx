@@ -18,8 +18,7 @@ import LibraryTransactions from './pages/LibraryTransactions';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Config from './pages/Config';
-import ActiveShifts from './pages/ActiveShifts';
-import ShiftHistory from './pages/ShiftHistory';
+import CashManagement from './pages/CashManagement';
 import Login from './pages/Login';
 import './App.css';
 import './styles/global.css';
@@ -199,14 +198,9 @@ function App() {
           <AdminLayout><Config /></AdminLayout>
         </ProtectedRoute>
       } />
-      <Route path="/cash/active" element={
+      <Route path="/cash" element={
         <ProtectedRoute allowedRoles={['admin']}>
-          <AdminLayout><ActiveShifts /></AdminLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/cash/history" element={
-        <ProtectedRoute allowedRoles={['admin']}>
-          <AdminLayout><ShiftHistory /></AdminLayout>
+          <AdminLayout><CashManagement /></AdminLayout>
         </ProtectedRoute>
       } />
     </Routes>

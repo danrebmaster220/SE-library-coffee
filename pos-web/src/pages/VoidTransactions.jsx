@@ -171,7 +171,7 @@ export default function VoidTransactions() {
         </div>
       </div>
 
-      <div className="report-tabs" style={{ marginBottom: '24px' }}>
+      <div className="report-tabs" style={{ marginBottom: '24px', width: 'max-content' }}>
         <button 
           className={'report-tab' + (activeTab === 'refund' ? ' active' : '')}
           onClick={() => setActiveTab('refund')}

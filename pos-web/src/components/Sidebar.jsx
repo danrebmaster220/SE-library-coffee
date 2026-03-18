@@ -170,9 +170,6 @@ export default function Sidebar() {
     if (['/library', '/library/tables', '/library/transactions'].some(p => path.startsWith(p))) {
       setOpenMenus(prev => ({ ...prev, library: true }));
     }
-    if (['/cash/active', '/cash/history'].some(p => path.startsWith(p))) {
-      setOpenMenus(prev => ({ ...prev, cash: true }));
-    }
   }, [location.pathname]);
 
   const isActive = (path) => location.pathname === path;
@@ -231,14 +228,7 @@ export default function Sidebar() {
       ]
     },
     { id: 'users', label: 'Staff Management', icon: 'users', path: '/users', type: 'link' },
-    {
-      id: 'cash', label: 'Cash Management', icon: 'cash', type: 'dropdown',
-      paths: ['/cash/active', '/cash/history'],
-      children: [
-        { label: 'Active Shifts', path: '/cash/active' },
-        { label: 'Shift History', path: '/cash/history' }
-      ]
-    },
+    { id: 'cash', label: 'Cash Management', icon: 'cash', path: '/cash', type: 'link' },
     { id: 'reports', label: 'Reports', icon: 'reports', path: '/reports', type: 'link' },
     { id: 'settings', label: 'Settings', icon: 'settings', path: '/config', type: 'link' }
   ];

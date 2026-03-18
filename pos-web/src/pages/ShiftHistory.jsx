@@ -57,14 +57,7 @@ export default function ShiftHistory() {
   };
 
   return (
-    <div className="cash-management-page">
-      <div className="page-header-bar">
-        <div>
-          <h1 className="page-title">Shift History</h1>
-          <p className="page-subtitle">Past cashier shift remittances</p>
-        </div>
-      </div>
-
+    <div className="shift-history-content">
       {/* Filters */}
       <div className="filter-bar">
         <div className="filter-group">

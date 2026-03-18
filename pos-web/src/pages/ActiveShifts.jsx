@@ -57,12 +57,8 @@ export default function ActiveShifts() {
   };
 
   return (
-    <div className="cash-management-page">
-      <div className="page-header-bar">
-        <div>
-          <h1 className="page-title">Active Shifts</h1>
-          <p className="page-subtitle">Currently open cashier shifts</p>
-        </div>
+    <div className="active-shifts-content">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
         <button className="btn-refresh" onClick={fetchActiveShifts}>
           ↻ Refresh
         </button>
