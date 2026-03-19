@@ -79,6 +79,7 @@
   flex-shrink: 0;
   background: rgba(255,255,255,0.05);
   min-height: 80px;
+  position: relative;
 }
 
 .logo {
@@ -357,24 +358,23 @@
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 15px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
   color: var(--sidebar-text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
 }
 
 .sidebar-collapse-btn:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.15);
   color: #fff;
 }
 
@@ -385,9 +385,7 @@
 }
 
 .sidebar-collapse-btn .collapse-label {
-  white-space: nowrap;
-  overflow: hidden;
-  transition: opacity 0.2s ease;
+  display: none;
 }
 
 /* ========================================
@@ -493,12 +491,15 @@
 
   /* Collapsed toggle button */
   .sidebar.collapsed .sidebar-collapse-btn {
-    padding: 12px;
-    justify-content: center;
-  }
-
-  .sidebar.collapsed .sidebar-collapse-btn .collapse-label {
-    display: none;
+    position: static;
+    transform: none;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+    padding: 10px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
   .sidebar.collapsed .sidebar-collapse-btn svg {

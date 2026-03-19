@@ -295,13 +295,11 @@ export default function Sidebar() {
               <p>Coffee + Study</p>
             </div>
           </div>
+          {/* Desktop collapse toggle - icon in header */}
+          <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
+          </button>
         </div>
-
-        {/* Desktop collapse toggle - between header and nav */}
-        <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
-          <span className="collapse-label">{desktopCollapsed ? '' : 'Collapse'}</span>
-        </button>
 
         <nav className="sidebar-nav">
           {menuItems.map((item) => (

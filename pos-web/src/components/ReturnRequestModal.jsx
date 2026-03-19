@@ -133,7 +133,7 @@ export default function ReturnRequestModal({
           <button onClick={onClose} className="modal-close" style={{ color: '#666' }} disabled={processing}>×</button>
         </div>
         
-        <div className="modal-body" style={{ padding: '20px' }}>
+        <div className="modal-body" style={{ padding: '24px' }}>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>Loading transaction details...</div>
           ) : transaction ? (
@@ -219,14 +219,33 @@ export default function ReturnRequestModal({
                 </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  {/* Arrow back button at top-left of content */}
+                  <div style={{ width: '100%', marginBottom: '16px' }}>
+                    <button 
+                      onClick={() => setStep(1)} 
+                      disabled={processing}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        background: 'none', border: 'none', color: '#5d4037', 
+                        cursor: processing ? 'not-allowed' : 'pointer',
+                        fontSize: '14px', fontWeight: '600', padding: '4px 0'
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                      </svg>
+                      Back
+                    </button>
+                  </div>
+
                   <p style={{ marginBottom: '20px', color: '#555', fontWeight: 'bold' }}>Authorization Needed</p>
                   
-                  <div style={{ width: '80%', marginBottom: '20px' }}>
+                  <div style={{ width: '100%', maxWidth: '400px', marginBottom: '20px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for {refundMethod === 'cash' ? 'Refund' : 'Replacement'} <span style={{color:'red'}}>*</span></label>
                     <select 
                       value={reasonType}
                       onChange={(e) => setReasonType(e.target.value)}
-                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0' }}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0', boxSizing: 'border-box' }}
                     >
                       <option value="" disabled>Select a reason...</option>
                       <option value="Wrong item prepared">Wrong item prepared</option>
@@ -246,7 +265,7 @@ export default function ReturnRequestModal({
                     )}
                   </div>
 
-                  <div style={{ width: '80%', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                  <div style={{ width: '100%', maxWidth: '400px', backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #eee' }}>
                     <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e67e22', textAlign: 'center' }}>Admin Credentials</h4>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -276,17 +295,7 @@ export default function ReturnRequestModal({
           {errorMsg && <div style={{ color: '#e74c3c', marginTop: '15px', padding: '10px', backgroundColor: '#ffebee', borderRadius: '6px', textAlign: 'center', fontSize: '13px' }}>{errorMsg}</div>}
         </div>
         
-        <div className="modal-footer" style={{ borderTop: '1px solid #eee', marginTop: '10px', paddingTop: '15px', gap: '10px' }}>
-          {step === 2 && (
-            <button 
-              onClick={() => setStep(1)} 
-              className="btn-cancel"
-              style={{ flex: '0 0 auto', padding: '10px 20px' }}
-              disabled={processing}
-            >
-              Back
-            </button>
-          )}
+        <div className="modal-footer" style={{ borderTop: '1px solid #eee', marginTop: '10px', padding: '16px 24px', gap: '10px' }}>
           <button 
             onClick={onClose} 
             className="btn-cancel"
