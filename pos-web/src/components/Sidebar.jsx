@@ -124,6 +124,12 @@ const Icons = {
       <line x1="1" y1="16" x2="4" y2="16"></line>
       <line x1="20" y1="16" x2="23" y2="16"></line>
     </svg>
+  ),
+  sidebarPanel: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
   )
 };
 
@@ -295,11 +301,12 @@ export default function Sidebar() {
               <p>Coffee + Study</p>
             </div>
           </div>
-          {/* Desktop collapse toggle - icon in header */}
-          <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-            {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
-          </button>
         </div>
+
+        {/* Desktop collapse toggle - between header and nav */}
+        <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {Icons.sidebarPanel}
+        </button>
 
         <nav className="sidebar-nav">
           {menuItems.map((item) => (

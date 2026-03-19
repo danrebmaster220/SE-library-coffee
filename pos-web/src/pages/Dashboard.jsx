@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api';
 import '../styles/dashboard.css';
 
@@ -123,113 +124,11 @@ export default function Dashboard() {
 
   const { data: currentChartData, labelKey } = getChartData();
 
-  // Calculate max for chart scaling with smart rounding
-  const rawMaxSales = Math.max(...(currentChartData.map(item => item.sales || 0)), 1);
-
-  // Smart rounding function for nice Y-axis values
-  const getNiceMaxValue = (value) => {
-    if (value <= 0) return 100;
-    if (value <= 100) return Math.ceil(value / 20) * 20;
-    if (value <= 500) return Math.ceil(value / 100) * 100;
-    if (value <= 1000) return Math.ceil(value / 200) * 200;
-    if (value <= 5000) return Math.ceil(value / 1000) * 1000;
-    if (value <= 10000) return Math.ceil(value / 2000) * 2000;
-    if (value <= 50000) return Math.ceil(value / 10000) * 10000;
-    return Math.ceil(value / 20000) * 20000;
-  };
-
-  const maxSales = getNiceMaxValue(rawMaxSales);
-
-  // Generate Y-axis labels (5 labels from 0 to max)
-  const generateYAxisLabels = () => {
-    const labels = [];
-    for (let i = 0; i <= 4; i++) {
-      const value = (maxSales / 4) * i;
-      labels.push(value);
-    }
-    return labels.reverse(); // Top to bottom
-  };
-
-  const yAxisLabels = generateYAxisLabels();
-
-  // Format value for Y-axis display (abbreviated)
-  const formatYAxisLabel = (value) => {
-    if (value === 0) return 'P0';
-    if (value >= 1000) {
-      const kValue = value / 1000;
-      // Show decimal only if needed (e.g., 1.5K, but not 2.0K)
-      return kValue % 1 === 0 ? `P${kValue}K` : `P${kValue.toFixed(1)}K`;
-    }
-    return `P${value}`;
-  };
-
-  // Format X-axis labels based on period
-  const formatXAxisLabel = (item) => {
-    const label = item[labelKey];
-
-    if (salesPeriod === 'today') {
-      // For hourly data, show abbreviated format
-      // Convert "8AM" or "8 AM" to just "8A" or "2P"
-      const hourMatch = label?.match(/(\d+)\s*(AM|PM)/i);
-      if (hourMatch) {
-        const hour = hourMatch[1];
-        const period = hourMatch[2].toUpperCase();
-        return `${hour}${period[0]}`;
-      }
-      return label;
-    }
-
-    if (salesPeriod === 'monthly') {
-      // Convert "Week 1" to "W1"
-      const weekMatch = label?.match(/Week\s*(\d+)/i);
-      if (weekMatch) {
-        return `W${weekMatch[1]}`;
-      }
-      return label?.replace(/Week\s*/i, 'W') || label;
-    }
-
-    if (salesPeriod === 'yearly') {
-      // Months are already short (Jan, Feb, etc.) - just return first letter on mobile
-      // This will be handled via CSS skip-on-mobile class
-      return label;
-    }
-
-    // Weekly - days are already short (Mon, Tue, etc.)
-    return label;
-  };
+  // Format currency for tooltip
+  const formatCurrency = (value) => `₱${Number(value).toLocaleString()}`;
 
   // Calculate total for donut chart percentages
   const totalCategorySales = categorySales.reduce((sum, cat) => sum + cat.sales, 0);
-
-  // Generate SVG path for line chart
-  const generateLinePath = () => {
-    if (currentChartData.length === 0) return '';
-
-    const width = 100;
-    const height = 100;
-    const padding = 5;
-    const chartWidth = width - padding * 2;
-    const chartHeight = height - padding * 2;
-
-    const points = currentChartData.map((item, index) => {
-      const x = padding + (index / (currentChartData.length - 1 || 1)) * chartWidth;
-      const y = padding + chartHeight - ((item.sales || 0) / maxSales) * chartHeight;
-      return { x, y };
-    });
-
-    // Create smooth curve path
-    const linePath = points.reduce((path, point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-      return `${path} L ${point.x} ${point.y}`;
-    }, '');
-
-    // Create area path (for gradient fill)
-    const areaPath = `${linePath} L ${padding + chartWidth} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`;
-
-    return { linePath, areaPath, points };
-  };
-
-  const { linePath, areaPath, points } = generateLinePath();
 
   // Generate donut chart segments
   const generateDonutSegments = () => {
@@ -399,86 +298,61 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Line Chart */}
-          <div className="line-chart-container">
-            {/* Y-axis labels */}
-            <div className="y-axis-labels">
-              {yAxisLabels.map((value, index) => (
-                <span key={index} className="y-label">{formatYAxisLabel(value)}</span>
-              ))}
-            </div>
-
-            {/* Chart area */}
-            <div className="chart-area">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="line-chart-svg">
-                {/* Grid lines */}
+          {/* Line Chart with Recharts */}
+          <div className="line-chart-container" style={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={currentChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
                 <defs>
-                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="var(--caramel)" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="var(--caramel)" stopOpacity="0.05" />
+                  <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8B5E3C" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#8B5E3C" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-
-                {/* Horizontal grid lines */}
-                {[0, 25, 50, 75, 100].map((y) => (
-                  <line
-                    key={y}
-                    x1="0"
-                    y1={5 + (y / 100) * 90}
-                    x2="100"
-                    y2={5 + (y / 100) * 90}
-                    stroke="#eee"
-                    strokeWidth="0.2"
-                  />
-                ))}
-
-                {/* Area fill */}
-                {areaPath && (
-                  <path
-                    d={areaPath}
-                    fill="url(#areaGradient)"
-                  />
-                )}
-
-                {/* Line */}
-                {linePath && (
-                  <path
-                    d={linePath}
-                    fill="none"
-                    stroke="var(--caramel)"
-                    strokeWidth="0.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )}
-
-                {/* Data points */}
-                {points && points.map((point, index) => (
-                  <circle
-                    key={index}
-                    cx={point.x}
-                    cy={point.y}
-                    r="0.8"
-                    fill="var(--coffee-dark)"
-                    stroke="white"
-                    strokeWidth="0.2"
-                  />
-                ))}
-              </svg>
-
-              {/* X-axis labels */}
-              <div className="line-chart-labels">
-                {currentChartData.map((item, index) => (
-                  <span
-                    key={index}
-                    className={`line-label ${(salesPeriod === 'today' || salesPeriod === 'yearly') && currentChartData.length > 8 ? 'skip-on-mobile' : ''}`}
-                    data-index={index}
-                  >
-                    {formatXAxisLabel(item)}
-                  </span>
-                ))}
-              </div>
-            </div>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ece8" vertical={false} />
+                <XAxis
+                  dataKey={labelKey}
+                  tick={{ fontSize: 11, fill: '#999' }}
+                  axisLine={{ stroke: '#eee' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#999' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value) => {
+                    if (value === 0) return '₱0';
+                    if (value >= 1000) {
+                      const k = value / 1000;
+                      return k % 1 === 0 ? `₱${k}K` : `₱${k.toFixed(1)}K`;
+                    }
+                    return `₱${value}`;
+                  }}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(value), 'Sales']}
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e0d5c9',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    fontSize: '13px',
+                    padding: '10px 14px'
+                  }}
+                  labelStyle={{ color: '#5d4037', fontWeight: 'bold', marginBottom: '4px' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#8B5E3C"
+                  strokeWidth={2.5}
+                  fill="url(#salesGradient)"
+                  dot={{ r: 3, fill: '#6F4E37', stroke: '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 5, fill: '#5D4037', stroke: '#fff', strokeWidth: 2 }}
+                  animationDuration={1200}
+                  animationEasing="ease-in-out"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 

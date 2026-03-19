@@ -169,11 +169,11 @@ export default function ReturnRequestModal({
                     {transaction.items && transaction.items.map(item => {
                       const itemTotal = parseFloat(item.unit_price) * parseInt(item.quantity);
                       return (
-                      <label key={item.order_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.order_item_id) ? '#fff3e0' : 'transparent' }}>
+                      <label key={item.transaction_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.transaction_item_id) ? '#fff3e0' : 'transparent' }}>
                         <input 
                           type="checkbox" 
-                          checked={selectedItemIds.has(item.order_item_id)}
-                          onChange={() => toggleItem(item.order_item_id)}
+                          checked={selectedItemIds.has(item.transaction_item_id)}
+                          onChange={() => toggleItem(item.transaction_item_id)}
                           style={{ marginRight: '15px', transform: 'scale(1.2)' }}
                         />
                         <div style={{ flex: 1 }}>
