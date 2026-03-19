@@ -136,7 +136,22 @@ const Icons = {
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [openMenus, setOpenMenus] = useState({});
+  // Compute which submenus should be open based on current URL path
+  const getOpenMenusForPath = (path) => {
+    const menus = {};
+    if (['/orders', '/orders/ready', '/orders/completed', '/orders/void'].some(p => path.startsWith(p))) {
+      menus.orders = true;
+    }
+    if (['/menu', '/menu/categories', '/menu/items'].includes(path)) {
+      menus.menu = true;
+    }
+    if (['/library', '/library/tables', '/library/transactions'].some(p => path.startsWith(p))) {
+      menus.library = true;
+    }
+    return menus;
+  };
+
+  const [openMenus, setOpenMenus] = useState(() => getOpenMenusForPath(location.pathname));
   const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager' });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -196,18 +211,9 @@ export default function Sidebar() {
     };
   }, []);
 
-  useEffect(() => {
-    const path = location.pathname;
-    if (['/orders', '/orders/ready', '/orders/completed', '/orders/void'].some(p => path.startsWith(p))) {
-      setOpenMenus(prev => ({ ...prev, orders: true }));
-    }
-    if (['/menu', '/menu/categories', '/menu/items'].includes(path)) {
-      setOpenMenus(prev => ({ ...prev, menu: true }));
-    }
-    if (['/library', '/library/tables', '/library/transactions'].some(p => path.startsWith(p))) {
-      setOpenMenus(prev => ({ ...prev, library: true }));
-    }
-  }, [location.pathname]);
+  // Merge user-toggled menus with path-derived menus so submenus auto-expand
+  const pathMenus = getOpenMenusForPath(location.pathname);
+  const mergedOpenMenus = { ...openMenus, ...pathMenus };
 
   const isActive = (path) => location.pathname === path;
   const isGroupActive = (paths) => paths.some(p => location.pathname === p || location.pathname.startsWith(p));
@@ -328,11 +334,11 @@ export default function Sidebar() {
                   >
                     <span className="nav-icon">{Icons[item.icon]}</span>
                     <span className="nav-label">{item.label}</span>
-                    <span className={`nav-arrow ${openMenus[item.id] ? 'open' : ''}`}>
+                    <span className={`nav-arrow ${mergedOpenMenus[item.id] ? 'open' : ''}`}>
                       {Icons.chevronRight}
                     </span>
                   </button>
-                  <div className={`dropdown-menu ${openMenus[item.id] ? 'open' : ''}`}>
+                  <div className={`dropdown-menu ${mergedOpenMenus[item.id] ? 'open' : ''}`}>
                     {item.children.map((child) => (
                       <Link 
                         key={child.path}
