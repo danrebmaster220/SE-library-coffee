@@ -287,11 +287,6 @@ export default function Sidebar() {
       </button>
 
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-        {/* Desktop collapse toggle */}
-        <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
-        </button>
-
         <div className="sidebar-header">
           <div className="logo">
             <img src={logoImg} alt="Library Coffee Logo" className="logo-img" />
@@ -301,6 +296,12 @@ export default function Sidebar() {
             </div>
           </div>
         </div>
+
+        {/* Desktop collapse toggle - between header and nav */}
+        <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
+          <span className="collapse-label">{desktopCollapsed ? '' : 'Collapse'}</span>
+        </button>
 
         <nav className="sidebar-nav">
           {menuItems.map((item) => (
