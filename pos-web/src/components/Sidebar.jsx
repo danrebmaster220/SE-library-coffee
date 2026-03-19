@@ -85,6 +85,16 @@ const Icons = {
       <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
   ),
+  chevronLeft: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  ),
+  chevronRightSmall: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  ),
   logout: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -120,10 +130,34 @@ const Icons = {
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(true);
   const [openMenus, setOpenMenus] = useState({});
   const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager' });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Desktop collapsed state - persisted in localStorage
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved === 'true';
+  });
+
+  // Detect mobile vs desktop
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1025);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Persist desktop collapsed state
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', desktopCollapsed.toString());
+    // Dispatch event so other components can react to sidebar changes
+    window.dispatchEvent(new CustomEvent('sidebarToggled', { detail: { collapsed: desktopCollapsed } }));
+  }, [desktopCollapsed]);
 
   // Load user data initially and listen for changes
   useEffect(() => {
@@ -135,17 +169,14 @@ export default function Sidebar() {
       }
     };
     
-    // Load initially
     loadUserData();
     
-    // Listen for storage changes (cross-tab updates)
     const handleStorageChange = (e) => {
       if (e.key === 'user') {
         loadUserData();
       }
     };
     
-    // Listen for custom event (same-tab updates)
     const handleUserUpdate = () => {
       loadUserData();
     };
@@ -176,6 +207,12 @@ export default function Sidebar() {
   const isGroupActive = (paths) => paths.some(p => location.pathname === p || location.pathname.startsWith(p));
 
   const toggleMenu = (menu) => {
+    // On desktop collapsed, expand sidebar first when clicking dropdown
+    if (!isMobile && desktopCollapsed) {
+      setDesktopCollapsed(false);
+      setOpenMenus(prev => ({ ...prev, [menu]: true }));
+      return;
+    }
     setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   };
 
@@ -192,6 +229,10 @@ export default function Sidebar() {
 
   const handleLogoutCancel = () => {
     setShowLogoutModal(false);
+  };
+
+  const handleDesktopToggle = () => {
+    setDesktopCollapsed(prev => !prev);
   };
 
   const menuItems = [
@@ -233,15 +274,24 @@ export default function Sidebar() {
     { id: 'settings', label: 'Settings', icon: 'settings', path: '/config', type: 'link' }
   ];
 
+  // Determine sidebar class
+  const isCollapsed = isMobile ? !mobileOpen : desktopCollapsed;
+
   return (
     <>
-      <div className={`sidebar-overlay ${!collapsed ? 'active' : ''}`} onClick={() => setCollapsed(true)} />
+      <div className={`sidebar-overlay ${isMobile && mobileOpen ? 'active' : ''}`} onClick={() => setMobileOpen(false)} />
       
-      <button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)}>
-        {collapsed ? Icons.hamburger : Icons.close}
+      {/* Mobile hamburger toggle */}
+      <button className="sidebar-toggle" onClick={() => setMobileOpen(!mobileOpen)}>
+        {mobileOpen ? Icons.close : Icons.hamburger}
       </button>
 
-      <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+        {/* Desktop collapse toggle */}
+        <button className="sidebar-collapse-btn" onClick={handleDesktopToggle} title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {desktopCollapsed ? Icons.chevronRightSmall : Icons.chevronLeft}
+        </button>
+
         <div className="sidebar-header">
           <div className="logo">
             <img src={logoImg} alt="Library Coffee Logo" className="logo-img" />
@@ -254,12 +304,12 @@ export default function Sidebar() {
 
         <nav className="sidebar-nav">
           {menuItems.map((item) => (
-            <div key={item.id} className="nav-item-wrapper">
+            <div key={item.id} className="nav-item-wrapper" data-tooltip={item.label}>
               {item.type === 'link' ? (
                 <Link 
                   to={item.path} 
                   className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
-                  onClick={() => window.innerWidth < 1024 && setCollapsed(true)}
+                  onClick={() => isMobile && setMobileOpen(false)}
                 >
                   <span className="nav-icon">{Icons[item.icon]}</span>
                   <span className="nav-label">{item.label}</span>
@@ -282,7 +332,7 @@ export default function Sidebar() {
                         key={child.path}
                         to={child.path} 
                         className={`dropdown-item ${isActive(child.path) ? 'active' : ''}`}
-                        onClick={() => window.innerWidth < 1024 && setCollapsed(true)}
+                        onClick={() => isMobile && setMobileOpen(false)}
                       >
                         <span>{child.label}</span>
                       </Link>

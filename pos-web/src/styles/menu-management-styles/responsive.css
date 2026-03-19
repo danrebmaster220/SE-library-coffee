@@ -718,7 +718,6 @@ input.search-input {
 @media (min-width: 1024px) {
   .main-content {
     padding: 30px;
-    margin-left: 250px; /* Space for sidebar */
   }
 
   .page-header-section {

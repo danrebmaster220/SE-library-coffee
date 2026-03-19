@@ -9,8 +9,7 @@
   background: #f0f2f5;
   box-sizing: border-box;
   overflow: hidden;
-  margin-left: 260px;
-  width: calc(100vw - 260px);
+  width: 100%;
 }
 
 /* Cashier mode: topbar takes 60px, so subtract it */
@@ -2851,8 +2850,7 @@
     height: 100vh;
     height: 100dvh;
     min-height: 0;
-    margin-left: 260px;
-    width: calc(100vw - 260px);
+    width: 100%;
   }
   
   .pos-orders-panel {
