@@ -85,13 +85,15 @@ export default function VoidTransactions() {
   };
 
   const canRefund = (status) => {
-    return ['preparing', 'ready', 'completed'].includes(status);
+    return ['ready', 'completed'].includes(status);
   };
 
   const getStatusMessage = (status) => {
     switch (status) {
       case 'pending':
         return 'This order has not been paid yet. Use the POS Order Queue to void pending orders.';
+      case 'preparing':
+        return 'This order is still being prepared. Refunds are only available for ready or completed orders.';
       case 'voided':
         return 'This order has already been voided and cannot be refunded.';
       case 'refunded':

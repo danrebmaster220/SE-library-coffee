@@ -152,6 +152,16 @@ export default function Sidebar() {
   };
 
   const [openMenus, setOpenMenus] = useState(() => getOpenMenusForPath(location.pathname));
+
+  // Auto-expand the correct submenu when the URL path changes (e.g. navigating via link)
+  // This is a valid effect: syncing React state with the router (an external system).
+  useEffect(() => {
+    const newMenus = getOpenMenusForPath(location.pathname);
+    if (Object.keys(newMenus).length > 0) {
+      // eslint-disable-next-line
+      setOpenMenus(prev => ({ ...prev, ...newMenus }));
+    }
+  }, [location.pathname]);
   const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager' });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -211,9 +221,6 @@ export default function Sidebar() {
     };
   }, []);
 
-  // Merge user-toggled menus with path-derived menus so submenus auto-expand
-  const pathMenus = getOpenMenusForPath(location.pathname);
-  const mergedOpenMenus = { ...openMenus, ...pathMenus };
 
   const isActive = (path) => location.pathname === path;
   const isGroupActive = (paths) => paths.some(p => location.pathname === p || location.pathname.startsWith(p));
@@ -334,11 +341,11 @@ export default function Sidebar() {
                   >
                     <span className="nav-icon">{Icons[item.icon]}</span>
                     <span className="nav-label">{item.label}</span>
-                    <span className={`nav-arrow ${mergedOpenMenus[item.id] ? 'open' : ''}`}>
+                    <span className={`nav-arrow ${openMenus[item.id] ? 'open' : ''}`}>
                       {Icons.chevronRight}
                     </span>
                   </button>
-                  <div className={`dropdown-menu ${mergedOpenMenus[item.id] ? 'open' : ''}`}>
+                  <div className={`dropdown-menu ${openMenus[item.id] ? 'open' : ''}`}>
                     {item.children.map((child) => (
                       <Link 
                         key={child.path}
