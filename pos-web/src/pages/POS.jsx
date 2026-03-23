@@ -762,6 +762,11 @@ export default function POS() {
         }
       }
 
+      // Emit library update if this was an order with a library booking
+      if (pendingLibraryBooking) {
+        socketService.emitLibraryCheckin({ seat_id: pendingLibraryBooking.seat_id });
+      }
+
       showToast('Payment successful!', 'success');
       setShowPaymentModal(false);
       resetOrder();
@@ -939,20 +944,20 @@ export default function POS() {
 
   return (
     <div className="pos-container" ref={posContainerRef}>
-      {/* Full Screen Loading Overlay */}
+      {/* Global Loading Overlay */}
       {loading && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.85)', zIndex: 9999,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 99999,
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
         }}>
           <div style={{
-             border: '5px solid #f3f3f3', borderTop: '5px solid #4ade80',
+             border: '5px solid rgba(255, 255, 255, 0.3)', borderTop: '5px solid #4ade80',
              borderRadius: '50%', width: '60px', height: '60px', 
              animation: 'spin 1s linear infinite'
           }}></div>
           <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-          <h2 style={{ marginTop: '20px', color: '#333', fontWeight: 'bold' }}>Processing...</h2>
+          <h2 style={{ marginTop: '20px', color: '#fff', fontWeight: 'bold' }}>Processing...</h2>
         </div>
       )}
 
@@ -1254,7 +1259,7 @@ export default function POS() {
               </div>
               <div className="library-booking-details">
                 <p><strong>Customer:</strong> {pendingLibraryBooking.customer_name}</p>
-                <p><strong>Location:</strong> Table {pendingLibraryBooking.table_number}, Seat {pendingLibraryBooking.seat_number}</p>
+                <p><strong>Location:</strong> {pendingLibraryBooking.table_name || `Table ${pendingLibraryBooking.table_number}`}, Seat {pendingLibraryBooking.seat_number}</p>
                 <p><strong>Duration:</strong> {Math.floor(pendingLibraryBooking.duration_minutes / 60)}h {pendingLibraryBooking.duration_minutes % 60}m</p>
               </div>
               <div className="library-booking-price">

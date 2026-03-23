@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
+import socketService from '../services/socketService';
 import Toast from '../components/Toast';
 import '../styles/library.css';
 
@@ -49,11 +50,44 @@ export default function Library() {
       await fetchSeats();
     })();
     
-    // Poll every 10 seconds
+    // Setup Socket.IO for real-time seat locks from Kiosk
+    socketService.connect();
+    if (socketService.socket) {
+      socketService.socket.emit('join:library');
+
+      // Listen for temporary seat locks (Kiosk browsing)
+      socketService.socket.on('seat:locked', (data) => {
+        setSeats(prev => prev.map(seat => 
+          seat.seat_id === data.seat_id ? { ...seat, status: 'reserved' } : seat
+        ));
+      });
+
+      // Listen for temporary seat releases (Kiosk backed out)
+      socketService.socket.on('seat:released', (data) => {
+        setSeats(prev => prev.map(seat => 
+          seat.seat_id === data.seat_id && seat.status === 'reserved' ? { ...seat, status: 'available' } : seat
+        ));
+      });
+
+      // Listen for actual database state updates
+      socketService.socket.on('library:seats-update', () => {
+        fetchSeats();
+      });
+    }
+
+    // Poll every 10 seconds as a fallback
     const interval = setInterval(() => {
       fetchSeats();
     }, 10000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      if (socketService.socket) {
+        socketService.socket.off('seat:locked');
+        socketService.socket.off('seat:released');
+        socketService.socket.off('library:seats-update');
+      }
+    };
   }, [fetchSeats]);
 
   const handleSeatClick = (seat) => {
@@ -151,6 +185,7 @@ export default function Library() {
           }}
           onSuccess={() => {
             fetchSeats();
+            socketService.emitLibraryCheckin({ seat_id: selectedSeat.seat_id });
             setShowCheckinModal(false);
             setSelectedSeat(null);
             showToast('Check-in successful!', 'success');
@@ -175,7 +210,10 @@ export default function Library() {
             setShowExtendModal(false);
             setShowCheckoutModal(true);
           }}
-          onRefresh={fetchSeats}
+          onRefresh={() => {
+            fetchSeats();
+            socketService.emitLibraryExtend({ seat_id: selectedSeat.seat_id }); // Or fallback to a generic seats update
+          }}
           showToast={showToast}
         />
       )}
@@ -190,6 +228,7 @@ export default function Library() {
           }}
           onSuccess={() => {
             fetchSeats();
+            socketService.emitLibraryCheckout({ seat_id: selectedSeat.seat_id });
             setShowCheckoutModal(false);
             setSelectedSeat(null);
             showToast('Checkout successful!', 'success');

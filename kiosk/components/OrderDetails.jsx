@@ -220,7 +220,7 @@ const OrderDetails = ({
             )}
           </View>
           <Text style={styles.libraryDetail}>
-            Table {libraryBooking.table_number}, Seat {libraryBooking.seat_number}
+            {libraryBooking.table_name || `Table ${libraryBooking.table_number}`}, Seat {libraryBooking.seat_number}
           </Text>
           <View style={styles.libraryRow}>
             <Clock color="#666" size={14} />
@@ -288,7 +288,7 @@ const OrderDetails = ({
                   <Text style={styles.modalLibraryTitle}>Study Area Booking</Text>
                 </View>
                 <Text style={styles.modalLibraryInfo}>
-                  Table {libraryBooking.table_number}, Seat {libraryBooking.seat_number}
+                  {libraryBooking.table_name || `Table ${libraryBooking.table_number}`}, Seat {libraryBooking.seat_number}
                 </Text>
                 <Text style={styles.modalLibraryInfo}>
                   Duration: {formatDuration(libraryBooking.duration_minutes)}
