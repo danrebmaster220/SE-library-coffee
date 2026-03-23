@@ -27,6 +27,9 @@ async function runMigrations() {
         // Migration 6: Add 'processed_by' column to library_sessions
         await addLibraryProcessedBy();
 
+        // Migration 7: Fix library_sessions seat_id foreign key constraint
+        await fixLibrarySessionsForeignKey();
+
         console.log('✅ Database migrations complete.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -185,6 +188,33 @@ async function addLibraryProcessedBy() {
         }
     } catch (error) {
         console.error('   ⚠️ addLibraryProcessedBy:', error.message);
+    }
+}
+
+async function fixLibrarySessionsForeignKey() {
+    try {
+        const [rows] = await db.query(`
+            SELECT IS_NULLABLE 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'library_sessions' 
+            AND COLUMN_NAME = 'seat_id'
+        `);
+        
+        if (rows.length > 0 && rows[0].IS_NULLABLE === 'NO') {
+            await db.query('ALTER TABLE library_sessions MODIFY seat_id INT(11) NULL');
+            try {
+                await db.query('ALTER TABLE library_sessions DROP FOREIGN KEY library_sessions_ibfk_1');
+            } catch (e) {
+                // Ignore drop error if the name is different
+            }
+            await db.query('ALTER TABLE library_sessions ADD CONSTRAINT library_sessions_ibfk_1 FOREIGN KEY (seat_id) REFERENCES library_seats(seat_id) ON DELETE SET NULL');
+            console.log('   ✅ Fixed library_sessions ON DELETE SET NULL constraint');
+        } else {
+            console.log('   ⏭️  library_sessions foreign key constraint already fixed');
+        }
+    } catch (error) {
+        console.error('   ⚠️ fixLibrarySessionsForeignKey:', error.message);
     }
 }
 

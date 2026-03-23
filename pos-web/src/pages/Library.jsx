@@ -209,6 +209,7 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
   const [customerID, setCustomerID] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('2hr'); // Default to 2 hours
   const [cashTendered, setCashTendered] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pricing packages
   const packages = {
@@ -223,12 +224,15 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
 
   const handleCheckin = async (e) => {
     e.preventDefault();
+    
+    if (isSubmitting) return;
 
     if (!cashTendered || parseFloat(cashTendered) < selectedPrice) {
       showToast('Insufficient payment', 'error');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await api.post('/library/checkin', {
         seat_id: seat.seat_id,
@@ -241,6 +245,8 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
     } catch (error) {
       console.error('Check-in error:', error);
       showToast(error.response?.data?.error || 'Check-in failed', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -305,10 +311,10 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
           <hr />
 
           <div className="modal-actions">
-            <button type="submit" className="btn-confirm">
-              ✓ Confirm & Start Timer
+            <button type="submit" disabled={isSubmitting} className="btn-confirm">
+              {isSubmitting ? 'Processing...' : '✓ Confirm & Start Timer'}
             </button>
-            <button type="button" className="btn-cancel" onClick={onClose}>
+            <button type="button" disabled={isSubmitting} className="btn-cancel" onClick={onClose}>
               Cancel
             </button>
           </div>
@@ -323,6 +329,7 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
   const [showExtendForm, setShowExtendForm] = useState(false);
   const [extendMinutes, setExtendMinutes] = useState(30);
   const [cashTendered, setCashTendered] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Extension pricing
   const extensionOptions = {
@@ -336,11 +343,14 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
   const change = cashTendered ? Math.max(0, parseFloat(cashTendered) - extensionPrice) : 0;
 
   const handleExtend = async () => {
+    if (isSubmitting) return;
+
     if (!cashTendered || parseFloat(cashTendered) < extensionPrice) {
       showToast('Insufficient payment for extension', 'error');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await api.post('/library/extend', {
         session_id: seat.session_id,
@@ -354,6 +364,8 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
     } catch (error) {
       console.error('Extend error:', error);
       showToast(error.response?.data?.error || 'Extension failed', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -403,10 +415,10 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
           <hr />
 
           <div className="modal-actions">
-            <button className="btn-confirm" onClick={handleExtend}>
-              ✓ Pay & Extend
+            <button className="btn-confirm" disabled={isSubmitting} onClick={handleExtend}>
+              {isSubmitting ? 'Processing...' : '✓ Pay & Extend'}
             </button>
-            <button className="btn-cancel" onClick={() => setShowExtendForm(false)}>
+            <button className="btn-cancel" disabled={isSubmitting} onClick={() => setShowExtendForm(false)}>
               Back
             </button>
           </div>
@@ -451,7 +463,11 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
 
 // Checkout Modal - Prepaid: Just return ID, no payment needed
 function CheckoutModal({ seat, onClose, onSuccess, showToast }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleCheckout = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.post('/library/checkout', {
         session_id: seat.session_id
@@ -460,6 +476,8 @@ function CheckoutModal({ seat, onClose, onSuccess, showToast }) {
     } catch (error) {
       console.error('Checkout error:', error);
       showToast(error.response?.data?.error || 'Checkout failed', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -490,10 +508,10 @@ function CheckoutModal({ seat, onClose, onSuccess, showToast }) {
         <hr />
 
         <div className="modal-actions">
-          <button className="btn-confirm" onClick={handleCheckout}>
-            ✓ Confirm Checkout & Return ID
+          <button className="btn-confirm" disabled={isSubmitting} onClick={handleCheckout}>
+            {isSubmitting ? 'Processing...' : '✓ Confirm Checkout & Return ID'}
           </button>
-          <button className="btn-cancel" onClick={onClose}>
+          <button className="btn-cancel" disabled={isSubmitting} onClick={onClose}>
             Cancel
           </button>
         </div>

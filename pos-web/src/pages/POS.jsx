@@ -37,6 +37,7 @@ export default function POS() {
   const [adminCredentials, setAdminCredentials] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
   
   // Pending order state - when loading a kiosk order for payment
   const [pendingOrderId, setPendingOrderId] = useState(null);
@@ -341,8 +342,8 @@ export default function POS() {
     }
   };
 
-  const confirmCustomization = () => {
-    if (!customizingItem) return;
+  const confirmCustomization = async () => {
+    if (!customizingItem || isAdding) return;
     
     // Validate required customization groups
     const requiredGroups = customizationGroups.filter(g => g.is_required);
@@ -360,6 +361,11 @@ export default function POS() {
       showToast(`Please select: ${missingRequired.join(', ')}`, 'error');
       return;
     }
+
+    setIsAdding(true);
+    
+    // Slight delay to show loading state and prevent rapid double-clicks
+    await new Promise(r => setTimeout(r, 200));
     
     const customizations = [];
     let customizationTotal = 0;
@@ -426,6 +432,7 @@ export default function POS() {
     setCustomizingItem(null);
     setSelectedCustomizations({});
     setQuantitySelections({});
+    setIsAdding(false);
   };
 
   // Direct remove from cart (used after auth/confirmation)
@@ -756,6 +763,7 @@ export default function POS() {
       }
 
       showToast('Payment successful!', 'success');
+      setShowPaymentModal(false);
       resetOrder();
       fetchOrders();
       fetchBeepers();
@@ -931,6 +939,23 @@ export default function POS() {
 
   return (
     <div className="pos-container" ref={posContainerRef}>
+      {/* Full Screen Loading Overlay */}
+      {loading && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.85)', zIndex: 9999,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
+        }}>
+          <div style={{
+             border: '5px solid #f3f3f3', borderTop: '5px solid #4ade80',
+             borderRadius: '50%', width: '60px', height: '60px', 
+             animation: 'spin 1s linear infinite'
+          }}></div>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          <h2 style={{ marginTop: '20px', color: '#333', fontWeight: 'bold' }}>Processing...</h2>
+        </div>
+      )}
+
       {/* Shift Restricted Overlay */}
       {!hasActiveShift && !shiftChecking && !isAdmin && (
         <div style={{
@@ -1481,8 +1506,10 @@ export default function POS() {
                 )}
               </div>
               <div className="modal-footer">
-                <button onClick={() => setShowCustomization(false)} className="btn-cancel">Cancel</button>
-                <button onClick={confirmCustomization} className="btn-confirm">Add to Cart</button>
+                <button onClick={() => !isAdding && setShowCustomization(false)} disabled={isAdding} className="btn-cancel">Cancel</button>
+                <button onClick={confirmCustomization} disabled={isAdding} className="btn-confirm">
+                  {isAdding ? 'Adding...' : 'Add to Cart'}
+                </button>
               </div>
             </div>
           </div>
@@ -1674,10 +1701,7 @@ export default function POS() {
             <div className="modal-footer">
               <button onClick={() => setShowPaymentModal(false)} className="btn-cancel">Cancel</button>
               <button
-                onClick={() => {
-                  handlePayment();
-                  setShowPaymentModal(false);
-                }}
+                onClick={handlePayment}
                 disabled={loading || !cashAmount || parseFloat(cashAmount) < calculateTotal()}
                 className="btn-confirm-payment"
               >
