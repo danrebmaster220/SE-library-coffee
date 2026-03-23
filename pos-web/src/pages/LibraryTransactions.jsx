@@ -724,15 +724,21 @@ function CheckinModal(props) {
   
   const [customerName, setCustomerName] = useState('');
   const [cashTendered, setCashTendered] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fee = 100; // Initial fee for 2 hours
   
   const change = cashTendered ? Math.max(0, parseFloat(cashTendered) - fee) : 0;
   const isValid = customerName.trim() && parseFloat(cashTendered) >= fee;
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!isValid) return;
-    onSubmit(customerName, parseFloat(cashTendered));
+    if (!isValid || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSubmit(customerName, parseFloat(cashTendered));
+    } catch {
+      setIsSubmitting(false);
+    }
   }
   
   function handleQuickCash(amount) {
@@ -794,8 +800,8 @@ function CheckinModal(props) {
           <div className="fee-info-box"><p><strong>Extension:</strong> P50.00 per 30 minutes</p></div>
           <div className="modal-divider"></div>
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={!isValid}>Confirm Check-in</button>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={!isValid || isSubmitting}>{isSubmitting ? 'Processing...' : 'Confirm Check-in'}</button>
           </div>
         </form>
       </div>
@@ -854,6 +860,17 @@ function CheckoutModal(props) {
   var onClose = props.onClose;
   var onSubmit = props.onSubmit;
   var formatDuration = props.formatDuration;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleCheckout() {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSubmit();
+    } catch {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -875,8 +892,8 @@ function CheckoutModal(props) {
           
           <div className="modal-divider"></div>
           <div className="modal-actions">
-            <button className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn-primary" onClick={onSubmit}>Return ID & Complete</button>
+            <button className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button className="btn-primary" onClick={handleCheckout} disabled={isSubmitting}>{isSubmitting ? 'Processing...' : 'Return ID & Complete'}</button>
           </div>
         </div>
       </div>

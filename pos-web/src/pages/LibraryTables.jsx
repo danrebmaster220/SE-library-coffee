@@ -18,6 +18,7 @@ export default function LibraryTables() {
   const [configTables, setConfigTables] = useState('3');
   const [configSeatsPerTable, setConfigSeatsPerTable] = useState('8');
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ show: true, message, type });
@@ -47,6 +48,8 @@ export default function LibraryTables() {
       showToast('Seats must be between 1 and 20', 'warning');
       return;
     }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.post('/library/tables', { seats, table_name: newTableName.trim() || null });
       showToast(`Table added with ${seats} seats`, 'success');
@@ -57,6 +60,8 @@ export default function LibraryTables() {
     } catch (err) {
       console.error('Failed to add table:', err);
       showToast(err.response?.data?.error || 'Failed to add table', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -76,6 +81,8 @@ export default function LibraryTables() {
       return;
     }
     
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       // Update table name
       await api.put(`/library/tables/${selectedTable.table_number}/name`, { table_name: editTableName.trim() });
@@ -94,6 +101,8 @@ export default function LibraryTables() {
     } catch (err) {
       console.error('Failed to update table:', err);
       showToast(err.response?.data?.error || 'Failed to update table', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -249,11 +258,11 @@ export default function LibraryTables() {
               </p>
               
               <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
-                <button className="btn-cancel" onClick={() => { setShowAddTableModal(false); setNewTableName(''); }}>
+                <button className="btn-cancel" onClick={() => { setShowAddTableModal(false); setNewTableName(''); }} disabled={isSubmitting}>
                   Cancel
                 </button>
-                <button className="btn-confirm" onClick={handleAddTable}>
-                  ✓ Add Table
+                <button className="btn-confirm" onClick={handleAddTable} disabled={isSubmitting}>
+                  {isSubmitting ? 'Adding...' : '✓ Add Table'}
                 </button>
               </div>
             </div>
@@ -290,11 +299,11 @@ export default function LibraryTables() {
               </div>
               
               <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
-                <button className="btn-cancel" onClick={() => { setShowEditTableModal(false); setEditTableName(''); setEditSeatsCount('8'); }}>
+                <button className="btn-cancel" onClick={() => { setShowEditTableModal(false); setEditTableName(''); setEditSeatsCount('8'); }} disabled={isSubmitting}>
                   Cancel
                 </button>
-                <button className="btn-confirm" onClick={handleUpdateTable}>
-                  ✓ Update Table
+                <button className="btn-confirm" onClick={handleUpdateTable} disabled={isSubmitting}>
+                  {isSubmitting ? 'Updating...' : '✓ Update Table'}
                 </button>
               </div>
             </div>

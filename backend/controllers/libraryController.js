@@ -162,6 +162,15 @@ exports.checkin = async (req, res) => {
             return res.status(400).json({ error: 'Seat is not available' });
         }
 
+        // Duplicate prevention: Check if there's already an active session on this seat
+        const [existingSession] = await db.query(
+            'SELECT session_id FROM library_sessions WHERE seat_id = ? AND status = ?',
+            [seat_id, 'active']
+        );
+        if (existingSession.length > 0) {
+            return res.status(400).json({ error: 'This seat already has an active session.' });
+        }
+
         // Validate payment
         const calculatedAmount = calculateAmount(duration_minutes);
         if (amount_paid < calculatedAmount) {

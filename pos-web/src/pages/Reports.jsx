@@ -515,6 +515,7 @@ export default function Reports() {
               <option value="">All Status</option>
               <option value="completed">Completed</option>
               <option value="active">Active</option>
+              <option value="voided">Voided</option>
             </select>
           )}
 

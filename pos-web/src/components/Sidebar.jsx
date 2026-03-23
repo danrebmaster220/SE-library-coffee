@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import api from '../api';
 import '../styles/sidebar.css';
 import logoImg from '../assets/logo.png';
 
@@ -167,6 +168,16 @@ export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Shift state
+  const [activeShift, setActiveShift] = useState(null);
+  const [shiftLoading, setShiftLoading] = useState(true);
+  const [showStartShiftModal, setShowStartShiftModal] = useState(false);
+  const [showEndShiftModal, setShowEndShiftModal] = useState(false);
+  const [startingCash, setStartingCash] = useState('');
+  const [actualCash, setActualCash] = useState('');
+  const [endShiftNotes, setEndShiftNotes] = useState('');
+  const [shiftSummary, setShiftSummary] = useState(null);
+
   // Desktop collapsed state - persisted in localStorage
   const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -220,6 +231,97 @@ export default function Sidebar() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  // Shift management
+  useEffect(() => {
+    checkActiveShift();
+  }, []);
+
+  const checkActiveShift = async () => {
+    try {
+      setShiftLoading(true);
+      const response = await api.get('/shifts/my-active');
+      setActiveShift(response.data.shift || null);
+    } catch (error) {
+      console.error('Error checking active shift:', error);
+    } finally {
+      setShiftLoading(false);
+    }
+  };
+
+  const handleStartShift = async () => {
+    try {
+      const cashVal = parseFloat(startingCash) || 0;
+      const response = await api.post('/shifts/start', { starting_cash: cashVal });
+      if (response.data.success) {
+        setActiveShift(response.data.shift);
+        setShowStartShiftModal(false);
+        setStartingCash('');
+        window.dispatchEvent(new Event('shiftUpdated'));
+      }
+    } catch (error) {
+      console.error('Error starting shift:', error);
+      alert(error.response?.data?.error || 'Failed to start shift');
+    }
+  };
+
+  const openEndShiftModal = async () => {
+    try {
+      const response = await api.get('/shifts/my-active');
+      if (response.data.shift) {
+        setActiveShift(response.data.shift);
+        setShiftSummary(response.data.shift);
+        setShowEndShiftModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching shift data:', error);
+      alert('Failed to load shift data');
+    }
+  };
+
+  const handleEndShift = async () => {
+    try {
+      const cashVal = parseFloat(actualCash) || 0;
+      const response = await api.post('/shifts/end', {
+        actual_cash: cashVal,
+        notes: endShiftNotes || null
+      });
+      if (response.data.success) {
+        setActiveShift(null);
+        setShowEndShiftModal(false);
+        setActualCash('');
+        setEndShiftNotes('');
+        setShiftSummary(null);
+        window.dispatchEvent(new Event('shiftUpdated'));
+      }
+    } catch (error) {
+      console.error('Error ending shift:', error);
+      alert(error.response?.data?.error || 'Failed to end shift');
+    }
+  };
+
+  const formatShiftDuration = (startTime) => {
+    if (!startTime) return '--';
+    const start = new Date(startTime);
+    const now = new Date();
+    const diffMs = now - start;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const handleCashInput = (value, setter) => {
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+      setter(value);
+    }
+  };
+
+  // Calculate expected and difference for end shift display
+  const expectedCash = shiftSummary
+    ? (parseFloat(shiftSummary.starting_cash) || 0) + (parseFloat(shiftSummary.total_sales) || 0) - (parseFloat(shiftSummary.total_refunds) || 0)
+    : 0;
+  const actualCashVal = parseFloat(actualCash) || 0;
+  const cashDifference = actualCash !== '' ? actualCashVal - expectedCash : null;
 
 
   const isActive = (path) => location.pathname === path;
@@ -364,6 +466,34 @@ export default function Sidebar() {
         </nav>
 
         <div className="sidebar-footer">
+          {/* Shift indicator */}
+          {!shiftLoading && activeShift && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 12px', margin: isCollapsed ? '0 4px 8px' : '0 12px 8px',
+              borderRadius: '8px', backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              color: '#4CAF50', fontSize: '11px', fontWeight: '600',
+              cursor: 'pointer', justifyContent: isCollapsed ? 'center' : 'flex-start'
+            }} onClick={openEndShiftModal} title="Click to end shift">
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4CAF50', display: 'inline-block', flexShrink: 0 }}></span>
+              {!isCollapsed && <span>On Shift • {formatShiftDuration(activeShift.start_time)}</span>}
+            </div>
+          )}
+          {!shiftLoading && !activeShift && (
+            <button
+              onClick={() => setShowStartShiftModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px', margin: isCollapsed ? '0 4px 8px' : '0 12px 8px',
+                borderRadius: '8px', backgroundColor: '#ff9800', color: '#fff',
+                border: 'none', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+                width: isCollapsed ? 'auto' : 'calc(100% - 24px)',
+                justifyContent: 'center'
+              }}
+            >
+              💰{!isCollapsed && ' Start Shift'}
+            </button>
+          )}
           <div className="user-profile">
             <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
             <div className="user-info">
@@ -378,6 +508,93 @@ export default function Sidebar() {
         </div>
       </aside>
 
+      {/* Start Shift Modal */}
+      {showStartShiftModal && (
+        <div className="logout-modal-overlay" onClick={() => setShowStartShiftModal(false)}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
+            <button
+              onClick={() => setShowStartShiftModal(false)}
+              style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#888', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1' }}
+              title="Close" aria-label="Close modal"
+            >&times;</button>
+            <div className="logout-modal-icon">💰</div>
+            <h3>Start New Shift</h3>
+            <p style={{ marginBottom: '16px', color: '#666' }}>Enter the starting cash amount in your drawer.</p>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '14px', color: '#333' }}>Starting Cash (₱)</label>
+              <input
+                type="text" inputMode="decimal" value={startingCash}
+                onChange={(e) => handleCashInput(e.target.value, setStartingCash)}
+                placeholder="0.00" autoFocus
+                style={{ width: '100%', padding: '12px', fontSize: '18px', fontWeight: '600', border: '2px solid #ddd', borderRadius: '10px', textAlign: 'center', outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div className="logout-modal-actions">
+              <button className="btn-confirm-logout" onClick={handleStartShift} style={{ backgroundColor: '#4CAF50', width: '100%' }}>Start Shift</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* End Shift Modal */}
+      {showEndShiftModal && shiftSummary && (
+        <div className="logout-modal-overlay" onClick={() => setShowEndShiftModal(false)}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', textAlign: 'left' }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div className="logout-modal-icon">📊</div>
+              <h3 style={{ margin: '8px 0 4px' }}>End Shift Summary</h3>
+              <p style={{ color: '#888', fontSize: '13px' }}>Shift started: {new Date(shiftSummary.start_time).toLocaleString()} ({formatShiftDuration(shiftSummary.start_time)})</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Total Sales</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#2e7d32' }}>₱{(parseFloat(shiftSummary.total_sales) || 0).toFixed(2)}</div>
+              </div>
+              <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Transactions</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#1565c0' }}>{shiftSummary.total_transactions || 0}</div>
+              </div>
+              <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Voids</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#e65100' }}>{shiftSummary.total_voids || 0}</div>
+              </div>
+              <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Refunds</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#c62828' }}>₱{(parseFloat(shiftSummary.total_refunds) || 0).toFixed(2)}</div>
+              </div>
+            </div>
+            <div style={{ background: '#e8f5e9', borderRadius: '10px', padding: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Starting Cash</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.starting_cash) || 0).toFixed(2)}</div></div>
+              <div style={{ fontSize: '20px', color: '#999' }}>+</div>
+              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Sales</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.total_sales) || 0).toFixed(2)}</div></div>
+              <div style={{ fontSize: '20px', color: '#999' }}>−</div>
+              <div><div style={{ fontSize: '12px', color: '#c62828' }}>Refunds</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.total_refunds) || 0).toFixed(2)}</div></div>
+              <div style={{ fontSize: '20px', color: '#999' }}>=</div>
+              <div><div style={{ fontSize: '12px', color: '#1565c0', fontWeight: '700' }}>Expected</div><div style={{ fontSize: '16px', fontWeight: '700', color: '#1565c0' }}>₱{expectedCash.toFixed(2)}</div></div>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '14px' }}>Actual Cash Count (₱)</label>
+              <input type="text" inputMode="decimal" value={actualCash} onChange={(e) => handleCashInput(e.target.value, setActualCash)} placeholder="0.00" autoFocus
+                style={{ width: '100%', padding: '12px', fontSize: '18px', fontWeight: '600', border: '2px solid #ddd', borderRadius: '10px', textAlign: 'center', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            {cashDifference !== null && (
+              <div style={{ padding: '10px', borderRadius: '10px', marginBottom: '12px', textAlign: 'center', background: cashDifference === 0 ? '#e8f5e9' : cashDifference > 0 ? '#fff3e0' : '#ffebee', color: cashDifference === 0 ? '#2e7d32' : cashDifference > 0 ? '#e65100' : '#c62828', fontWeight: '700', fontSize: '16px' }}>
+                {cashDifference === 0 ? '✅ Exact Match' : cashDifference > 0 ? `⬆️ Overage: ₱${cashDifference.toFixed(2)}` : `⬇️ Shortage: ₱${Math.abs(cashDifference).toFixed(2)}`}
+              </div>
+            )}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '13px', color: '#666' }}>Notes (optional)</label>
+              <textarea value={endShiftNotes} onChange={(e) => setEndShiftNotes(e.target.value)} placeholder="Any notes about this shift..." rows={2}
+                style={{ width: '100%', padding: '10px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '8px', resize: 'none', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div className="logout-modal-actions">
+              <button className="btn-cancel" onClick={() => setShowEndShiftModal(false)}>Cancel</button>
+              <button className="btn-confirm-logout" onClick={handleEndShift} disabled={actualCash === ''} style={{ backgroundColor: actualCash === '' ? '#ccc' : '#ff9800' }}>Confirm & End Shift</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="logout-modal-overlay" onClick={handleLogoutCancel}>
@@ -385,6 +602,11 @@ export default function Sidebar() {
             <div className="logout-modal-icon">👋</div>
             <h3>Confirm Logout</h3>
             <p>Are you sure you want to log out of your account?</p>
+            {activeShift && (
+              <p style={{ color: '#ff9800', fontSize: '13px', fontWeight: '600', marginTop: '8px' }}>
+                ⚠️ You have an active shift. Please end your shift before logging out.
+              </p>
+            )}
             <div className="logout-modal-actions">
               <button className="btn-cancel" onClick={handleLogoutCancel}>
                 Cancel

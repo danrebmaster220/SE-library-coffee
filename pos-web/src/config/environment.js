@@ -5,20 +5,17 @@
 // For production deployment, update the 'production' values below.
 
 const ENV = {
-  // Development - Local development on your machine
+  // Development - Local development connecting to hosted backend
   development: {
-    API_URL: 'http://localhost:3000/api',
-    SOCKET_URL: 'http://localhost:3000',
+    API_URL: 'https://se-library-coffee-backend.vercel.app/api',
+    SOCKET_URL: 'https://se-library-coffee-backend.vercel.app',
     ENV_NAME: 'development',
   },
   
   // Production - For deployed/hosted application
   production: {
-    // Update these URLs when you deploy your backend
-    // Example: API_URL: 'https://your-backend.railway.app/api',
-    // Example: SOCKET_URL: 'https://your-backend.railway.app',
-    API_URL: 'http://localhost:3000/api',
-    SOCKET_URL: 'http://localhost:3000',
+    API_URL: 'https://se-library-coffee-backend.vercel.app/api',
+    SOCKET_URL: 'https://se-library-coffee-backend.vercel.app',
     ENV_NAME: 'production',
   },
 };
