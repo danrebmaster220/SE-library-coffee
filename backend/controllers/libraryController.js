@@ -569,19 +569,21 @@ exports.removeTable = async (req, res) => {
     const { table_number } = req.params;
 
     try {
-        // Check if any active sessions on this table
-        const [activeSessions] = await db.query(`
-            SELECT COUNT(*) as count 
-            FROM library_sessions ses
-            JOIN library_seats s ON ses.seat_id = s.seat_id
-            WHERE s.table_number = ? AND ses.status = 'active'
+        // Auto-void any active sessions on this table before deleting
+        await db.query(`
+            UPDATE library_sessions SET 
+                status = 'voided', 
+                voided_at = NOW(), 
+                void_reason = 'Table removed - auto-voided'
+            WHERE seat_id IN (SELECT seat_id FROM library_seats WHERE table_number = ?)
+            AND status = 'active'
         `, [table_number]);
 
-        if (activeSessions[0].count > 0) {
-            return res.status(400).json({ 
-                error: 'Cannot remove table with active sessions. Please checkout all sessions first.' 
-            });
-        }
+        // Also reset seat statuses
+        await db.query(
+            "UPDATE library_seats SET status = 'available' WHERE table_number = ? AND status = 'occupied'",
+            [table_number]
+        );
 
         // Delete seats for this table
         await db.query('DELETE FROM library_seats WHERE table_number = ?', [table_number]);

@@ -11,6 +11,7 @@ export default function Discounts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     percentage: "",
@@ -34,6 +35,8 @@ export default function Discounts() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         name: formData.name,
@@ -51,6 +54,8 @@ export default function Discounts() {
     } catch (error) {
       console.error("Error saving discount:", error);
       alert("Failed to save discount");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -65,7 +70,8 @@ export default function Discounts() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.delete(`/discounts/${deleteTarget.discount_id}`);
       await fetchDiscounts();
@@ -73,6 +79,8 @@ export default function Discounts() {
     } catch (error) {
       console.error("Error deleting discount:", error);
       alert("Failed to delete discount");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -259,8 +267,8 @@ export default function Discounts() {
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-confirm">
-                  {editingDiscount ? "Save Changes" : "Add Discount"}
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : (editingDiscount ? "Save Changes" : "Add Discount")}
                 </button>
               </div>
             </form>
@@ -298,8 +306,8 @@ export default function Discounts() {
               <button type="button" className="btn-cancel" onClick={closeDeleteModal}>
                 Cancel
               </button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>
-                Delete Discount
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>
+                {isSubmitting ? "Deleting..." : "Delete Discount"}
               </button>
             </div>
           </div>

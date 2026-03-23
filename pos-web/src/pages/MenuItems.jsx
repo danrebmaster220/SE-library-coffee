@@ -15,6 +15,7 @@ export default function MenuItems() {
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
@@ -120,7 +121,8 @@ export default function MenuItems() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
     try {
       await api.delete(`/menu/items/${deleteTarget.item_id}`);
       await fetchData();
@@ -128,6 +130,8 @@ export default function MenuItems() {
     } catch (error) {
       console.error("Error deleting item:", error);
       alert("Failed to delete item");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -597,8 +601,8 @@ export default function MenuItems() {
               <button type="button" className="btn-cancel" onClick={closeDeleteModal}>
                 Cancel
               </button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>
-                Delete Item
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete Item"}
               </button>
             </div>
           </div>

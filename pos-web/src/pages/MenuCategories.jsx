@@ -12,6 +12,7 @@ export default function MenuCategories() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -30,6 +31,8 @@ export default function MenuCategories() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingCategory) {
         await api.put(`/menu/categories/${editingCategory.category_id}`, formData);
@@ -41,6 +44,8 @@ export default function MenuCategories() {
     } catch (error) {
       console.error("Error saving category:", error);
       alert("Failed to save category");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -55,7 +60,8 @@ export default function MenuCategories() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.delete(`/menu/categories/${deleteTarget.category_id}`);
       fetchCategories();
@@ -63,6 +69,8 @@ export default function MenuCategories() {
     } catch (error) {
       console.error("Error deleting category:", error);
       alert("Failed to delete category. It may have items linked to it.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -226,8 +234,8 @@ export default function MenuCategories() {
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-confirm">
-                  {editingCategory ? "Save Changes" : "Add Category"}
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : (editingCategory ? "Save Changes" : "Add Category")}
                 </button>
               </div>
             </form>
@@ -260,8 +268,8 @@ export default function MenuCategories() {
               <button type="button" className="btn-cancel" onClick={closeDeleteModal}>
                 Cancel
               </button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>
-                Delete Category
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>
+                {isSubmitting ? "Deleting..." : "Delete Category"}
               </button>
             </div>
           </div>

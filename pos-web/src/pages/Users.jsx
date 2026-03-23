@@ -13,6 +13,7 @@ export default function Users() {
   const [filterRole, setFilterRole] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     full_name: "",
     username: "",
@@ -61,6 +62,8 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         full_name: formData.full_name,
@@ -78,6 +81,7 @@ export default function Users() {
       } else {
         if (!formData.password) {
           alert("Password is required for new users");
+          setIsSubmitting(false);
           return;
         }
         await api.post("/users", payload);
@@ -87,6 +91,8 @@ export default function Users() {
     } catch (error) {
       console.error("Error saving user:", error);
       alert("Failed to save user");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -101,7 +107,8 @@ export default function Users() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.delete(`/users/${deleteTarget.user_id}`);
       await fetchUsers();
@@ -109,6 +116,8 @@ export default function Users() {
     } catch (error) {
       console.error("Error deleting user:", error);
       alert("Failed to delete user");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -388,8 +397,8 @@ export default function Users() {
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-confirm">
-                  {editingUser ? "Save Changes" : "Add User"}
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : (editingUser ? "Save Changes" : "Add User")}
                 </button>
               </div>
             </form>
@@ -422,8 +431,8 @@ export default function Users() {
               <button type="button" className="btn-cancel" onClick={closeDeleteModal}>
                 Cancel
               </button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>
-                Delete User
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>
+                {isSubmitting ? "Deleting..." : "Delete User"}
               </button>
             </div>
           </div>

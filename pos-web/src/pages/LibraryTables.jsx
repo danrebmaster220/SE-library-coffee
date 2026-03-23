@@ -19,6 +19,8 @@ export default function LibraryTables() {
   const [configSeatsPerTable, setConfigSeatsPerTable] = useState('8');
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ show: true, message, type });
@@ -107,7 +109,8 @@ export default function LibraryTables() {
   };
 
   const handleDeleteTable = async () => {
-    if (!selectedTable) return;
+    if (!selectedTable || isDeleting) return;
+    setIsDeleting(true);
     try {
       await api.delete(`/library/tables/${selectedTable.table_number}`);
       showToast(`Table ${selectedTable.table_number} removed`, 'success');
@@ -117,6 +120,8 @@ export default function LibraryTables() {
     } catch (err) {
       console.error('Failed to delete table:', err);
       showToast(err.response?.data?.error || 'Failed to remove table', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -127,6 +132,8 @@ export default function LibraryTables() {
       showToast('Values must be between 1 and 20', 'warning');
       return;
     }
+    if (isConfiguring) return;
+    setIsConfiguring(true);
     try {
       await api.post('/library/config', { 
         tables, 
@@ -138,6 +145,8 @@ export default function LibraryTables() {
     } catch (err) {
       console.error('Failed to configure library:', err);
       showToast(err.response?.data?.error || 'Failed to configure library', 'error');
+    } finally {
+      setIsConfiguring(false);
     }
   };
 
@@ -324,11 +333,11 @@ export default function LibraryTables() {
               <p className="warning-text">This will delete all {selectedTable.seats} seats. This action cannot be undone.</p>
               
               <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
-                <button className="btn-cancel" onClick={() => setShowDeleteModal(false)}>
+                <button className="btn-cancel" onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>
                   Cancel
                 </button>
-                <button className="btn-danger" onClick={handleDeleteTable}>
-                  Yes, Remove Table
+                <button className="btn-danger" onClick={handleDeleteTable} disabled={isDeleting}>
+                  {isDeleting ? 'Removing...' : 'Yes, Remove Table'}
                 </button>
               </div>
             </div>
@@ -371,11 +380,11 @@ export default function LibraryTables() {
               </p>
               
               <div className="modal-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
-                <button className="btn-cancel" onClick={() => setShowConfigureModal(false)}>
+                <button className="btn-cancel" onClick={() => setShowConfigureModal(false)} disabled={isConfiguring}>
                   Cancel
                 </button>
-                <button className="btn-confirm" onClick={handleConfigureAll}>
-                  ✓ Apply Configuration
+                <button className="btn-confirm" onClick={handleConfigureAll} disabled={isConfiguring}>
+                  {isConfiguring ? 'Configuring...' : '✓ Apply Configuration'}
                 </button>
               </div>
             </div>

@@ -16,6 +16,7 @@ export default function Customizations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [groupFormData, setGroupFormData] = useState({
     name: "",
@@ -58,6 +59,8 @@ export default function Customizations() {
 
   const handleGroupSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...groupFormData,
@@ -74,6 +77,8 @@ export default function Customizations() {
     } catch (error) {
       console.error("Error saving group:", error);
       alert("Failed to save customization group");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -125,6 +130,8 @@ export default function Customizations() {
 
   const handleOptionSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...optionFormData,
@@ -145,6 +152,8 @@ export default function Customizations() {
     } catch (error) {
       console.error("Error saving option:", error);
       alert("Failed to save customization option");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -211,7 +220,8 @@ export default function Customizations() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (deleteType === "group") {
         await api.delete(`/customizations/groups/${deleteTarget.group_id}`);
@@ -223,6 +233,8 @@ export default function Customizations() {
     } catch (error) {
       console.error("Error deleting:", error);
       alert(`Failed to delete ${deleteType}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -530,7 +542,7 @@ export default function Customizations() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeGroupModal}>Cancel</button>
-                <button type="submit" className="btn-confirm">{editingGroup ? "Update Group" : "Add Group"}</button>
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>{isSubmitting ? "Saving..." : (editingGroup ? "Update Group" : "Add Group")}</button>
               </div>
             </form>
           </div>
@@ -617,7 +629,7 @@ export default function Customizations() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeOptionModal}>Cancel</button>
-                <button type="submit" className="btn-confirm">{editingOption ? "Update Option" : "Add Option"}</button>
+                <button type="submit" className="btn-confirm" disabled={isSubmitting}>{isSubmitting ? "Saving..." : (editingOption ? "Update Option" : "Add Option")}</button>
               </div>
             </form>
           </div>
@@ -648,7 +660,7 @@ export default function Customizations() {
             </div>
             <div className="modal-actions">
               <button type="button" className="btn-cancel" onClick={closeDeleteModal}>Cancel</button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>Delete</button>
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>{isSubmitting ? "Deleting..." : "Delete"}</button>
             </div>
           </div>
         </div>
