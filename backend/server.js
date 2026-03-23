@@ -156,6 +156,7 @@ const printAgents = new Map();
 
 // Track locked library seats
 const lockedSeats = new Map();
+app.set('lockedSeats', lockedSeats);
 
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
@@ -232,7 +233,6 @@ io.on('connection', (socket) => {
     });
 
     // Transient Seat Locks for Kiosk Concurrency
-    const lockedSeats = new Map(); // seatId -> { socketId, expiresAt }
     const SEAT_LOCK_DURATION = 3 * 60 * 1000; // 3 minutes lock
 
     socket.on('seat:lock', (data) => {

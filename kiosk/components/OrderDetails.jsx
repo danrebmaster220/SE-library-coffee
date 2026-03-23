@@ -139,6 +139,7 @@ const OrderDetails = ({
         library_booking: libraryBooking ? {
           seat_id: libraryBooking.seat_id,
           table_number: libraryBooking.table_number,
+          table_name: libraryBooking.table_name || `Table ${libraryBooking.table_number}`,
           seat_number: libraryBooking.seat_number,
           customer_name: libraryBooking.customer_name,
           duration_minutes: libraryBooking.duration_minutes,

@@ -189,7 +189,7 @@ export default function LibraryTransactions() {
     
     const handleSeatLocked = (data) => {
       setSeats(prev => prev.map(s => 
-        s.seat_id == (data.seatId || data.seat_id) ? { ...s, status: 'occupied', temporary_lock: true } : s
+        s.seat_id == (data.seatId || data.seat_id) ? { ...s, status: 'reserved', temporary_lock: true } : s
       ));
     };
 
