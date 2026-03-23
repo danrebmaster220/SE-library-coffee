@@ -42,7 +42,7 @@ exports.getAvailableSeatsPublic = async (req, res) => {
             SELECT 
                 s.seat_id,
                 s.table_number,
-                COALESCE(lt.table_name, CONCAT('Table ', s.table_number)) as table_name,
+                COALESCE(MAX(lt.table_name), CONCAT('Table ', s.table_number)) as table_name,
                 s.seat_number,
                 CASE 
                     WHEN s.status = 'maintenance' THEN 'maintenance'
@@ -53,6 +53,7 @@ exports.getAvailableSeatsPublic = async (req, res) => {
             LEFT JOIN library_tables lt ON s.table_number = lt.table_number
             LEFT JOIN library_sessions ses ON s.seat_id = ses.seat_id AND ses.status = 'active'
             WHERE s.status != 'maintenance'
+            GROUP BY s.seat_id
             ORDER BY s.table_number, s.seat_number
         `);
         
@@ -101,7 +102,7 @@ exports.getSeats = async (req, res) => {
             SELECT 
                 s.seat_id,
                 s.table_number,
-                COALESCE(lt.table_name, CONCAT('Table ', s.table_number)) as table_name,
+                COALESCE(MAX(lt.table_name), CONCAT('Table ', s.table_number)) as table_name,
                 s.seat_number,
                 s.status,
                 ses.session_id,
@@ -114,6 +115,7 @@ exports.getSeats = async (req, res) => {
             FROM library_seats s
             LEFT JOIN library_tables lt ON s.table_number = lt.table_number
             LEFT JOIN library_sessions ses ON s.seat_id = ses.seat_id AND ses.status = 'active'
+            GROUP BY s.seat_id
             ORDER BY s.table_number, s.seat_number
         `);
         
@@ -438,11 +440,11 @@ exports.getConfig = async (req, res) => {
         const [tables] = await db.query(`
             SELECT 
                 ls.table_number, 
-                COUNT(*) as seat_count,
-                COALESCE(lt.table_name, CONCAT('Table ', ls.table_number)) as table_name
+                COUNT(DISTINCT ls.seat_id) as seat_count,
+                COALESCE(MAX(lt.table_name), CONCAT('Table ', ls.table_number)) as table_name
             FROM library_seats ls
             LEFT JOIN library_tables lt ON ls.table_number = lt.table_number
-            GROUP BY ls.table_number, lt.table_name
+            GROUP BY ls.table_number
             ORDER BY ls.table_number
         `);
 
@@ -697,12 +699,24 @@ exports.updateTableName = async (req, res) => {
             return res.status(404).json({ error: 'Table not found' });
         }
 
-        // Upsert into library_tables
-        await db.query(`
-            INSERT INTO library_tables (table_number, table_name)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE table_name = VALUES(table_name)
-        `, [table_number, table_name.trim()]);
+        // Check if table entry exists in library_tables
+        const [existing] = await db.query(
+            'SELECT table_id FROM library_tables WHERE table_number = ? LIMIT 1',
+            [table_number]
+        );
+
+        if (existing.length > 0) {
+            // Update all duplicates just in case
+            await db.query(
+                'UPDATE library_tables SET table_name = ? WHERE table_number = ?',
+                [table_name.trim(), table_number]
+            );
+        } else {
+            await db.query(
+                'INSERT INTO library_tables (table_number, table_name) VALUES (?, ?)',
+                [table_number, table_name.trim()]
+            );
+        }
 
         res.json({ 
             message: `Table name updated successfully`,

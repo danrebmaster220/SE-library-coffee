@@ -30,6 +30,9 @@ async function runMigrations() {
         // Migration 7: Fix library_sessions seat_id foreign key constraint
         await fixLibrarySessionsForeignKey();
 
+        // Migration 8: Fix library_tables duplicate bug
+        await fixLibraryTablesDuplicateBug();
+
         console.log('✅ Database migrations complete.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -215,6 +218,37 @@ async function fixLibrarySessionsForeignKey() {
         }
     } catch (error) {
         console.error('   ⚠️ fixLibrarySessionsForeignKey:', error.message);
+    }
+}
+
+async function fixLibraryTablesDuplicateBug() {
+    try {
+        const [indexRows] = await db.query(`
+            SELECT COUNT(1) as count 
+            FROM INFORMATION_SCHEMA.STATISTICS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'library_tables' 
+            AND INDEX_NAME = 'table_number'
+        `);
+
+        if (indexRows.length > 0 && indexRows[0].count === 0) {
+            // Delete duplicate rows, keeping only the one with the highest table_id (latest name)
+            await db.query(`
+                DELETE t1 FROM library_tables t1
+                INNER JOIN library_tables t2 
+                WHERE t1.table_id < t2.table_id 
+                AND t1.table_number = t2.table_number
+            `);
+            
+            // Add the unique constraint
+            await db.query('ALTER TABLE library_tables ADD UNIQUE KEY `table_number` (`table_number`)');
+            
+            console.log('   ✅ Fixed library_tables duplicates and added UNIQUE constraint');
+        } else {
+            console.log('   ⏭️  library_tables unique constraint already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ fixLibraryTablesDuplicateBug:', error.message);
     }
 }
 
