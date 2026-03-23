@@ -610,9 +610,9 @@ exports.updateTableSeats = async (req, res) => {
     }
 
     try {
-        // Get current seat count for table
+        // Get current seats for this table
         const [currentSeats] = await db.query(
-            'SELECT * FROM library_seats WHERE table_number = ? ORDER BY seat_number',
+            'SELECT seat_id, seat_number, status FROM library_seats WHERE table_number = ? ORDER BY seat_number',
             [table_number]
         );
 
@@ -620,36 +620,48 @@ exports.updateTableSeats = async (req, res) => {
             return res.status(404).json({ error: 'Table not found' });
         }
 
-        // Check for active sessions
-        const occupiedSeats = currentSeats.filter(s => s.status === 'occupied');
-        if (seats < occupiedSeats.length) {
-            return res.status(400).json({ 
-                error: `Cannot reduce to ${seats} seats. There are ${occupiedSeats.length} occupied seats.` 
-            });
-        }
+        const currentCount = currentSeats.length;
+        const maxSeatNumber = Math.max(...currentSeats.map(s => s.seat_number));
 
-        if (seats > currentSeats.length) {
-            // Add more seats
+        if (seats > currentCount) {
+            // Add more seats - start numbering after the highest existing seat_number
             const insertValues = [];
-            for (let s = currentSeats.length + 1; s <= seats; s++) {
-                insertValues.push([table_number, s, 'available']);
+            for (let s = maxSeatNumber + 1; s <= maxSeatNumber + (seats - currentCount); s++) {
+                insertValues.push([parseInt(table_number), s, 'available']);
             }
             await db.query(
                 'INSERT INTO library_seats (table_number, seat_number, status) VALUES ?',
                 [insertValues]
             );
-        } else if (seats < currentSeats.length) {
-            // Remove seats (only available ones from the end)
+        } else if (seats < currentCount) {
+            // Remove seats from the end (highest seat_numbers first)
+            // First, get seats to remove (from highest seat_number down)
             const seatsToRemove = currentSeats
-                .filter(s => s.status === 'available' && s.seat_number > seats)
-                .map(s => s.seat_id);
+                .sort((a, b) => b.seat_number - a.seat_number)
+                .slice(0, currentCount - seats);
+
+            const seatIdsToRemove = seatsToRemove.map(s => s.seat_id);
             
-            if (seatsToRemove.length > 0) {
+            // Check for truly active sessions on these seats
+            const [activeSessions] = await db.query(
+                'SELECT session_id, seat_id FROM library_sessions WHERE seat_id IN (?) AND status = ?',
+                [seatIdsToRemove, 'active']
+            );
+
+            // Void any active sessions on seats being removed (ghost sessions from duplicate bug)
+            if (activeSessions.length > 0) {
+                const sessionIds = activeSessions.map(s => s.session_id);
                 await db.query(
-                    'DELETE FROM library_seats WHERE seat_id IN (?)',
-                    [seatsToRemove]
+                    'UPDATE library_sessions SET status = ?, end_time = NOW(), void_reason = ? WHERE session_id IN (?)',
+                    ['voided', 'Auto-voided: seat removed during table edit', sessionIds]
                 );
             }
+
+            // Now delete the seats
+            await db.query(
+                'DELETE FROM library_seats WHERE seat_id IN (?)',
+                [seatIdsToRemove]
+            );
         }
 
         res.json({ 
