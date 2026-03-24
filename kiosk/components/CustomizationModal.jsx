@@ -392,7 +392,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                         </Text>
                         {parseFloat(option.price) > 0 && (
                           <Text style={[phoneStyles.optionPrice, isOptionSelected(sizeGroup.group_id, option) && phoneStyles.selectedText]}>
-                            +{peso}{parseFloat(option.price).toFixed(0)}
+                            +{peso}{parseFloat(option.price).toFixed(2)}
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -461,7 +461,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                             <View style={phoneStyles.addonInfo}>
                               <Text style={phoneStyles.addonName}>{option.name}</Text>
                               <Text style={phoneStyles.addonPrice}>
-                                                        {peso}{parseFloat(option.price_per_unit || option.price).toFixed(0)}/{currentAddonGroup.unit_label || 'qty'}
+                                                        {peso}{parseFloat(option.price_per_unit || option.price).toFixed(2)}/{currentAddonGroup.unit_label || 'qty'}
                               </Text>
                             </View>
                             <View style={phoneStyles.quantityControls}>
@@ -496,7 +496,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                               </Text>
                               {parseFloat(option.price) > 0 && (
                                 <Text style={[phoneStyles.addonOptionPrice, isOptionSelected(currentAddonGroup.group_id, option) && phoneStyles.selectedText]}>
-                                  +{peso}{parseFloat(option.price).toFixed(0)}
+                                  +{peso}{parseFloat(option.price).toFixed(2)}
                                 </Text>
                               )}
                             </TouchableOpacity>
@@ -552,7 +552,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                 </Text>
                 {parseFloat(option.price) > 0 && (
                   <Text style={[s.optionPrice, isOptionSelected(sizeGroup.group_id, option) && s.selectedText]}>
-                    +{peso}{parseFloat(option.price).toFixed(0)}
+                    +{peso}{parseFloat(option.price).toFixed(2)}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -621,7 +621,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                     <View style={s.addonInfo}>
                       <Text style={s.addonName}>{option.name}</Text>
                       <Text style={s.addonPrice}>
-                                                {peso}{parseFloat(option.price_per_unit || option.price).toFixed(0)}/{currentAddonGroup.unit_label || 'qty'}
+                                                {peso}{parseFloat(option.price_per_unit || option.price).toFixed(2)}/{currentAddonGroup.unit_label || 'qty'}
                       </Text>
                     </View>
                     <View style={s.quantityControls}>
@@ -656,7 +656,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                       </Text>
                       {parseFloat(option.price) > 0 && (
                         <Text style={[s.addonOptionPrice, isOptionSelected(currentAddonGroup.group_id, option) && s.selectedText]}>
-                          +{peso}{parseFloat(option.price).toFixed(0)}
+                          +{peso}{parseFloat(option.price).toFixed(2)}
                         </Text>
                       )}
                     </TouchableOpacity>
