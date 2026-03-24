@@ -32,7 +32,7 @@ const OrderDetails = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const { isPhone: isPhoneHook } = useResponsive();
-  
+
   // Use prop if passed, otherwise use hook
   const isPhone = isPhoneProp !== undefined ? isPhoneProp : isPhoneHook;
 
@@ -69,8 +69,8 @@ const OrderDetails = ({
 
   // Generate unique key for an item based on its ID and customizations
   const getItemKey = useCallback((item) => {
-    return item.customizationSummary 
-      ? (item.item_id + '-' + item.customizationSummary) 
+    return item.customizationSummary
+      ? (item.item_id + '-' + item.customizationSummary)
       : (item.item_id + '-standard');
   }, []);
 
@@ -148,7 +148,7 @@ const OrderDetails = ({
       };
 
       const result = await submitOrder(orderData);
-      
+
       setModalVisible(false);
 
       // Clear saved cart from AsyncStorage
@@ -168,7 +168,7 @@ const OrderDetails = ({
           libraryBooking: libraryBooking ? JSON.stringify(libraryBooking) : null,
         },
       });
-      
+
       // Close phone cart modal after successful order
       if (isPhone && onClose) {
         onClose();
@@ -195,7 +195,7 @@ const OrderDetails = ({
           </Text>
         </>
       )}
-      
+
       {/* Phone header showing order type */}
       {isPhone && (
         <Text style={styles.phoneOrderType}>
@@ -212,7 +212,7 @@ const OrderDetails = ({
               <Text style={styles.libraryTitle}>Study Area</Text>
             </View>
             {onRemoveLibraryBooking && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.removeLibraryButton}
                 onPress={onRemoveLibraryBooking}
               >
@@ -378,9 +378,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#3d2417", marginBottom: 4 },
   customerInfo: { fontSize: 16, color: "#6b4b32", marginBottom: 10 },
-  phoneOrderType: { 
-    fontSize: 14, 
-    color: "#6b4b32", 
+  phoneOrderType: {
+    fontSize: 14,
+    color: "#6b4b32",
     marginBottom: 12,
     textAlign: "center",
   },
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   checkoutText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   emptyText: { color: "#999", fontStyle: "italic", textAlign: "center", marginTop: 20 },
   emptyItemsText: { color: "#999", fontStyle: "italic", textAlign: "center", marginTop: 10, fontSize: 13 },
-  
+
   // Phone-specific library booking
   libraryBookingBoxPhone: {
     marginHorizontal: 0,
