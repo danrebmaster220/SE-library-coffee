@@ -797,6 +797,24 @@
    ========================================== */
 .session-modal {
   min-width: 450px;
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.session-modal .modal-header {
+  flex-shrink: 0;
+}
+
+.session-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.session-modal .modal-actions {
+  flex-shrink: 0;
 }
 
 .session-details {
@@ -1777,6 +1795,14 @@ button.btn-void-small:disabled {
     max-width: 500px;
     margin: 20px;
     max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .session-modal {
+    max-height: min(90vh, 700px);
+  }
+
+  .session-modal-body {
     overflow-y: auto;
   }
   

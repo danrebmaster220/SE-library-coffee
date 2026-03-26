@@ -825,24 +825,26 @@ function SessionModal(props) {
           <h3 className="modal-title">Session Details</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <div className="session-details" style={{padding: '20px 20px 0'}}>
-          <div className="detail-row"><span className="detail-label">Location:</span><span className="detail-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
-          <div className="detail-row"><span className="detail-label">Customer:</span><span className="detail-value">{session.customer_name || '-'}</span></div>
-          <div className="detail-row"><span className="detail-label">Start Time:</span><span className="detail-value">{formatTime(session.start_time)}</span></div>
-          <div className="detail-row"><span className="detail-label">Duration:</span><span className="detail-value">{formatDuration(session.elapsed_minutes)}</span></div>
-          <div className="detail-row"><span className="detail-label">Remaining:</span><span className={'detail-value ' + (session.remaining_minutes <= 5 ? 'time-warning' : '')}>{formatDuration(session.remaining_minutes)}</span></div>
-        </div>
-        <div className="fee-breakdown" style={{padding: '0 20px'}}>
-          <h4>Fee Calculation</h4>
-          <div className="fee-row"><span>Base (first 2 hours):</span><span>P100.00</span></div>
-          {session.elapsed_minutes > 120 && (<div className="fee-row"><span>Extension ({Math.ceil((session.elapsed_minutes - 120) / 30)} x 30min):</span><span>P{(Math.ceil((session.elapsed_minutes - 120) / 30) * 50).toFixed(2)}</span></div>)}
-          <div className="fee-row total"><span>Total:</span><span>P{fee.toFixed(2)}</span></div>
-        </div>
-        <div className="extend-section" style={{padding: '0 20px'}}>
-          <h4>Extend Session:</h4>
-          <div className="extend-buttons">
-            <button className="btn-extend" onClick={function() { onExtend(30); }}>+30 min (P50)</button>
-            <button className="btn-extend" onClick={function() { onExtend(60); }}>+60 min (P100)</button>
+        <div className="session-modal-body">
+          <div className="session-details" style={{padding: '20px 20px 0'}}>
+            <div className="detail-row"><span className="detail-label">Location:</span><span className="detail-value">{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</span></div>
+            <div className="detail-row"><span className="detail-label">Customer:</span><span className="detail-value">{session.customer_name || '-'}</span></div>
+            <div className="detail-row"><span className="detail-label">Start Time:</span><span className="detail-value">{formatTime(session.start_time)}</span></div>
+            <div className="detail-row"><span className="detail-label">Duration:</span><span className="detail-value">{formatDuration(session.elapsed_minutes)}</span></div>
+            <div className="detail-row"><span className="detail-label">Remaining:</span><span className={'detail-value ' + (session.remaining_minutes <= 5 ? 'time-warning' : '')}>{formatDuration(session.remaining_minutes)}</span></div>
+          </div>
+          <div className="fee-breakdown" style={{padding: '0 20px'}}>
+            <h4>Fee Calculation</h4>
+            <div className="fee-row"><span>Base (first 2 hours):</span><span>P100.00</span></div>
+            {session.elapsed_minutes > 120 && (<div className="fee-row"><span>Extension ({Math.ceil((session.elapsed_minutes - 120) / 30)} x 30min):</span><span>P{(Math.ceil((session.elapsed_minutes - 120) / 30) * 50).toFixed(2)}</span></div>)}
+            <div className="fee-row total"><span>Total:</span><span>P{fee.toFixed(2)}</span></div>
+          </div>
+          <div className="extend-section" style={{padding: '0 20px'}}>
+            <h4>Extend Session:</h4>
+            <div className="extend-buttons">
+              <button className="btn-extend" onClick={function() { onExtend(30); }}>+30 min (P50)</button>
+              <button className="btn-extend" onClick={function() { onExtend(60); }}>+60 min (P100)</button>
+            </div>
           </div>
         </div>
         <div className="modal-actions" style={{padding: '16px 20px', borderTop: '1px solid #eee'}}>
