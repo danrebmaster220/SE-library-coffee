@@ -407,13 +407,13 @@ export default function VoidTransactions() {
 
       {showAlert && (
         <div className="modal-overlay" onClick={() => setShowAlert(false)}>
-          <div className={'modal alert-modal ' + alertData.type} onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', width: '85%', borderRadius: '16px', padding: '32px 28px', textAlign: 'center' }}>
-            <div className="alert-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>
+          <div className={'modal alert-modal refund-success-modal ' + alertData.type} onClick={e => e.stopPropagation()}>
+            <div className="alert-icon refund-success-icon">
               {alertData.type === 'success' ? String.fromCodePoint(0x2705) : alertData.type === 'error' ? String.fromCodePoint(0x274C) : String.fromCodePoint(0x2139, 0xFE0F)}
             </div>
-            <h3 style={{ margin: '0 0 12px', fontSize: '20px', color: '#3e2723' }}>{alertData.title}</h3>
-            <p style={{ whiteSpace: 'pre-line', margin: '0 0 24px', fontSize: '14px', color: '#5d4037', lineHeight: '1.5' }}>{alertData.message}</p>
-            <button className="btn-primary" onClick={() => setShowAlert(false)} style={{ padding: '12px 32px', borderRadius: '10px', fontSize: '14px', fontWeight: '600' }}>
+            <h3 className="refund-success-title">{alertData.title}</h3>
+            <p className="refund-success-message">{alertData.message}</p>
+            <button className="btn-primary refund-success-btn" onClick={() => setShowAlert(false)}>
               OK
             </button>
           </div>

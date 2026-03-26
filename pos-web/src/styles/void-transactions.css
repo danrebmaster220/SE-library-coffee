@@ -552,6 +552,42 @@
   box-shadow: 0 4px 15px rgba(161, 136, 127, 0.4);
 }
 
+/* Refund success modal spacing refinements */
+.refund-success-modal {
+  width: min(92vw, 420px);
+  padding: 28px 24px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.refund-success-icon {
+  font-size: 46px;
+  margin-bottom: 12px;
+}
+
+.refund-success-title {
+  margin: 0 0 10px;
+  font-size: 34px;
+  color: var(--coffee-dark);
+}
+
+.refund-success-message {
+  white-space: pre-line;
+  margin: 0 auto 20px;
+  max-width: 320px;
+  font-size: 14px;
+  color: var(--coffee-medium);
+  line-height: 1.5;
+}
+
+.refund-success-btn {
+  min-width: 140px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* ==========================================
    RESPONSIVE DESIGN
    ========================================== */
@@ -829,6 +865,16 @@
     width: 90%;
     padding: 28px 20px;
     border-radius: 16px;
+  }
+
+  .refund-success-modal {
+    width: min(92vw, 360px);
+    padding: 24px 18px;
+  }
+
+  .refund-success-message {
+    max-width: 100%;
+    margin-bottom: 18px;
   }
 
   .alert-modal .alert-icon {
