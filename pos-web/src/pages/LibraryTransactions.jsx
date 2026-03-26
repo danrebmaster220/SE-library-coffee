@@ -544,7 +544,6 @@ export default function LibraryTransactions() {
                         <td>P{calculateFee(session.elapsed_minutes).toFixed(2)}</td>
                         <td className="actions-cell">
                           <button className="btn-action" onClick={function() { setSelectedSession(session); setShowSessionModal(true); }}>Manage</button>
-                          <button className="btn-void-small" style={{background: '#dc3545', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer'}} onClick={function() { openVoidModal(session); }}>Void</button>
                         </td>
                       </tr>
                     );
