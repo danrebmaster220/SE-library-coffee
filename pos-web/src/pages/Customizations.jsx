@@ -15,6 +15,8 @@ export default function Customizations() {
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [groupPage, setGroupPage] = useState(1);
+  const rowsPerPage = 8;
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -248,6 +250,38 @@ export default function Customizations() {
     return matchesSearch && matchesStatus;
   });
 
+  useEffect(() => {
+    setGroupPage(1);
+  }, [searchTerm, filterStatus, groups]);
+
+  const totalPages = Math.ceil(filteredGroups.length / rowsPerPage);
+  const startIndex = (groupPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedGroups = filteredGroups.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    if (expandedGroup && !paginatedGroups.some((group) => group.group_id === expandedGroup)) {
+      setExpandedGroup(null);
+    }
+  }, [expandedGroup, paginatedGroups]);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   const getSelectionTypeLabel = (type) => {
     switch (type) {
       case "single": return "Single Select";
@@ -312,131 +346,152 @@ export default function Customizations() {
       {loading ? (
         <div className="loading-state">Loading...</div>
       ) : (
-        <div className="customization-groups-container">
-          {filteredGroups.length === 0 ? (
-            <div className="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <path d="M12 3v18M3 12h18M7.5 7.5L16.5 16.5M16.5 7.5L7.5 16.5" />
-              </svg>
-              <p>No customization groups found</p>
-            </div>
-          ) : (
-            filteredGroups.map((group) => (
-              <div key={group.group_id} className="customization-group-card">
-                <div 
-                  className="group-header"
-                  onClick={() => toggleGroupExpand(group.group_id)}
-                >
-                  <div className="group-header-left">
-                    <svg 
-                      className={`expand-icon ${expandedGroup === group.group_id ? 'expanded' : ''}`}
-                      width="20" 
-                      height="20" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2"
-                    >
-                      <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
-                    <div className="group-info">
-                      <h3 className="group-name">{group.name}</h3>
-                      <div className="group-meta">
-                        <span className="meta-tag">{getSelectionTypeLabel(group.selection_type)}</span>
-                        <span className="meta-tag">{getInputTypeLabel(group.input_type)}</span>
-                        {group.is_required && <span className="meta-tag required">Required</span>}
-                        <span className="meta-tag options-count">{group.options?.length || 0} options</span>
+        <>
+          <div className="customization-groups-container">
+            {filteredGroups.length === 0 ? (
+              <div className="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <path d="M12 3v18M3 12h18M7.5 7.5L16.5 16.5M16.5 7.5L7.5 16.5" />
+                </svg>
+                <p>No customization groups found</p>
+              </div>
+            ) : (
+              paginatedGroups.map((group) => (
+                <div key={group.group_id} className="customization-group-card">
+                  <div 
+                    className="group-header"
+                    onClick={() => toggleGroupExpand(group.group_id)}
+                  >
+                    <div className="group-header-left">
+                      <svg 
+                        className={`expand-icon ${expandedGroup === group.group_id ? 'expanded' : ''}`}
+                        width="20" 
+                        height="20" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      >
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                      <div className="group-info">
+                        <h3 className="group-name">{group.name}</h3>
+                        <div className="group-meta">
+                          <span className="meta-tag">{getSelectionTypeLabel(group.selection_type)}</span>
+                          <span className="meta-tag">{getInputTypeLabel(group.input_type)}</span>
+                          {group.is_required && <span className="meta-tag required">Required</span>}
+                          <span className="meta-tag options-count">{group.options?.length || 0} options</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="group-header-right" onClick={(e) => e.stopPropagation()}>
-                    <span className={`status-badge ${group.status}`}>{group.status}</span>
-                    <button className="btn-icon" onClick={() => openEditGroupModal(group)} title="Edit Group">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                      </svg>
-                    </button>
-                    <button className="btn-icon delete" onClick={() => openDeleteModal(group, "group")} title="Delete Group">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {expandedGroup === group.group_id && (
-                  <div className="group-options-section">
-                    <div className="options-header">
-                      <h4>Options</h4>
-                      <button 
-                        className="btn-add-option" 
-                        onClick={() => openAddOptionModal(group.group_id)}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="12" y1="5" x2="12" y2="19"></line>
-                          <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <div className="group-header-right" onClick={(e) => e.stopPropagation()}>
+                      <span className={`status-badge ${group.status}`}>{group.status}</span>
+                      <button className="btn-icon" onClick={() => openEditGroupModal(group)} title="Edit Group">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
                         </svg>
-                        Add Option
+                      </button>
+                      <button className="btn-icon delete" onClick={() => openDeleteModal(group, "group")} title="Delete Group">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
                       </button>
                     </div>
-
-                    {(!group.options || group.options.length === 0) ? (
-                      <div className="no-options">No options added yet</div>
-                    ) : (
-                      <div className="options-table">
-                        <div className="options-table-header">
-                          <span>Name</span>
-                          <span>Price</span>
-                          <span>Per Unit</span>
-                          <span>Max Qty</span>
-                          <span>Status</span>
-                          <span>Actions</span>
-                        </div>
-                        {group.options.map((option) => (
-                          <div key={option.option_id} className="options-table-row">
-                            <span className="option-name">{option.name}</span>
-                            <span className="option-price">
-                              {option.price > 0 ? `₱${parseFloat(option.price).toFixed(2)}` : 'Free'}
-                            </span>
-                            <span className="option-per-unit">
-                              {option.price_per_unit > 0 ? `₱${parseFloat(option.price_per_unit).toFixed(2)}` : '-'}
-                            </span>
-                            <span className="option-max-qty">{option.max_quantity}</span>
-                            <span className={`status-badge small ${option.status}`}>{option.status}</span>
-                            <div className="option-actions">
-                              <button 
-                                className="btn-icon small" 
-                                onClick={() => openEditOptionModal(option, group.group_id)}
-                                title="Edit Option"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                                </svg>
-                              </button>
-                              <button 
-                                className="btn-icon small delete" 
-                                onClick={() => openDeleteModal(option, "option")}
-                                title="Delete Option"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6"></polyline>
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                )}
-              </div>
-            ))
+
+                  {expandedGroup === group.group_id && (
+                    <div className="group-options-section">
+                      <div className="options-header">
+                        <h4>Options</h4>
+                        <button 
+                          className="btn-add-option" 
+                          onClick={() => openAddOptionModal(group.group_id)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                          </svg>
+                          Add Option
+                        </button>
+                      </div>
+
+                      {(!group.options || group.options.length === 0) ? (
+                        <div className="no-options">No options added yet</div>
+                      ) : (
+                        <div className="options-table">
+                          <div className="options-table-header">
+                            <span>Name</span>
+                            <span>Price</span>
+                            <span>Per Unit</span>
+                            <span>Max Qty</span>
+                            <span>Status</span>
+                            <span>Actions</span>
+                          </div>
+                          {group.options.map((option) => (
+                            <div key={option.option_id} className="options-table-row">
+                              <span className="option-name">{option.name}</span>
+                              <span className="option-price">
+                                {option.price > 0 ? `₱${parseFloat(option.price).toFixed(2)}` : 'Free'}
+                              </span>
+                              <span className="option-per-unit">
+                                {option.price_per_unit > 0 ? `₱${parseFloat(option.price_per_unit).toFixed(2)}` : '-'}
+                              </span>
+                              <span className="option-max-qty">{option.max_quantity}</span>
+                              <span className={`status-badge small ${option.status}`}>{option.status}</span>
+                              <div className="option-actions">
+                                <button 
+                                  className="btn-icon small" 
+                                  onClick={() => openEditOptionModal(option, group.group_id)}
+                                  title="Edit Option"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="btn-icon small delete" 
+                                  onClick={() => openDeleteModal(option, "option")}
+                                  title="Delete Option"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <span className="pagination-info">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredGroups.length)} of {filteredGroups.length}
+              </span>
+              <button className="pagination-btn" onClick={() => setGroupPage(1)} disabled={groupPage === 1}>«</button>
+              <button className="pagination-btn" onClick={() => setGroupPage(groupPage - 1)} disabled={groupPage === 1}>‹</button>
+              {getPageNumbers(groupPage, totalPages).map((page, idx) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                ) : (
+                  <button key={page} className={groupPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setGroupPage(page)}>{page}</button>
+                )
+              ))}
+              <button className="pagination-btn" onClick={() => setGroupPage(groupPage + 1)} disabled={groupPage === totalPages}>›</button>
+              <button className="pagination-btn" onClick={() => setGroupPage(totalPages)} disabled={groupPage === totalPages}>»</button>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Group Modal */}
