@@ -8,6 +8,8 @@ export default function ShiftHistory() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedShift, setSelectedShift] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const rowsPerPage = 10;
 
   useEffect(() => {
     fetchHistory();
@@ -17,6 +19,7 @@ export default function ShiftHistory() {
   const fetchHistory = async () => {
     try {
       setLoading(true);
+      setHistoryPage(1);
       let url = "/shifts/history";
       const params = [];
       if (startDate) params.push(`start_date=${startDate}`);
@@ -56,6 +59,28 @@ export default function ShiftHistory() {
     return `${hours}h ${minutes}m`;
   };
 
+  const totalPages = Math.ceil(shifts.length / rowsPerPage);
+  const startIndex = (historyPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedShifts = shifts.slice(startIndex, endIndex);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   return (
     <div className="shift-history-content">
       {/* Filters */}
@@ -85,65 +110,86 @@ export default function ShiftHistory() {
           <p>No completed shifts found for the selected period.</p>
         </div>
       ) : (
-        <div className="shifts-table-container">
-          <table className="shifts-table">
-            <thead>
-              <tr>
-                <th>Cashier</th>
-                <th>Date</th>
-                <th>Duration</th>
-                <th>Starting Cash</th>
-                <th>Total Sales</th>
-                <th>Expected</th>
-                <th>Actual</th>
-                <th>Difference</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shifts.map((shift) => (
-                <tr key={shift.shift_id}>
-                  <td>
-                    <div className="cashier-cell">
-                      <div className="cashier-avatar">{(shift.full_name || 'C').charAt(0).toUpperCase()}</div>
-                      <div className="cashier-name">{shift.full_name}</div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '13px' }}>{new Date(shift.start_time).toLocaleDateString()}</div>
-                    <div style={{ fontSize: '11px', color: '#999' }}>
-                      {new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {shift.end_time ? new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
-                    </div>
-                  </td>
-                  <td>{formatShiftDuration(shift.start_time, shift.end_time)}</td>
-                  <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
-                  <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
-                  <td>₱{(parseFloat(shift.expected_cash) || 0).toFixed(2)}</td>
-                  <td>
-                    {shift.actual_cash != null 
-                      ? `₱${parseFloat(shift.actual_cash).toFixed(2)}`
-                      : <span style={{ color: '#999' }}>N/A</span>
-                    }
-                  </td>
-                  <td>
-                    {shift.cash_difference != null ? (
-                      <span className={`diff-badge ${getDifferenceClass(shift.cash_difference)}`}>
-                        {getDifferenceLabel(shift.cash_difference)}
-                      </span>
-                    ) : (
-                      <span className="diff-badge diff-na">N/A</span>
-                    )}
-                  </td>
-                  <td>
-                    <button className="btn-view-details" onClick={() => setSelectedShift(shift)}>
-                      View
-                    </button>
-                  </td>
+        <>
+          <div className="shifts-table-container">
+            <table className="shifts-table">
+              <thead>
+                <tr>
+                  <th>Cashier</th>
+                  <th>Date</th>
+                  <th>Duration</th>
+                  <th>Starting Cash</th>
+                  <th>Total Sales</th>
+                  <th>Expected</th>
+                  <th>Actual</th>
+                  <th>Difference</th>
+                  <th>Details</th>
                 </tr>
+              </thead>
+              <tbody>
+                {paginatedShifts.map((shift) => (
+                  <tr key={shift.shift_id}>
+                    <td>
+                      <div className="cashier-cell">
+                        <div className="cashier-avatar">{(shift.full_name || 'C').charAt(0).toUpperCase()}</div>
+                        <div className="cashier-name">{shift.full_name}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '13px' }}>{new Date(shift.start_time).toLocaleDateString()}</div>
+                      <div style={{ fontSize: '11px', color: '#999' }}>
+                        {new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {shift.end_time ? new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                      </div>
+                    </td>
+                    <td>{formatShiftDuration(shift.start_time, shift.end_time)}</td>
+                    <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
+                    <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
+                    <td>₱{(parseFloat(shift.expected_cash) || 0).toFixed(2)}</td>
+                    <td>
+                      {shift.actual_cash != null 
+                        ? `₱${parseFloat(shift.actual_cash).toFixed(2)}`
+                        : <span style={{ color: '#999' }}>N/A</span>
+                      }
+                    </td>
+                    <td>
+                      {shift.cash_difference != null ? (
+                        <span className={`diff-badge ${getDifferenceClass(shift.cash_difference)}`}>
+                          {getDifferenceLabel(shift.cash_difference)}
+                        </span>
+                      ) : (
+                        <span className="diff-badge diff-na">N/A</span>
+                      )}
+                    </td>
+                    <td>
+                      <button className="btn-view-details" onClick={() => setSelectedShift(shift)}>
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <span className="pagination-info">
+                Showing {startIndex + 1}-{Math.min(endIndex, shifts.length)} of {shifts.length}
+              </span>
+              <button className="pagination-btn" onClick={() => setHistoryPage(1)} disabled={historyPage === 1}>«</button>
+              <button className="pagination-btn" onClick={() => setHistoryPage(historyPage - 1)} disabled={historyPage === 1}>‹</button>
+              {getPageNumbers(historyPage, totalPages).map((page, idx) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                ) : (
+                  <button key={page} className={historyPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setHistoryPage(page)}>{page}</button>
+                )
               ))}
-            </tbody>
-          </table>
-        </div>
+              <button className="pagination-btn" onClick={() => setHistoryPage(historyPage + 1)} disabled={historyPage === totalPages}>›</button>
+              <button className="pagination-btn" onClick={() => setHistoryPage(totalPages)} disabled={historyPage === totalPages}>»</button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Detail Modal */}

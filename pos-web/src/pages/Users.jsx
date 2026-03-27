@@ -12,6 +12,8 @@ export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -185,6 +187,32 @@ export default function Users() {
       return matchesSearch && matchesRole && matchesStatus;
     });
 
+  useEffect(() => {
+    setUserPage(1);
+  }, [searchTerm, filterRole, filterStatus, users]);
+
+  const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
+  const startIndex = (userPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   return (
     <div className="main-content">
       <div className="page-header-section">
@@ -250,61 +278,82 @@ export default function Users() {
             <p>No users found. Add your first user!</p>
           </div>
         ) : (
-          <div className="table-scroll-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Username</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.user_id}>
-                    <td>#{user.user_id}</td>
-                  <td>
-                    <span className="item-name-text">{user.full_name}</span>
-                  </td>
-                  <td>
-                    <span className="username-text">@{user.username}</span>
-                  </td>
-                  <td>
-                    <span className={`role-badge ${getRoleBadgeClass(getRoleName(user))}`}>
-                      {getRoleName(user)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${user.status === "active" ? "status-active" : "status-inactive"}`}>
-                      {user.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-action btn-edit" onClick={() => openEditModal(user)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                        Edit
-                      </button>
-                      <button className="btn-action btn-delete" onClick={() => openDeleteModal(user)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          <>
+            <div className="table-scroll-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedUsers.map((user) => (
+                    <tr key={user.user_id}>
+                      <td>#{user.user_id}</td>
+                    <td>
+                      <span className="item-name-text">{user.full_name}</span>
+                    </td>
+                    <td>
+                      <span className="username-text">@{user.username}</span>
+                    </td>
+                    <td>
+                      <span className={`role-badge ${getRoleBadgeClass(getRoleName(user))}`}>
+                        {getRoleName(user)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${user.status === "active" ? "status-active" : "status-inactive"}`}>
+                        {user.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-action btn-edit" onClick={() => openEditModal(user)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                          Edit
+                        </button>
+                        <button className="btn-action btn-delete" onClick={() => openDeleteModal(user)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <span className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length}
+                </span>
+                <button className="pagination-btn" onClick={() => setUserPage(1)} disabled={userPage === 1}>«</button>
+                <button className="pagination-btn" onClick={() => setUserPage(userPage - 1)} disabled={userPage === 1}>‹</button>
+                {getPageNumbers(userPage, totalPages).map((page, idx) => (
+                  page === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                  ) : (
+                    <button key={page} className={userPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setUserPage(page)}>{page}</button>
+                  )
+                ))}
+                <button className="pagination-btn" onClick={() => setUserPage(userPage + 1)} disabled={userPage === totalPages}>›</button>
+                <button className="pagination-btn" onClick={() => setUserPage(totalPages)} disabled={userPage === totalPages}>»</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

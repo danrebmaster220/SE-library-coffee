@@ -8,6 +8,8 @@ export default function ActiveShifts() {
   const [showForceCloseModal, setShowForceCloseModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [forceCloseNotes, setForceCloseNotes] = useState('');
+  const [shiftPage, setShiftPage] = useState(1);
+  const rowsPerPage = 10;
 
   useEffect(() => {
     fetchActiveShifts();
@@ -56,6 +58,35 @@ export default function ActiveShifts() {
     }
   };
 
+  const totalPages = Math.ceil(shifts.length / rowsPerPage);
+  const startIndex = (shiftPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedShifts = shifts.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    const safeTotalPages = Math.max(1, Math.ceil(shifts.length / rowsPerPage));
+    if (shiftPage > safeTotalPages) {
+      setShiftPage(safeTotalPages);
+    }
+  }, [shifts, shiftPage]);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   return (
     <div className="active-shifts-content">
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
@@ -73,50 +104,71 @@ export default function ActiveShifts() {
           <p>No cashiers are currently on shift.</p>
         </div>
       ) : (
-        <div className="shifts-table-container">
-          <table className="shifts-table">
-            <thead>
-              <tr>
-                <th>Cashier</th>
-                <th>Start Time</th>
-                <th>Duration</th>
-                <th>Starting Cash</th>
-                <th>Running Sales</th>
-                <th>Transactions</th>
-                <th>Voids</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shifts.map((shift) => (
-                <tr key={shift.shift_id}>
-                  <td>
-                    <div className="cashier-cell">
-                      <div className="cashier-avatar">{(shift.full_name || 'C').charAt(0).toUpperCase()}</div>
-                      <div>
-                        <div className="cashier-name">{shift.full_name}</div>
-                        <div className="cashier-username">@{shift.username}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{new Date(shift.start_time).toLocaleString()}</td>
-                  <td>
-                    <span className="duration-badge">{formatDuration(shift.start_time)}</span>
-                  </td>
-                  <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
-                  <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
-                  <td>{shift.total_transactions || 0}</td>
-                  <td>{shift.total_voids || 0}</td>
-                  <td>
-                    <button className="btn-force-close" onClick={() => openForceClose(shift)}>
-                      Force Close
-                    </button>
-                  </td>
+        <>
+          <div className="shifts-table-container">
+            <table className="shifts-table">
+              <thead>
+                <tr>
+                  <th>Cashier</th>
+                  <th>Start Time</th>
+                  <th>Duration</th>
+                  <th>Starting Cash</th>
+                  <th>Running Sales</th>
+                  <th>Transactions</th>
+                  <th>Voids</th>
+                  <th>Actions</th>
                 </tr>
+              </thead>
+              <tbody>
+                {paginatedShifts.map((shift) => (
+                  <tr key={shift.shift_id}>
+                    <td>
+                      <div className="cashier-cell">
+                        <div className="cashier-avatar">{(shift.full_name || 'C').charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div className="cashier-name">{shift.full_name}</div>
+                          <div className="cashier-username">@{shift.username}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{new Date(shift.start_time).toLocaleString()}</td>
+                    <td>
+                      <span className="duration-badge">{formatDuration(shift.start_time)}</span>
+                    </td>
+                    <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
+                    <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
+                    <td>{shift.total_transactions || 0}</td>
+                    <td>{shift.total_voids || 0}</td>
+                    <td>
+                      <button className="btn-force-close" onClick={() => openForceClose(shift)}>
+                        Force Close
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <span className="pagination-info">
+                Showing {startIndex + 1}-{Math.min(endIndex, shifts.length)} of {shifts.length}
+              </span>
+              <button className="pagination-btn" onClick={() => setShiftPage(1)} disabled={shiftPage === 1}>«</button>
+              <button className="pagination-btn" onClick={() => setShiftPage(shiftPage - 1)} disabled={shiftPage === 1}>‹</button>
+              {getPageNumbers(shiftPage, totalPages).map((page, idx) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                ) : (
+                  <button key={page} className={shiftPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setShiftPage(page)}>{page}</button>
+                )
               ))}
-            </tbody>
-          </table>
-        </div>
+              <button className="pagination-btn" onClick={() => setShiftPage(shiftPage + 1)} disabled={shiftPage === totalPages}>›</button>
+              <button className="pagination-btn" onClick={() => setShiftPage(totalPages)} disabled={shiftPage === totalPages}>»</button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Force Close Modal */}

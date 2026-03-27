@@ -10,6 +10,8 @@ export default function Discounts() {
   const [editingDiscount, setEditingDiscount] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [discountPage, setDiscountPage] = useState(1);
+  const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -112,6 +114,32 @@ export default function Discounts() {
     return matchesSearch && matchesStatus;
   });
 
+  useEffect(() => {
+    setDiscountPage(1);
+  }, [searchTerm, filterStatus, discounts]);
+
+  const totalPages = Math.ceil(filteredDiscounts.length / rowsPerPage);
+  const startIndex = (discountPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedDiscounts = filteredDiscounts.slice(startIndex, endIndex);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   return (
     <div className="main-content">
       <div className="page-header-section">
@@ -165,53 +193,74 @@ export default function Discounts() {
             <p>No discounts found. Add your first discount!</p>
           </div>
         ) : (
-          <div className="table-scroll-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Discount Name</th>
-                  <th>Percentage</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDiscounts.map((discount) => (
-                  <tr key={discount.discount_id}>
-                    <td>#{discount.discount_id}</td>
-                    <td><span className="item-name-text">{discount.name}</span></td>
+          <>
+            <div className="table-scroll-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Discount Name</th>
+                    <th>Percentage</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedDiscounts.map((discount) => (
+                    <tr key={discount.discount_id}>
+                      <td>#{discount.discount_id}</td>
+                      <td><span className="item-name-text">{discount.name}</span></td>
+                      <td>
+                      <span className="percentage-badge">{discount.percentage}%</span>
+                    </td>
                     <td>
-                    <span className="percentage-badge">{discount.percentage}%</span>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${discount.status === "active" ? "status-active" : "status-inactive"}`}>
-                      {discount.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-action btn-edit" onClick={() => openEditModal(discount)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                        Edit
-                      </button>
-                      <button className="btn-action btn-delete" onClick={() => openDeleteModal(discount)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+                      <span className={`status-badge ${discount.status === "active" ? "status-active" : "status-inactive"}`}>
+                        {discount.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-action btn-edit" onClick={() => openEditModal(discount)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                          Edit
+                        </button>
+                        <button className="btn-action btn-delete" onClick={() => openDeleteModal(discount)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <span className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredDiscounts.length)} of {filteredDiscounts.length}
+                </span>
+                <button className="pagination-btn" onClick={() => setDiscountPage(1)} disabled={discountPage === 1}>«</button>
+                <button className="pagination-btn" onClick={() => setDiscountPage(discountPage - 1)} disabled={discountPage === 1}>‹</button>
+                {getPageNumbers(discountPage, totalPages).map((page, idx) => (
+                  page === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                  ) : (
+                    <button key={page} className={discountPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setDiscountPage(page)}>{page}</button>
+                  )
+                ))}
+                <button className="pagination-btn" onClick={() => setDiscountPage(discountPage + 1)} disabled={discountPage === totalPages}>›</button>
+                <button className="pagination-btn" onClick={() => setDiscountPage(totalPages)} disabled={discountPage === totalPages}>»</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

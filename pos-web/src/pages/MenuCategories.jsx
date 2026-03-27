@@ -13,6 +13,8 @@ export default function MenuCategories() {
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
 
   useEffect(() => {
     fetchCategories();
@@ -98,6 +100,32 @@ export default function MenuCategories() {
     return matchesSearch && matchesStatus;
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, categories]);
+
+  const totalPages = Math.ceil(filteredCategories.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedCategories = filteredCategories.slice(startIndex, endIndex);
+
+  const getPageNumbers = (page, pages) => {
+    const result = [];
+    const maxVisiblePages = 5;
+
+    if (pages <= maxVisiblePages) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+    } else if (page <= 3) {
+      result.push(1, 2, 3, 4, '...', pages);
+    } else if (page >= pages - 2) {
+      result.push(1, '...', pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, '...', page - 1, page, page + 1, '...', pages);
+    }
+
+    return result;
+  };
+
   return (
     <div className="main-content">
       <div className="page-header-section">
@@ -151,51 +179,72 @@ export default function MenuCategories() {
             <p>No categories found. Add your first category!</p>
           </div>
         ) : (
-          <div className="table-scroll-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Category Name</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-              {filteredCategories.map((category) => (
-                <tr key={category.category_id}>
-                  <td>#{category.category_id}</td>
-                  <td><span className="item-name-text">{category.name}</span></td>
-                  <td>
-                    <span className={`status-badge ${category.status === "active" ? "status-active" : "status-inactive"}`}>
-                      {category.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td>{category.created_at ? new Date(category.created_at).toLocaleDateString() : "-"}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-action btn-edit" onClick={() => openEditModal(category)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                        Edit
-                      </button>
-                      <button className="btn-action btn-delete" onClick={() => openDeleteModal(category)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          <>
+            <div className="table-scroll-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Category Name</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {paginatedCategories.map((category) => (
+                  <tr key={category.category_id}>
+                    <td>#{category.category_id}</td>
+                    <td><span className="item-name-text">{category.name}</span></td>
+                    <td>
+                      <span className={`status-badge ${category.status === "active" ? "status-active" : "status-inactive"}`}>
+                        {category.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td>{category.created_at ? new Date(category.created_at).toLocaleDateString() : "-"}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-action btn-edit" onClick={() => openEditModal(category)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                          Edit
+                        </button>
+                        <button className="btn-action btn-delete" onClick={() => openDeleteModal(category)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <span className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredCategories.length)} of {filteredCategories.length}
+                </span>
+                <button className="pagination-btn" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>«</button>
+                <button className="pagination-btn" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}>‹</button>
+                {getPageNumbers(currentPage, totalPages).map((page, idx) => (
+                  page === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                  ) : (
+                    <button key={page} className={currentPage === page ? "pagination-btn active" : "pagination-btn"} onClick={() => setCurrentPage(page)}>{page}</button>
+                  )
+                ))}
+                <button className="pagination-btn" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages}>›</button>
+                <button className="pagination-btn" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>»</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
