@@ -25,8 +25,8 @@ export default function LibraryTransactions() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [voidingSession, setVoidingSession] = useState(null);
   
-  // History filters
-  const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'completed', 'voided'
+  // History filters (voided is temporarily hidden in UI)
+  const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'completed'
   
   // Search and Pagination for Session History
   const [historySearch, setHistorySearch] = useState('');
@@ -122,8 +122,13 @@ export default function LibraryTransactions() {
     }
   }, [historyFilter, showToast]);
 
-  // Filter session history based on search term
-  const filteredHistory = sessionHistory.filter(function(session) {
+  // Hide voided records in UI while keeping backend/history logic intact.
+  const visibleSessionHistory = sessionHistory.filter(function(session) {
+    return session.status !== 'voided';
+  });
+
+  // Filter visible session history based on search term
+  const filteredHistory = visibleSessionHistory.filter(function(session) {
     if (!historySearch.trim()) return true;
     const search = historySearch.toLowerCase();
     const sessionId = 'lib-' + String(session.session_id).padStart(6, '0');
@@ -484,7 +489,6 @@ export default function LibraryTransactions() {
             <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="filter-select">
               <option value="all">All Sessions</option>
               <option value="completed">Completed</option>
-              <option value="voided">Voided</option>
             </select>
           </div>
         )}
