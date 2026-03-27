@@ -177,6 +177,7 @@ export default function Sidebar() {
   const [actualCash, setActualCash] = useState('');
   const [endShiftNotes, setEndShiftNotes] = useState('');
   const [shiftSummary, setShiftSummary] = useState(null);
+  const [endingShift, setEndingShift] = useState(false);
 
   // Desktop collapsed state - persisted in localStorage
   const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
@@ -280,7 +281,10 @@ export default function Sidebar() {
   };
 
   const handleEndShift = async () => {
+    if (endingShift) return;
+
     try {
+      setEndingShift(true);
       const cashVal = parseFloat(actualCash) || 0;
       const response = await api.post('/shifts/end', {
         actual_cash: cashVal,
@@ -297,6 +301,8 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Error ending shift:', error);
       alert(error.response?.data?.error || 'Failed to end shift');
+    } finally {
+      setEndingShift(false);
     }
   };
 
@@ -588,8 +594,22 @@ export default function Sidebar() {
                 style={{ width: '100%', padding: '10px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '8px', resize: 'none', outline: 'none', boxSizing: 'border-box' }} />
             </div>
             <div className="logout-modal-actions">
-              <button className="btn-cancel" onClick={() => setShowEndShiftModal(false)}>Cancel</button>
-              <button className="btn-confirm-logout" onClick={handleEndShift} disabled={actualCash === ''} style={{ backgroundColor: actualCash === '' ? '#ccc' : '#ff9800' }}>Confirm & End Shift</button>
+              <button className="btn-cancel" onClick={() => setShowEndShiftModal(false)} disabled={endingShift}>Cancel</button>
+              <button className="btn-confirm-logout" onClick={handleEndShift} disabled={actualCash === '' || endingShift} style={{ backgroundColor: (actualCash === '' || endingShift) ? '#ccc' : '#ff9800' }}>
+                {endingShift ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Ending Shift...
+                  </span>
+                ) : (
+                  'Confirm & End Shift'
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -309,8 +309,10 @@ export default function LibraryTransactions() {
       setShowSessionModal(false);
       setSelectedSession(null);
       fetchData();
+      return true;
     } catch (error) {
       showToast(error.response?.data?.error || 'Extension failed', 'error');
+      return false;
     }
   };
 
@@ -820,14 +822,26 @@ function SessionModal(props) {
   var calculateFee = props.calculateFee;
   var formatDuration = props.formatDuration;
   var formatTime = props.formatTime;
+  const [extendingMinutes, setExtendingMinutes] = useState(null);
   var fee = calculateFee(session.elapsed_minutes);
 
+  async function handleExtendClick(minutes) {
+    if (extendingMinutes !== null) return;
+
+    setExtendingMinutes(minutes);
+    const success = await onExtend(minutes);
+
+    if (!success) {
+      setExtendingMinutes(null);
+    }
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={extendingMinutes === null ? onClose : undefined}>
       <div className="modal-content library-modal session-modal" onClick={function(e) { e.stopPropagation(); }}>
         <div className="modal-header">
           <h3 className="modal-title">Session Details</h3>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose} disabled={extendingMinutes !== null}>×</button>
         </div>
         <div className="session-modal-body">
           <div className="session-details" style={{padding: '20px 20px 0'}}>
@@ -846,14 +860,38 @@ function SessionModal(props) {
           <div className="extend-section" style={{padding: '0 20px'}}>
             <h4>Extend Session:</h4>
             <div className="extend-buttons">
-              <button className="btn-extend" onClick={function() { onExtend(30); }}>+30 min (P50)</button>
-              <button className="btn-extend" onClick={function() { onExtend(60); }}>+60 min (P100)</button>
+              <button className="btn-extend" onClick={function() { handleExtendClick(30); }} disabled={extendingMinutes !== null}>
+                {extendingMinutes === 30 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : '+30 min (P50)'}
+              </button>
+              <button className="btn-extend" onClick={function() { handleExtendClick(60); }} disabled={extendingMinutes !== null}>
+                {extendingMinutes === 60 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : '+60 min (P100)'}
+              </button>
             </div>
           </div>
         </div>
         <div className="modal-actions" style={{padding: '16px 20px', borderTop: '1px solid #eee'}}>
-          <button className="btn-secondary" onClick={onClose}>Close</button>
-          <button className="btn-checkout" onClick={onCheckout}>Checkout and Return ID</button>
+          <button className="btn-secondary" onClick={onClose} disabled={extendingMinutes !== null}>Close</button>
+          <button className="btn-checkout" onClick={onCheckout} disabled={extendingMinutes !== null}>Checkout and Return ID</button>
         </div>
       </div>
     </div>
