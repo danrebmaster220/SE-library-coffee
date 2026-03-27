@@ -69,6 +69,7 @@ const customizationRoutes = require('./routes/customizationRoutes');
 const posRoutes = require('./routes/posRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shiftRoutes = require('./routes/shiftRoutes');
+const { verifySocketToken } = require('./middleware/auth');
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -158,8 +159,27 @@ const printAgents = new Map();
 const lockedSeats = new Map();
 app.set('lockedSeats', lockedSeats);
 
+const AUTHENTICATED_ROOM = 'authenticated-users';
+
+// Socket auth middleware: validates token when provided, but keeps anonymous clients
+// for kiosk/printing channels that do not use JWT auth.
+io.use((socket, next) => {
+    const tokenFromAuth = socket.handshake?.auth?.token;
+    const tokenFromHeader = socket.handshake?.headers?.authorization;
+    const tokenFromQuery = socket.handshake?.query?.token;
+
+    const decodedUser = verifySocketToken(tokenFromAuth || tokenFromHeader || tokenFromQuery);
+    socket.data.user = decodedUser || null;
+    next();
+});
+
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
+
+    if (socket.data?.user) {
+        socket.join(AUTHENTICATED_ROOM);
+        console.log(`🔐 Authenticated socket: ${socket.id}`);
+    }
 
     // Join specific rooms
     socket.on('join:pos', () => {

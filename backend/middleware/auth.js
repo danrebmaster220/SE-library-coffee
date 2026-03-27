@@ -12,6 +12,29 @@ const isAdminUser = (user) => {
     return getRoleName(user) === 'admin';
 };
 
+const extractBearerToken = (rawValue) => {
+    if (!rawValue) return null;
+    const value = String(rawValue).trim();
+    if (!value) return null;
+
+    if (value.toLowerCase().startsWith('bearer ')) {
+        return value.slice(7).trim() || null;
+    }
+
+    return value;
+};
+
+const verifySocketToken = (rawToken) => {
+    const token = extractBearerToken(rawToken);
+    if (!token) return null;
+
+    try {
+        return jwt.verify(token, JWT_SECRET);
+    } catch (_error) {
+        return null;
+    }
+};
+
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
@@ -76,4 +99,11 @@ const requireActiveShiftForNonAdmin = async (req, res, next) => {
     }
 };
 
-module.exports = { verifyToken, isAdmin, isAdminOrCashier, requireActiveShiftForNonAdmin };
+module.exports = {
+    verifyToken,
+    isAdmin,
+    isAdminOrCashier,
+    requireActiveShiftForNonAdmin,
+    verifySocketToken,
+    extractBearerToken
+};

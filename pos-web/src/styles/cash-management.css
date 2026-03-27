@@ -15,6 +15,44 @@
   margin-bottom: 24px;
 }
 
+.realtime-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.realtime-status-badge .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.realtime-status-badge.online {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.realtime-status-badge.online .status-dot {
+  background: #2e7d32;
+}
+
+.realtime-status-badge.offline {
+  background: #ffebee;
+  color: #b71c1c;
+  border-color: #ffcdd2;
+}
+
+.realtime-status-badge.offline .status-dot {
+  background: #b71c1c;
+}
+
 .page-title {
   font-size: 24px;
   font-weight: 700;

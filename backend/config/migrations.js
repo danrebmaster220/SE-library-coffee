@@ -34,6 +34,9 @@ async function runMigrations() {
         await fixLibraryTablesDuplicateBug();
         await fixLibrarySessionsGhostBug();
 
+        // Migration 9: Create audit logs table for operational traces
+        await createAuditLogsTable();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -477,6 +480,41 @@ async function fixLibrarySessionsGhostBug() {
         console.log('   ✅ Cleaned up ghost library sessions');
     } catch (error) {
         console.error('   ⚠️ fixLibrarySessionsGhostBug:', error.message);
+    }
+}
+
+async function createAuditLogsTable() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_NAME = 'audit_logs'
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        if (tables.length > 0) {
+            console.log('   ⏭️  audit_logs table already exists');
+            return;
+        }
+
+        await db.query(`
+            CREATE TABLE audit_logs (
+                audit_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                action VARCHAR(80) NOT NULL,
+                actor_user_id INT DEFAULT NULL,
+                target_type VARCHAR(80) DEFAULT NULL,
+                target_id INT DEFAULT NULL,
+                details_json JSON DEFAULT NULL,
+                ip_address VARCHAR(64) DEFAULT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_audit_action_created_at (action, created_at),
+                INDEX idx_audit_actor_created_at (actor_user_id, created_at),
+                INDEX idx_audit_target (target_type, target_id)
+            )
+        `);
+
+        console.log('   ✅ Created "audit_logs" table');
+    } catch (error) {
+        console.error('   ⚠️ createAuditLogsTable:', error.message);
     }
 }
 

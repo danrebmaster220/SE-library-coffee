@@ -51,26 +51,28 @@ pool.on('connection', (connection) => {
     });
 });
 
-// Test connection on startup
-pool.getConnection((err, connection) => {
-    if (err) {
-        console.error('❌ Database connection failed:', err.message);
-        if (err.code === 'ECONNREFUSED') {
-            console.error('   Make sure your database server is running.');
-        }
-    } else {
-        console.log('✅ Database connected successfully');
-        connection.release();
-    }
-});
-
-// Keep-alive ping every 5 minutes to prevent Railway from dropping idle connections
-setInterval(() => {
-    pool.query('SELECT 1', (err) => {
+if (NODE_ENV !== 'test') {
+    // Test connection on startup
+    pool.getConnection((err, connection) => {
         if (err) {
-            console.error('⚠️  Keep-alive ping failed:', err.message);
+            console.error('❌ Database connection failed:', err.message);
+            if (err.code === 'ECONNREFUSED') {
+                console.error('   Make sure your database server is running.');
+            }
+        } else {
+            console.log('✅ Database connected successfully');
+            connection.release();
         }
     });
-}, 5 * 60 * 1000);
+
+    // Keep-alive ping every 5 minutes to prevent Railway from dropping idle connections
+    setInterval(() => {
+        pool.query('SELECT 1', (err) => {
+            if (err) {
+                console.error('⚠️  Keep-alive ping failed:', err.message);
+            }
+        });
+    }, 5 * 60 * 1000);
+}
 
 module.exports = promisePool;

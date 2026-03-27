@@ -1,13 +1,48 @@
 const db = require('../config/db');
+const { logAuditEvent } = require('../services/auditLogService');
+
+const SHIFT_SOCKET_ROOM = 'authenticated-users';
 
 const emitShiftUpdated = (req, payload = {}) => {
     const io = req.app?.get('io');
     if (!io) return;
 
-    io.emit('shift:updated', {
+    io.to(SHIFT_SOCKET_ROOM).emit('shift:updated', {
         timestamp: new Date().toISOString(),
         ...payload
     });
+};
+
+const getRequestIpAddress = (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+        return forwarded.split(',')[0].trim();
+    }
+    return req.ip || null;
+};
+
+const logShiftAudit = async (req, {
+    action,
+    actorUserId,
+    shiftId,
+    targetUserId,
+    details
+}) => {
+    try {
+        await logAuditEvent({
+            action,
+            actorUserId,
+            targetType: 'shift',
+            targetId: shiftId,
+            ipAddress: getRequestIpAddress(req),
+            details: {
+                target_user_id: targetUserId,
+                ...details
+            }
+        });
+    } catch (error) {
+        console.warn('shift audit log skipped:', error.message);
+    }
 };
 
 // Start a new shift for the logged-in user
@@ -44,6 +79,16 @@ exports.startShift = async (req, res) => {
             shift_id: newShift[0]?.shift_id,
             user_id: userId,
             status: 'active'
+        });
+
+        await logShiftAudit(req, {
+            action: 'shift_started',
+            actorUserId: userId,
+            shiftId: newShift[0]?.shift_id || null,
+            targetUserId: userId,
+            details: {
+                starting_cash: parseFloat(starting_cash) || 0
+            }
         });
 
         res.json({ success: true, shift: newShift[0] });
@@ -145,6 +190,19 @@ exports.endShift = async (req, res) => {
             user_id: shift.user_id,
             closed_by: userId,
             status: 'closed'
+        });
+
+        await logShiftAudit(req, {
+            action: 'shift_ended',
+            actorUserId: userId,
+            shiftId: shift.shift_id,
+            targetUserId: shift.user_id,
+            details: {
+                expected_cash: expectedCash,
+                actual_cash: actualCash,
+                cash_difference: cashDifference,
+                notes: notes || null
+            }
         });
 
         res.json({ 
@@ -284,6 +342,17 @@ exports.forceCloseShift = async (req, res) => {
             user_id: shift.user_id,
             closed_by: adminId,
             status: 'closed'
+        });
+
+        await logShiftAudit(req, {
+            action: 'shift_force_closed',
+            actorUserId: adminId,
+            shiftId: Number(id),
+            targetUserId: shift.user_id,
+            details: {
+                expected_cash: expectedCash,
+                notes: notes || 'Force-closed by admin'
+            }
         });
 
         res.json({ success: true, message: 'Shift force-closed successfully' });

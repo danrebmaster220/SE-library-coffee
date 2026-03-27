@@ -9,11 +9,14 @@ class SocketService {
 
   connect() {
     if (!this.socket) {
+      const token = localStorage.getItem('token');
+
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5
+        reconnectionAttempts: 5,
+        auth: token ? { token: `Bearer ${token}` } : undefined
       });
 
       this.socket.on('connect', () => {
@@ -134,6 +137,10 @@ class SocketService {
         this.socket.off(event);
       }
     }
+  }
+
+  isConnected() {
+    return !!this.socket?.connected;
   }
 }
 

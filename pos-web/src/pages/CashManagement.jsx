@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ActiveShifts from './ActiveShifts';
 import ShiftHistory from './ShiftHistory';
+import socketService from '../services/socketService';
 import '../styles/cash-management.css';
 import '../styles/reports.css'; /* Reuse tabs styling */
 
 export default function CashManagement() {
   const [activeTab, setActiveTab] = useState('active');
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(socketService.isConnected());
+
+  useEffect(() => {
+    const socket = socketService.connect();
+
+    const handleConnect = () => setIsRealtimeConnected(true);
+    const handleDisconnect = () => setIsRealtimeConnected(false);
+
+    setIsRealtimeConnected(socketService.isConnected());
+    socketService.on('connect', handleConnect);
+    socketService.on('disconnect', handleDisconnect);
+
+    return () => {
+      socketService.off('connect', handleConnect);
+      socketService.off('disconnect', handleDisconnect);
+    };
+  }, []);
 
   return (
     <div className="main-content cash-management-page">
@@ -13,6 +31,10 @@ export default function CashManagement() {
         <div>
           <h1 className="page-title">Cash Management</h1>
           <p className="page-subtitle">Manage open cashier shifts and view remittance history</p>
+        </div>
+        <div className={`realtime-status-badge ${isRealtimeConnected ? 'online' : 'offline'}`}>
+          <span className="status-dot" aria-hidden="true"></span>
+          Realtime {isRealtimeConnected ? 'Connected' : 'Disconnected'}
         </div>
       </div>
 
