@@ -407,7 +407,7 @@ export default function VoidTransactions() {
 
       {showAlert && (
         <div className="modal-overlay" onClick={() => setShowAlert(false)}>
-          <div className={'modal alert-modal refund-success-modal ' + alertData.type} onClick={e => e.stopPropagation()}>
+          <div className={'alert-modal refund-success-modal ' + alertData.type} onClick={e => e.stopPropagation()}>
             <div className="alert-icon refund-success-icon">
               {alertData.type === 'success' ? String.fromCodePoint(0x2705) : alertData.type === 'error' ? String.fromCodePoint(0x274C) : String.fromCodePoint(0x2139, 0xFE0F)}
             </div>

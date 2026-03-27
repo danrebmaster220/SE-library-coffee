@@ -556,7 +556,7 @@
 .refund-success-modal {
   width: min(92vw, 420px) !important;
   max-width: 420px !important;
-  padding: 48px 40px !important;
+  padding: 42px 38px 34px !important;
   border-radius: 16px !important;
   text-align: center !important;
   margin: 0 auto !important;
@@ -566,11 +566,12 @@
   gap: 0 !important;
   background: white !important;
   min-height: auto !important;
+  box-sizing: border-box !important;
 }
 
 .refund-success-icon {
   font-size: 56px !important;
-  margin: 0 0 16px 0 !important;
+  margin: 0 0 14px 0 !important;
   padding: 0 !important;
   display: inline-block !important;
   line-height: 1 !important;
@@ -578,7 +579,7 @@
 }
 
 .refund-success-title {
-  margin: 0 0 18px 0 !important;
+  margin: 0 0 14px 0 !important;
   padding: 0 !important;
   font-size: 24px !important;
   font-weight: 700 !important;
@@ -589,7 +590,7 @@
 
 .refund-success-message {
   white-space: normal !important;
-  margin: 0 0 28px 0 !important;
+  margin: 0 0 24px 0 !important;
   padding: 0 !important;
   max-width: 100% !important;
   width: auto !important;
@@ -599,6 +600,9 @@
 }
 
 .refund-success-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: auto !important;
   min-width: 140px !important;
   max-width: none !important;
@@ -610,7 +614,7 @@
   color: white !important;
   border: none !important;
   cursor: pointer !important;
-  margin-top: 4px !important;
+  margin: 0 !important;
   text-align: center !important;
 }
 
