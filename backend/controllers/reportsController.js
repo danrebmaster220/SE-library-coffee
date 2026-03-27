@@ -365,6 +365,120 @@ exports.getLibraryReport = async (req, res) => {
 };
 
 
+// AUDIT LOGS REPORT
+
+exports.getAuditLogs = async (req, res) => {
+    const {
+        startDate,
+        endDate,
+        action,
+        actorUserId,
+        targetType,
+        search,
+        page,
+        limit
+    } = req.query;
+
+    try {
+        const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+        const limitNum = Math.min(Math.max(parseInt(limit, 10) || 200, 1), 500);
+        const offset = (pageNum - 1) * limitNum;
+
+        const whereConditions = ['1=1'];
+        const params = [];
+
+        if (startDate) {
+            whereConditions.push('DATE(a.created_at) >= ?');
+            params.push(startDate);
+        }
+
+        if (endDate) {
+            whereConditions.push('DATE(a.created_at) <= ?');
+            params.push(endDate);
+        }
+
+        if (action) {
+            whereConditions.push('a.action = ?');
+            params.push(action);
+        }
+
+        if (actorUserId) {
+            whereConditions.push('a.actor_user_id = ?');
+            params.push(actorUserId);
+        }
+
+        if (targetType) {
+            whereConditions.push('a.target_type = ?');
+            params.push(targetType);
+        }
+
+        if (search) {
+            whereConditions.push(`
+                (
+                    a.action LIKE ?
+                    OR COALESCE(u.full_name, '') LIKE ?
+                    OR COALESCE(u.username, '') LIKE ?
+                    OR COALESCE(a.target_type, '') LIKE ?
+                    OR CAST(COALESCE(a.target_id, '') AS CHAR) LIKE ?
+                    OR COALESCE(a.ip_address, '') LIKE ?
+                )
+            `);
+            const wildcard = `%${search}%`;
+            params.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard);
+        }
+
+        const whereClause = whereConditions.join(' AND ');
+
+        const [countRows] = await db.query(
+            `
+            SELECT COUNT(*) as total
+            FROM audit_logs a
+            LEFT JOIN users u ON a.actor_user_id = u.user_id
+            WHERE ${whereClause}
+            `,
+            params
+        );
+
+        const total = parseInt(countRows?.[0]?.total, 10) || 0;
+
+        const [logs] = await db.query(
+            `
+            SELECT
+                a.audit_id,
+                a.action,
+                a.actor_user_id,
+                a.target_type,
+                a.target_id,
+                a.details_json,
+                a.ip_address,
+                a.created_at,
+                u.full_name as actor_full_name,
+                u.username as actor_username
+            FROM audit_logs a
+            LEFT JOIN users u ON a.actor_user_id = u.user_id
+            WHERE ${whereClause}
+            ORDER BY a.created_at DESC
+            LIMIT ? OFFSET ?
+            `,
+            [...params, limitNum, offset]
+        );
+
+        res.json({
+            logs,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
+    } catch (error) {
+        console.error('Audit logs report error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 // EXPORT TO EXCEL
 
 exports.exportExcel = async (req, res) => {

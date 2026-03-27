@@ -34,10 +34,15 @@ export default function Reports() {
   const [librarySummary, setLibrarySummary] = useState({ total_sessions: 0, total_revenue: 0, total_hours: 0 });
   const [sessionStatusFilter, setSessionStatusFilter] = useState('');
 
+  // Audit report state
+  const [auditData, setAuditData] = useState([]);
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+
   // Pagination states
   const [ordersPage, setOrdersPage] = useState(1);
   const [salesPage, setSalesPage] = useState(1);
   const [libraryPage, setLibraryPage] = useState(1);
+  const [auditPage, setAuditPage] = useState(1);
   const rowsPerPage = 10;
 
   // Toast helper function
@@ -82,6 +87,8 @@ export default function Reports() {
         await fetchSalesReport();
       } else if (activeTab === 'library') {
         await fetchLibraryReport();
+      } else if (activeTab === 'audit') {
+        await fetchAuditReport();
       }
     } catch (error) {
       console.error('Error fetching report:', error);
@@ -134,11 +141,35 @@ export default function Reports() {
     }
   };
 
+  const fetchAuditReport = async () => {
+    try {
+      const response = await api.get('/reports/audit-logs', {
+        params: {
+          startDate,
+          endDate,
+          action: auditActionFilter,
+          search: searchTerm,
+          limit: 500
+        }
+      });
+
+      setAuditData(response.data.logs || []);
+    } catch (error) {
+      console.error('Error fetching audit report:', error.response?.data || error.message);
+      setAuditData([]);
+    }
+  };
+
   const handleApplyFilters = () => {
     fetchReportData();
   };
 
   const handleExportExcel = async () => {
+    if (activeTab === 'audit') {
+      showToast('Audit trail export is not available yet.', 'warning');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
@@ -194,6 +225,11 @@ export default function Reports() {
   };
 
   const handleExportPDF = async () => {
+    if (activeTab === 'audit') {
+      showToast('Audit trail export is not available yet.', 'warning');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
@@ -272,6 +308,37 @@ export default function Reports() {
     });
   };
 
+  const formatAuditAction = (action) => {
+    if (!action) return '-';
+    return String(action)
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (match) => match.toUpperCase());
+  };
+
+  const formatAuditDetails = (details) => {
+    if (!details) return '-';
+
+    let parsed = details;
+    if (typeof details === 'string') {
+      try {
+        parsed = JSON.parse(details);
+      } catch (_error) {
+        return details;
+      }
+    }
+
+    if (typeof parsed !== 'object') {
+      return String(parsed);
+    }
+
+    const preview = Object.entries(parsed)
+      .slice(0, 3)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(' | ');
+
+    return preview || '-';
+  };
+
   // Filter data based on search term
   const filteredOrders = ordersData.filter(order => {
     const searchLower = searchTerm.toLowerCase();
@@ -299,6 +366,23 @@ export default function Reports() {
     );
   });
 
+  const filteredAudit = auditData.filter((log) => {
+    if (!searchTerm) return true;
+
+    const searchLower = searchTerm.toLowerCase();
+    const actor = `${log.actor_full_name || ''} ${log.actor_username || ''}`.toLowerCase();
+    const targetText = `${log.target_type || ''} ${log.target_id || ''}`.toLowerCase();
+    const actionText = String(log.action || '').toLowerCase();
+    const ipText = String(log.ip_address || '').toLowerCase();
+
+    return (
+      actionText.includes(searchLower) ||
+      actor.includes(searchLower) ||
+      targetText.includes(searchLower) ||
+      ipText.includes(searchLower)
+    );
+  });
+
   // Reset page when filter/search changes
   useEffect(() => {
     setOrdersPage(1);
@@ -311,6 +395,10 @@ export default function Reports() {
   useEffect(() => {
     setLibraryPage(1);
   }, [searchTerm, libraryData, sessionStatusFilter]);
+
+  useEffect(() => {
+    setAuditPage(1);
+  }, [searchTerm, auditData, auditActionFilter]);
 
   // Pagination calculations for Orders
   const ordersTotalPages = Math.ceil(filteredOrders.length / rowsPerPage);
@@ -329,6 +417,12 @@ export default function Reports() {
   const libraryStartIndex = (libraryPage - 1) * rowsPerPage;
   const libraryEndIndex = libraryStartIndex + rowsPerPage;
   const paginatedLibrary = filteredLibrary.slice(libraryStartIndex, libraryEndIndex);
+
+  // Pagination calculations for Audit
+  const auditTotalPages = Math.ceil(filteredAudit.length / rowsPerPage);
+  const auditStartIndex = (auditPage - 1) * rowsPerPage;
+  const auditEndIndex = auditStartIndex + rowsPerPage;
+  const paginatedAudit = filteredAudit.slice(auditStartIndex, auditEndIndex);
 
   // Generate page numbers helper function
   const getPageNumbers = (currentPage, totalPages) => {
@@ -403,8 +497,19 @@ export default function Reports() {
             </svg>
             Library Reports
           </button>
+          <button
+            className={`report-tab ${activeTab === 'audit' ? 'active' : ''}`}
+            onClick={() => setActiveTab('audit')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4z"></path>
+              <path d="M9 12l2 2 4-4"></path>
+            </svg>
+            Audit Trail
+          </button>
         </div>
 
+        {activeTab !== 'audit' && (
         <div className="export-dropdown-container" ref={exportDropdownRef}>
           <button 
             className="btn-export" 
@@ -443,6 +548,7 @@ export default function Reports() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Toolbar Section */}
@@ -456,7 +562,15 @@ export default function Reports() {
             <input
               type="text"
               className="search-input"
-              placeholder={activeTab === 'orders' ? 'Search by order #...' : activeTab === 'library' ? 'Search by session or customer #...' : 'Search...'}
+              placeholder={
+                activeTab === 'orders'
+                  ? 'Search by order #...'
+                  : activeTab === 'library'
+                    ? 'Search by session or customer #...'
+                    : activeTab === 'audit'
+                      ? 'Search by actor, action, target, IP...'
+                      : 'Search...'
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -516,6 +630,19 @@ export default function Reports() {
               <option value="completed">Completed</option>
               <option value="active">Active</option>
               <option value="voided">Voided</option>
+            </select>
+          )}
+
+          {activeTab === 'audit' && (
+            <select
+              className="filter-select"
+              value={auditActionFilter}
+              onChange={(e) => setAuditActionFilter(e.target.value)}
+            >
+              <option value="">All Actions</option>
+              <option value="shift_started">Shift Started</option>
+              <option value="shift_ended">Shift Ended</option>
+              <option value="shift_force_closed">Shift Force Closed</option>
             </select>
           )}
 
@@ -646,6 +773,52 @@ export default function Reports() {
               <div className="summary-info">
                 <h4>Total Hours</h4>
                 <p className="summary-value">{librarySummary.total_hours} hrs</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'audit' && (
+          <>
+            <div className="summary-card">
+              <div className="summary-icon orders-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4z"></path>
+                  <path d="M9 12l2 2 4-4"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Total Events</h4>
+                <p className="summary-value">{filteredAudit.length}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon avg-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="8.5" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Unique Actors</h4>
+                <p className="summary-value">
+                  {new Set(filteredAudit.map((item) => item.actor_user_id).filter(Boolean)).size}
+                </p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon discount-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="8" y1="8" x2="16" y2="16"></line>
+                  <line x1="16" y1="8" x2="8" y2="16"></line>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Force Closures</h4>
+                <p className="summary-value">
+                  {filteredAudit.filter((item) => item.action === 'shift_force_closed').length}
+                </p>
               </div>
             </div>
           </>
@@ -834,6 +1007,73 @@ export default function Reports() {
                       ))}
                       <button className="pagination-btn" onClick={() => setLibraryPage(libraryPage + 1)} disabled={libraryPage === libraryTotalPages}>›</button>
                       <button className="pagination-btn" onClick={() => setLibraryPage(libraryTotalPages)} disabled={libraryPage === libraryTotalPages}>»</button>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {/* Audit Report Table */}
+            {activeTab === 'audit' && (
+              filteredAudit.length === 0 ? (
+                <div className="empty-state">
+                  <p>No audit events found for the selected filters.</p>
+                </div>
+              ) : (
+                <>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Date/Time</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>Target</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedAudit.map((log) => (
+                        <tr key={log.audit_id}>
+                          <td>{formatDateTime(log.created_at)}</td>
+                          <td>
+                            <span className="status-badge completed">{formatAuditAction(log.action)}</span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <strong>{log.actor_full_name || 'System'}</strong>
+                              <span style={{ fontSize: '12px', color: '#777' }}>
+                                {log.actor_username ? `@${log.actor_username}` : 'unknown'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            {log.target_type
+                              ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}`
+                              : '-'}
+                          </td>
+                          <td style={{ maxWidth: '320px' }}>{formatAuditDetails(log.details_json)}</td>
+                          <td>{log.ip_address || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {auditTotalPages > 1 && (
+                    <div className="pagination-container">
+                      <span className="pagination-info">
+                        Showing {auditStartIndex + 1}-{Math.min(auditEndIndex, filteredAudit.length)} of {filteredAudit.length}
+                      </span>
+                      <button className="pagination-btn" onClick={() => setAuditPage(1)} disabled={auditPage === 1}>«</button>
+                      <button className="pagination-btn" onClick={() => setAuditPage(auditPage - 1)} disabled={auditPage === 1}>‹</button>
+                      {getPageNumbers(auditPage, auditTotalPages).map((page, idx) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                        ) : (
+                          <button key={page} className={auditPage === page ? 'pagination-btn active' : 'pagination-btn'} onClick={() => setAuditPage(page)}>{page}</button>
+                        )
+                      ))}
+                      <button className="pagination-btn" onClick={() => setAuditPage(auditPage + 1)} disabled={auditPage === auditTotalPages}>›</button>
+                      <button className="pagination-btn" onClick={() => setAuditPage(auditTotalPages)} disabled={auditPage === auditTotalPages}>»</button>
                     </div>
                   )}
                 </>

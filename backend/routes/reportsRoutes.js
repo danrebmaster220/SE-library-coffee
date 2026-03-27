@@ -30,6 +30,9 @@ router.get('/sales-details', verifyToken, isAdmin, reportsController.getSalesDet
 // Library report (session list)
 router.get('/library', verifyToken, isAdmin, reportsController.getLibraryReport);
 
+// Audit trail (operational logs)
+router.get('/audit-logs', verifyToken, isAdmin, reportsController.getAuditLogs);
+
 // Export to Excel
 router.get('/export', verifyToken, isAdmin, reportsController.exportExcel);
 
