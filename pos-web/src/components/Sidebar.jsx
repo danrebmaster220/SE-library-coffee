@@ -173,6 +173,7 @@ export default function Sidebar() {
   const [shiftLoading, setShiftLoading] = useState(true);
   const [showStartShiftModal, setShowStartShiftModal] = useState(false);
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
+  const [startingShift, setStartingShift] = useState(false);
   const [startingCash, setStartingCash] = useState('');
   const [actualCash, setActualCash] = useState('');
   const [endShiftNotes, setEndShiftNotes] = useState('');
@@ -251,7 +252,10 @@ export default function Sidebar() {
   };
 
   const handleStartShift = async () => {
+    if (startingShift) return;
+
     try {
+      setStartingShift(true);
       const cashVal = parseFloat(startingCash) || 0;
       const response = await api.post('/shifts/start', { starting_cash: cashVal });
       if (response.data.success) {
@@ -263,6 +267,8 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Error starting shift:', error);
       alert(error.response?.data?.error || 'Failed to start shift');
+    } finally {
+      setStartingShift(false);
     }
   };
 
@@ -516,10 +522,11 @@ export default function Sidebar() {
 
       {/* Start Shift Modal */}
       {showStartShiftModal && (
-        <div className="logout-modal-overlay" onClick={() => setShowStartShiftModal(false)}>
+        <div className="logout-modal-overlay" onClick={startingShift ? undefined : () => setShowStartShiftModal(false)}>
           <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
             <button
               onClick={() => setShowStartShiftModal(false)}
+              disabled={startingShift}
               style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#888', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1' }}
               title="Close" aria-label="Close modal"
             >&times;</button>
@@ -532,11 +539,26 @@ export default function Sidebar() {
                 type="text" inputMode="decimal" value={startingCash}
                 onChange={(e) => handleCashInput(e.target.value, setStartingCash)}
                 placeholder="0.00" autoFocus
+                disabled={startingShift}
                 style={{ width: '100%', padding: '12px', fontSize: '18px', fontWeight: '600', border: '2px solid #ddd', borderRadius: '10px', textAlign: 'center', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
             <div className="logout-modal-actions">
-              <button className="btn-confirm-logout" onClick={handleStartShift} style={{ backgroundColor: '#4CAF50', width: '100%' }}>Start Shift</button>
+              <button className="btn-confirm-logout" onClick={handleStartShift} disabled={startingShift} style={{ backgroundColor: '#4CAF50', width: '100%' }}>
+                {startingShift ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Starting Shift...
+                  </span>
+                ) : (
+                  'Start Shift'
+                )}
+              </button>
             </div>
           </div>
         </div>

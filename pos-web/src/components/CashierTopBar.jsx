@@ -79,6 +79,7 @@ export default function CashierTopBar() {
   const [endShiftNotes, setEndShiftNotes] = useState('');
   const [shiftSummary, setShiftSummary] = useState(null);
   const [shiftLoading, setShiftLoading] = useState(true);
+  const [startingShift, setStartingShift] = useState(false);
   const [endingShift, setEndingShift] = useState(false);
 
   // Check for active shift on mount
@@ -104,7 +105,10 @@ export default function CashierTopBar() {
   };
 
   const handleStartShift = async () => {
+    if (startingShift) return;
+
     try {
+      setStartingShift(true);
       const cashVal = parseFloat(startingCash) || 0;
       const response = await api.post('/shifts/start', { starting_cash: cashVal });
       if (response.data.success) {
@@ -116,6 +120,8 @@ export default function CashierTopBar() {
     } catch (error) {
       console.error('Error starting shift:', error);
       alert(error.response?.data?.error || 'Failed to start shift');
+    } finally {
+      setStartingShift(false);
     }
   };
 
@@ -304,10 +310,11 @@ export default function CashierTopBar() {
 
       {/* Start Shift Modal */}
       {showStartShiftModal && (
-        <div className="logout-modal-overlay" onClick={() => setShowStartShiftModal(false)}>
+        <div className="logout-modal-overlay" onClick={startingShift ? undefined : () => setShowStartShiftModal(false)}>
           <div className="logout-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
             <button 
               onClick={() => setShowStartShiftModal(false)}
+              disabled={startingShift}
               style={{
                 position: 'absolute',
                 top: '12px',
@@ -343,6 +350,7 @@ export default function CashierTopBar() {
                 onChange={(e) => handleCashInput(e.target.value, setStartingCash)}
                 placeholder="0.00"
                 autoFocus
+                disabled={startingShift}
                 style={{
                   width: '100%', padding: '12px', fontSize: '18px', fontWeight: '600',
                   border: '2px solid #ddd', borderRadius: '10px', textAlign: 'center',
@@ -351,10 +359,22 @@ export default function CashierTopBar() {
               />
             </div>
             <div className="logout-modal-actions">
-              <button className="btn-confirm-logout" onClick={handleStartShift}
+              <button className="btn-confirm-logout" onClick={handleStartShift} disabled={startingShift}
                 style={{ backgroundColor: '#4CAF50', width: '100%' }}
               >
-                Start Shift
+                {startingShift ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Starting Shift...
+                  </span>
+                ) : (
+                  'Start Shift'
+                )}
               </button>
             </div>
           </div>
