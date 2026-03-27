@@ -13,9 +13,22 @@ export default function ActiveShifts() {
 
   useEffect(() => {
     fetchActiveShifts();
+
+    const handleShiftUpdated = () => fetchActiveShifts();
+    window.addEventListener('shiftUpdated', handleShiftUpdated);
+
+    // Refresh when returning to this tab/window so admin sees recent updates quickly.
+    const handleWindowFocus = () => fetchActiveShifts();
+    window.addEventListener('focus', handleWindowFocus);
+
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchActiveShifts, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('shiftUpdated', handleShiftUpdated);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, []);
 
   const fetchActiveShifts = async () => {
@@ -52,6 +65,7 @@ export default function ActiveShifts() {
       setShowForceCloseModal(false);
       setSelectedShift(null);
       fetchActiveShifts();
+      window.dispatchEvent(new Event('shiftUpdated'));
     } catch (error) {
       console.error("Error force-closing shift:", error);
       alert(error.response?.data?.error || 'Failed to force-close shift');
@@ -89,12 +103,6 @@ export default function ActiveShifts() {
 
   return (
     <div className="active-shifts-content">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-        <button className="btn-refresh" onClick={fetchActiveShifts}>
-          ↻ Refresh
-        </button>
-      </div>
-
       {loading ? (
         <div className="loading-state">Loading...</div>
       ) : shifts.length === 0 ? (
