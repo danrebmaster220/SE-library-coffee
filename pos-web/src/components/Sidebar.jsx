@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
+import socketService from '../services/socketService';
 import '../styles/sidebar.css';
 import logoImg from '../assets/logo.png';
 
@@ -237,6 +238,23 @@ export default function Sidebar() {
   // Shift management
   useEffect(() => {
     checkActiveShift();
+
+    const handleShiftUpdated = () => {
+      checkActiveShift();
+    };
+
+    const handleSocketShiftUpdated = () => {
+      checkActiveShift();
+    };
+
+    window.addEventListener('shiftUpdated', handleShiftUpdated);
+    socketService.connect();
+    socketService.on('shift:updated', handleSocketShiftUpdated);
+
+    return () => {
+      window.removeEventListener('shiftUpdated', handleShiftUpdated);
+      socketService.off('shift:updated', handleSocketShiftUpdated);
+    };
   }, []);
 
   const checkActiveShift = async () => {

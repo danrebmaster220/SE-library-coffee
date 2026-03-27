@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import socketService from '../services/socketService';
 import "../styles/cash-management.css";
 
 export default function ShiftHistory() {
@@ -13,13 +14,26 @@ export default function ShiftHistory() {
 
   useEffect(() => {
     fetchHistory();
+
+    const handleShiftUpdated = () => fetchHistory(false);
+    window.addEventListener('shiftUpdated', handleShiftUpdated);
+
+    socketService.connect();
+    socketService.on('shift:updated', handleShiftUpdated);
+
+    return () => {
+      window.removeEventListener('shiftUpdated', handleShiftUpdated);
+      socketService.off('shift:updated', handleShiftUpdated);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (resetPage = true) => {
     try {
       setLoading(true);
-      setHistoryPage(1);
+      if (resetPage) {
+        setHistoryPage(1);
+      }
       let url = "/shifts/history";
       const params = [];
       if (startDate) params.push(`start_date=${startDate}`);

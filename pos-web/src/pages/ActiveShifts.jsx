@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import socketService from '../services/socketService';
 import "../styles/cash-management.css";
 
 export default function ActiveShifts() {
@@ -18,6 +19,9 @@ export default function ActiveShifts() {
     const handleShiftUpdated = () => fetchActiveShifts();
     window.addEventListener('shiftUpdated', handleShiftUpdated);
 
+    socketService.connect();
+    socketService.on('shift:updated', handleShiftUpdated);
+
     // Refresh when returning to this tab/window so admin sees recent updates quickly.
     const handleWindowFocus = () => fetchActiveShifts();
     window.addEventListener('focus', handleWindowFocus);
@@ -29,6 +33,7 @@ export default function ActiveShifts() {
       clearInterval(interval);
       window.removeEventListener('shiftUpdated', handleShiftUpdated);
       window.removeEventListener('focus', handleWindowFocus);
+      socketService.off('shift:updated', handleShiftUpdated);
     };
   }, []);
 

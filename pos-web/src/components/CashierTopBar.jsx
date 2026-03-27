@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
+import socketService from '../services/socketService';
 import logoImg from '../assets/logo.png';
 import '../styles/cashier.css';
 
@@ -85,6 +86,24 @@ export default function CashierTopBar() {
   // Check for active shift on mount
   useEffect(() => {
     checkActiveShift();
+
+    const handleShiftUpdated = () => {
+      checkActiveShift();
+    };
+
+    const handleSocketShiftUpdated = () => {
+      // Reuse the existing global event refresh flow used by POS/Library pages.
+      window.dispatchEvent(new Event('shiftUpdated'));
+    };
+
+    window.addEventListener('shiftUpdated', handleShiftUpdated);
+    socketService.connect();
+    socketService.on('shift:updated', handleSocketShiftUpdated);
+
+    return () => {
+      window.removeEventListener('shiftUpdated', handleShiftUpdated);
+      socketService.off('shift:updated', handleSocketShiftUpdated);
+    };
   }, []);
 
   const checkActiveShift = async () => {

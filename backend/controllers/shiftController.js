@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+const emitShiftUpdated = (req, payload = {}) => {
+    const io = req.app?.get('io');
+    if (!io) return;
+
+    io.emit('shift:updated', {
+        timestamp: new Date().toISOString(),
+        ...payload
+    });
+};
+
 // Start a new shift for the logged-in user
 exports.startShift = async (req, res) => {
     try {
@@ -28,6 +38,13 @@ exports.startShift = async (req, res) => {
             'SELECT * FROM shifts WHERE shift_id = ?',
             [result.insertId]
         );
+
+        emitShiftUpdated(req, {
+            action: 'started',
+            shift_id: newShift[0]?.shift_id,
+            user_id: userId,
+            status: 'active'
+        });
 
         res.json({ success: true, shift: newShift[0] });
     } catch (error) {
@@ -121,6 +138,14 @@ exports.endShift = async (req, res) => {
             'SELECT s.*, u.full_name FROM shifts s JOIN users u ON s.user_id = u.user_id WHERE s.shift_id = ?',
             [shift.shift_id]
         );
+
+        emitShiftUpdated(req, {
+            action: 'ended',
+            shift_id: shift.shift_id,
+            user_id: shift.user_id,
+            closed_by: userId,
+            status: 'closed'
+        });
 
         res.json({ 
             success: true, 
@@ -252,6 +277,14 @@ exports.forceCloseShift = async (req, res) => {
             adminId,
             id
         ]);
+
+        emitShiftUpdated(req, {
+            action: 'force_closed',
+            shift_id: Number(id),
+            user_id: shift.user_id,
+            closed_by: adminId,
+            status: 'closed'
+        });
 
         res.json({ success: true, message: 'Shift force-closed successfully' });
     } catch (error) {
