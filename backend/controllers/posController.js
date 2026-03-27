@@ -44,6 +44,38 @@ const isAdminUser = (user) => {
     return roleName === 'admin';
 };
 
+const getRequestUserId = (req) => req.user?.user_id || req.user?.id || null;
+
+const canAccessTransaction = ({ req, transaction, allowUnassigned = false }) => {
+    if (isAdminUser(req.user)) {
+        return true;
+    }
+
+    const rawUserId = getRequestUserId(req);
+    if (rawUserId == null) {
+        return false;
+    }
+
+    const userId = Number(rawUserId);
+    if (Number.isNaN(userId)) {
+        return false;
+    }
+
+    const ownerId = transaction?.processed_by == null ? null : Number(transaction.processed_by);
+    if (ownerId === userId) {
+        return true;
+    }
+
+    if (allowUnassigned && ownerId == null) {
+        return true;
+    }
+
+    return false;
+};
+
+const denyOwnership = (res) =>
+    res.status(403).json({ error: 'Access denied. You can only modify your own transactions.' });
+
 
 // QUICK CASH AMOUNTS
 
@@ -378,11 +410,11 @@ exports.processPayment = async (req, res) => {
         
         const { id } = req.params;
         const { discount_id, discount_amount, cash_tendered, change_due } = req.body;
-        const userId = req.user?.user_id || null;
+        const userId = getRequestUserId(req);
 
         // Get original transaction to calculate final amount and check for library booking
         const [orders] = await connection.query(
-            'SELECT total_amount, library_booking FROM transactions WHERE transaction_id = ?',
+            'SELECT total_amount, library_booking, processed_by, status FROM transactions WHERE transaction_id = ? FOR UPDATE',
             [id]
         );
 
@@ -391,7 +423,18 @@ exports.processPayment = async (req, res) => {
             return res.status(404).json({ error: 'Transaction not found' });
         }
 
-        const originalTotal = parseFloat(orders[0].total_amount);
+        const transaction = orders[0];
+        if (!canAccessTransaction({ req, transaction, allowUnassigned: true })) {
+            await connection.rollback();
+            return denyOwnership(res);
+        }
+
+        if (transaction.status !== 'pending') {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Only pending transactions can be paid.' });
+        }
+
+        const originalTotal = parseFloat(transaction.total_amount);
         const discountAmt = parseFloat(discount_amount) || 0;
         const finalTotal = Math.max(0, originalTotal - discountAmt);
         
@@ -399,11 +442,11 @@ exports.processPayment = async (req, res) => {
         let libraryBooking = null;
         let librarySessionId = null;
         
-        if (orders[0].library_booking) {
+        if (transaction.library_booking) {
             try {
-                libraryBooking = typeof orders[0].library_booking === 'string' 
-                    ? JSON.parse(orders[0].library_booking) 
-                    : orders[0].library_booking;
+                libraryBooking = typeof transaction.library_booking === 'string' 
+                    ? JSON.parse(transaction.library_booking) 
+                    : transaction.library_booking;
             } catch (e) {
                 console.error('Error parsing library_booking:', e);
             }
@@ -458,7 +501,7 @@ exports.processPayment = async (req, res) => {
                 change_due = ?,
                 status = 'preparing',
                 paid_at = NOW(),
-                processed_by = ?
+                processed_by = COALESCE(processed_by, ?)
             WHERE transaction_id = ?
         `, [discount_id || null, discountAmt, finalTotal, cash_tendered, change_due, userId, id]);
 
@@ -481,9 +524,29 @@ exports.markReady = async (req, res) => {
     try {
         const { id } = req.params;
 
+        const [orders] = await db.query(
+            'SELECT transaction_id, processed_by, status FROM transactions WHERE transaction_id = ?',
+            [id]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        const order = orders[0];
+        if (!canAccessTransaction({ req, transaction: order, allowUnassigned: true })) {
+            return denyOwnership(res);
+        }
+
+        if (['voided', 'refunded', 'completed'].includes(order.status)) {
+            return res.status(400).json({ error: 'Order is already finalized and cannot be marked ready.' });
+        }
+
+        const userId = getRequestUserId(req);
+
         await db.query(
-            'UPDATE transactions SET status = ? WHERE transaction_id = ?',
-            ['ready', id]
+            'UPDATE transactions SET status = ?, processed_by = COALESCE(processed_by, ?) WHERE transaction_id = ?',
+            ['ready', userId, id]
         );
 
         // TODO: Trigger physical beeper here if hardware is connected
@@ -498,10 +561,11 @@ exports.markReady = async (req, res) => {
 exports.completeOrder = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = getRequestUserId(req);
 
-        // Get beeper number
+        // Get beeper number and ownership metadata
         const [orders] = await db.query(
-            'SELECT beeper_number FROM transactions WHERE transaction_id = ?',
+            'SELECT beeper_number, processed_by, status FROM transactions WHERE transaction_id = ?',
             [id]
         );
 
@@ -509,12 +573,21 @@ exports.completeOrder = async (req, res) => {
             return res.status(404).json({ error: 'Order not found' });
         }
 
-        const beeperNumber = orders[0].beeper_number;
+        const order = orders[0];
+        if (!canAccessTransaction({ req, transaction: order, allowUnassigned: true })) {
+            return denyOwnership(res);
+        }
+
+        if (['voided', 'refunded', 'completed'].includes(order.status)) {
+            return res.status(400).json({ error: 'Order is already finalized and cannot be completed.' });
+        }
+
+        const beeperNumber = order.beeper_number;
 
         // Update transaction
         await db.query(
-            'UPDATE transactions SET status = ?, completed_at = NOW() WHERE transaction_id = ?',
-            ['completed', id]
+            'UPDATE transactions SET status = ?, completed_at = NOW(), processed_by = COALESCE(processed_by, ?) WHERE transaction_id = ?',
+            ['completed', userId, id]
         );
 
         // Release beeper
@@ -537,12 +610,15 @@ exports.voidTransaction = async (req, res) => {
     try {
         const { id } = req.params;
         const reason = req.body?.reason || 'No reason provided';
-        // Use voided_by from request body if provided (admin verification), otherwise use logged in user
-        const userId = req.body?.voided_by || req.user?.id || req.user?.user_id || null;
+        const actorUserId = getRequestUserId(req);
+        const overrideVoidedBy = Number(req.body?.voided_by);
+        const userId = isAdminUser(req.user) && !Number.isNaN(overrideVoidedBy)
+            ? overrideVoidedBy
+            : actorUserId;
 
         // Get original transaction
         const [orders] = await db.query(
-            'SELECT beeper_number, total_amount, status FROM transactions WHERE transaction_id = ?',
+            'SELECT beeper_number, total_amount, status, processed_by FROM transactions WHERE transaction_id = ?',
             [id]
         );
 
@@ -550,7 +626,12 @@ exports.voidTransaction = async (req, res) => {
             return res.status(404).json({ error: 'Transaction not found' });
         }
 
-        const { beeper_number, total_amount, status } = orders[0];
+        const transaction = orders[0];
+        const { beeper_number, total_amount, status } = transaction;
+
+        if (!canAccessTransaction({ req, transaction, allowUnassigned: true })) {
+            return denyOwnership(res);
+        }
 
         // Check if already voided
         if (status === 'voided') {
@@ -603,6 +684,7 @@ exports.removeItemsFromPending = async (req, res) => {
         
         const { id } = req.params;
         const { transaction_item_ids, void_library, reason, admin_username } = req.body;
+        const userId = getRequestUserId(req);
 
         // Get the transaction
         const [orders] = await connection.query(
@@ -616,10 +698,21 @@ exports.removeItemsFromPending = async (req, res) => {
         }
 
         const order = orders[0];
+        if (!canAccessTransaction({ req, transaction: order, allowUnassigned: true })) {
+            await connection.rollback();
+            return denyOwnership(res);
+        }
+
         if (order.status !== 'pending') {
             await connection.rollback();
             return res.status(400).json({ error: 'Can only remove items from pending orders' });
         }
+
+        // Attribute unassigned kiosk orders to the acting cashier/admin.
+        await connection.query(
+            'UPDATE transactions SET processed_by = COALESCE(processed_by, ?) WHERE transaction_id = ?',
+            [userId, id]
+        );
 
         // Remove specified transaction items and their customizations
         if (transaction_item_ids && transaction_item_ids.length > 0) {
@@ -678,7 +771,6 @@ exports.removeItemsFromPending = async (req, res) => {
 
         if (remainingItems.length === 0 && !hasLibraryBooking) {
             // Nothing left — void the entire transaction
-            const userId = req.user?.user_id || req.user?.id || null;
             await connection.query(`
                 UPDATE transactions SET
                     status = 'voided',
@@ -1134,6 +1226,7 @@ exports.resetAllBeepers = async (req, res) => {
 exports.getTransactionById = async (req, res) => {
     try {
         const { id } = req.params;
+        const isAdmin = isAdminUser(req.user);
         
         const [transactions] = await db.query(`
             SELECT t.*, u.full_name as processed_by_name
@@ -1147,6 +1240,10 @@ exports.getTransactionById = async (req, res) => {
         }
 
         const transaction = transactions[0];
+
+        if (!isAdmin && !canAccessTransaction({ req, transaction, allowUnassigned: true })) {
+            return res.status(403).json({ error: 'Access denied. You can only view your own transactions.' });
+        }
         
         // Get items with base price
         const [items] = await db.query(`
@@ -1331,7 +1428,30 @@ exports.getPreparingOrders = async (req, res) => {
 exports.startPreparing = async (req, res) => {
     try {
         const { id } = req.params;
-        await db.query(`UPDATE transactions SET status = 'preparing' WHERE transaction_id = ?`, [id]);
+        const userId = getRequestUserId(req);
+
+        const [orders] = await db.query(
+            'SELECT transaction_id, processed_by, status FROM transactions WHERE transaction_id = ?',
+            [id]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        const order = orders[0];
+        if (!canAccessTransaction({ req, transaction: order, allowUnassigned: true })) {
+            return denyOwnership(res);
+        }
+
+        if (['voided', 'refunded', 'completed'].includes(order.status)) {
+            return res.status(400).json({ error: 'Order is already finalized and cannot be prepared.' });
+        }
+
+        await db.query(
+            `UPDATE transactions SET status = 'preparing', processed_by = COALESCE(processed_by, ?) WHERE transaction_id = ?`,
+            [userId, id]
+        );
         res.json({ success: true, message: 'Order is now being prepared' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1347,7 +1467,7 @@ exports.refundTransaction = async (req, res) => {
         await connection.beginTransaction();
         const { id } = req.params;
         const { reason, adminUsername, refundedItems, refundLibrary } = req.body;
-        const processed_by = req.user.user_id; // Current logged in user (requires auth)
+        const processed_by = getRequestUserId(req); // Current logged in user (requires auth)
 
         // Find transaction
         const [transactions] = await connection.query(
@@ -1361,6 +1481,11 @@ exports.refundTransaction = async (req, res) => {
         }
 
         const transaction = transactions[0];
+
+        if (!canAccessTransaction({ req, transaction, allowUnassigned: false })) {
+            await connection.rollback();
+            return denyOwnership(res);
+        }
 
         // Ensure not already refunded/voided
         if (transaction.status === 'voided' || transaction.status === 'refunded') {
