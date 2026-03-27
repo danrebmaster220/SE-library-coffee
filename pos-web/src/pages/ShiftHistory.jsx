@@ -49,6 +49,12 @@ export default function ShiftHistory() {
     return `-₱${Math.abs(val).toFixed(2)}`;
   };
 
+  const isForceClosedShift = (shift) => {
+    const notes = String(shift?.notes || '').toLowerCase();
+    const hasNoRemittance = shift?.actual_cash == null && shift?.cash_difference == null;
+    return hasNoRemittance && (notes.includes('force-closed') || notes.includes('force closed'));
+  };
+
   const formatShiftDuration = (startTime, endTime) => {
     if (!startTime || !endTime) return '--';
     const start = new Date(startTime);
@@ -148,7 +154,9 @@ export default function ShiftHistory() {
                     <td>
                       {shift.actual_cash != null 
                         ? `₱${parseFloat(shift.actual_cash).toFixed(2)}`
-                        : <span style={{ color: '#999' }}>N/A</span>
+                        : isForceClosedShift(shift)
+                          ? <span className="diff-badge diff-na">Force-Closed</span>
+                          : <span style={{ color: '#999' }}>N/A</span>
                       }
                     </td>
                     <td>
@@ -156,6 +164,8 @@ export default function ShiftHistory() {
                         <span className={`diff-badge ${getDifferenceClass(shift.cash_difference)}`}>
                           {getDifferenceLabel(shift.cash_difference)}
                         </span>
+                      ) : isForceClosedShift(shift) ? (
+                        <span className="diff-badge diff-na">Force-Closed</span>
                       ) : (
                         <span className="diff-badge diff-na">N/A</span>
                       )}
@@ -247,13 +257,21 @@ export default function ShiftHistory() {
                 <div className="detail-row">
                   <span className="detail-label">Actual Cash</span>
                   <span className="detail-value" style={{ fontWeight: '700' }}>
-                    {selectedShift.actual_cash != null ? `₱${parseFloat(selectedShift.actual_cash).toFixed(2)}` : 'N/A'}
+                    {selectedShift.actual_cash != null
+                      ? `₱${parseFloat(selectedShift.actual_cash).toFixed(2)}`
+                      : isForceClosedShift(selectedShift)
+                        ? 'Force-Closed'
+                        : 'N/A'}
                   </span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Difference</span>
-                  <span className={`detail-value diff-badge ${getDifferenceClass(selectedShift.cash_difference)}`}>
-                    {selectedShift.cash_difference != null ? getDifferenceLabel(selectedShift.cash_difference) : 'N/A'}
+                  <span className={`detail-value diff-badge ${selectedShift.cash_difference != null ? getDifferenceClass(selectedShift.cash_difference) : 'diff-na'}`}>
+                    {selectedShift.cash_difference != null
+                      ? getDifferenceLabel(selectedShift.cash_difference)
+                      : isForceClosedShift(selectedShift)
+                        ? 'Force-Closed'
+                        : 'N/A'}
                   </span>
                 </div>
                 {selectedShift.notes && (

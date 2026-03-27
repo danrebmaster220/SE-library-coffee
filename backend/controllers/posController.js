@@ -849,6 +849,9 @@ exports.removeItemsFromPending = async (req, res) => {
 // Get refunded transactions with items
 exports.getRefundedTransactions = async (req, res) => {
     try {
+        const userId = req.user?.user_id || req.user?.id;
+        const isAdmin = isAdminUser(req.user);
+
         let query = `
             SELECT 
                 t.transaction_id,
@@ -870,11 +873,19 @@ exports.getRefundedTransactions = async (req, res) => {
             LEFT JOIN users u ON t.voided_by = u.user_id
             LEFT JOIN users pu ON t.processed_by = pu.user_id
             WHERE t.status = 'refunded'
-            ORDER BY t.voided_at DESC
-            LIMIT 100
         `;
 
-        const [transactions] = await db.query(query);
+        const params = [];
+
+        // If not admin, only show refunded orders that were originally processed by this user.
+        if (!isAdmin && userId) {
+            query += ` AND t.processed_by = ?`;
+            params.push(userId);
+        }
+
+        query += ` ORDER BY t.voided_at DESC LIMIT 100`;
+
+        const [transactions] = await db.query(query, params);
 
         // Fetch items for each refunded transaction
         for (let transaction of transactions) {
@@ -891,7 +902,7 @@ exports.getRefundedTransactions = async (req, res) => {
             transaction.items = items;
         }
 
-        res.json({ transactions });
+        res.json({ transactions, isAdmin });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
