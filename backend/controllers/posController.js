@@ -32,6 +32,18 @@ const releaseBeeper = async (beeperNumber) => {
     );
 };
 
+// Determine admin role from JWT payload in a backward-compatible way.
+const isAdminUser = (user) => {
+    if (!user) return false;
+
+    // Keep support for legacy payloads that still include role_id.
+    const roleId = Number(user.role_id);
+    if (!Number.isNaN(roleId) && roleId === 1) return true;
+
+    const roleName = String(user.role || user.role_name || '').trim().toLowerCase();
+    return roleName === 'admin';
+};
+
 
 // QUICK CASH AMOUNTS
 
@@ -54,8 +66,7 @@ exports.getQuickCashAmounts = async (req, res) => {
 exports.getOrders = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         // Build query with optional user filter
         let query = `
@@ -858,8 +869,7 @@ exports.getRefundedTransactions = async (req, res) => {
 exports.getVoidedTransactions = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         let query = `
             SELECT 
@@ -923,8 +933,7 @@ exports.getVoidedTransactions = async (req, res) => {
 exports.getCompletedTransactions = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         let query = `
             SELECT t.*, u.full_name as processed_by_name
@@ -1168,8 +1177,7 @@ exports.getTransactionById = async (req, res) => {
 exports.getPendingOrders = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         let query = `
             SELECT t.*, u.full_name as processed_by_name
@@ -1237,8 +1245,7 @@ exports.getPendingOrders = async (req, res) => {
 exports.getReadyOrders = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         let query = `
             SELECT t.*, u.full_name as processed_by_name
@@ -1281,8 +1288,7 @@ exports.getReadyOrders = async (req, res) => {
 exports.getPreparingOrders = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
-        const roleId = req.user?.role_id;
-        const isAdmin = roleId === 1;
+        const isAdmin = isAdminUser(req.user);
 
         let query = `
             SELECT t.*, u.full_name as processed_by_name
