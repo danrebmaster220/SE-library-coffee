@@ -554,38 +554,55 @@
 
 /* Refund success modal spacing refinements */
 .refund-success-modal {
-  width: min(92vw, 420px);
-  padding: 28px 24px;
-  border-radius: 16px;
-  text-align: center;
+  width: min(92vw, 420px) !important;
+  max-width: 420px !important;
+  padding: 28px 24px !important;
+  border-radius: 16px !important;
+  text-align: center !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
 }
 
 .refund-success-icon {
-  font-size: 46px;
-  margin-bottom: 12px;
+  font-size: 48px !important;
+  margin-bottom: 16px !important;
+  display: inline-block !important;
 }
 
 .refund-success-title {
-  margin: 0 0 10px;
-  font-size: 34px;
-  color: var(--coffee-dark);
+  margin: 0 0 12px !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  color: var(--coffee-dark) !important;
 }
 
 .refund-success-message {
-  white-space: pre-line;
-  margin: 0 auto 20px;
-  max-width: 320px;
-  font-size: 14px;
-  color: var(--coffee-medium);
-  line-height: 1.5;
+  white-space: normal !important;
+  margin: 0 auto 20px !important;
+  max-width: 100% !important;
+  width: auto !important;
+  font-size: 14px !important;
+  color: var(--coffee-medium) !important;
+  line-height: 1.5 !important;
+  padding: 0 !important;
 }
 
 .refund-success-btn {
-  min-width: 140px;
-  padding: 12px 28px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
+  width: auto !important;
+  min-width: 120px !important;
+  max-width: 200px !important;
+  padding: 12px 32px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: linear-gradient(135deg, var(--caramel) 0%, var(--coffee-light) 100%) !important;
+  color: white !important;
+  border: none !important;
+  cursor: pointer !important;
+  margin-top: 8px !important;
+  text-align: center !important;
 }
 
 /* ==========================================
