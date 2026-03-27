@@ -770,13 +770,14 @@ exports.getSessionHistory = async (req, res) => {
     try {
         let whereConditions = ["ses.status IN ('completed', 'voided')"];
         const params = [];
+        const historyDateExpr = 'DATE(COALESCE(ses.voided_at, ses.end_time, ses.start_time))';
 
         if (startDate && endDate) {
-            whereConditions.push('DATE(ses.start_time) BETWEEN ? AND ?');
+            whereConditions.push(`${historyDateExpr} BETWEEN ? AND ?`);
             params.push(startDate, endDate);
         } else {
-            // Default to last 7 days
-            whereConditions.push('DATE(ses.start_time) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)');
+            // Default to today so cashier/session history refreshes daily.
+            whereConditions.push(`${historyDateExpr} = CURDATE()`);
         }
 
         if (status && status !== 'all') {
