@@ -768,9 +768,20 @@ exports.getSessionHistory = async (req, res) => {
     const { startDate, endDate, status } = req.query;
     
     try {
+        const userId = req.user?.user_id || req.user?.id || null;
+        const roleName = String(req.user?.role || '').trim().toLowerCase();
+        const roleId = Number(req.user?.role_id);
+        const isAdmin = roleName === 'admin' || roleId === 1;
+
         let whereConditions = ["ses.status IN ('completed', 'voided')"];
         const params = [];
         const historyDateExpr = 'DATE(COALESCE(ses.voided_at, ses.end_time, ses.start_time))';
+
+        // Cashiers only see their own library session history; admins can see all.
+        if (!isAdmin) {
+            whereConditions.push('ses.processed_by = ?');
+            params.push(userId);
+        }
 
         if (startDate && endDate) {
             whereConditions.push(`${historyDateExpr} BETWEEN ? AND ?`);
