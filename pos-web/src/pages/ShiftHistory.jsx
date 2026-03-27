@@ -50,9 +50,12 @@ export default function ShiftHistory() {
   };
 
   const isForceClosedShift = (shift) => {
+    if (Number(shift?.is_force_closed) === 1) return true;
+
     const notes = String(shift?.notes || '').toLowerCase();
     const hasNoRemittance = shift?.actual_cash == null && shift?.cash_difference == null;
-    return hasNoRemittance && (notes.includes('force-closed') || notes.includes('force closed'));
+    const closedByDifferentUser = shift?.closed_by != null && Number(shift.closed_by) !== Number(shift.user_id);
+    return hasNoRemittance && (closedByDifferentUser || notes.includes('force-closed') || notes.includes('force closed') || notes.includes('forceclose'));
   };
 
   const formatShiftDuration = (startTime, endTime) => {

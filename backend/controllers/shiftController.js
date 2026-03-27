@@ -167,7 +167,19 @@ exports.getShiftHistory = async (req, res) => {
         
         let query = `
             SELECT s.*, u.full_name, u.username,
-                   cb.full_name as closed_by_name
+                   cb.full_name as closed_by_name,
+                   CASE
+                       WHEN s.actual_cash IS NULL
+                            AND s.cash_difference IS NULL
+                            AND (
+                                (s.closed_by IS NOT NULL AND s.closed_by <> s.user_id)
+                                OR LOWER(COALESCE(s.notes, '')) LIKE '%force-closed%'
+                                OR LOWER(COALESCE(s.notes, '')) LIKE '%force closed%'
+                                OR LOWER(COALESCE(s.notes, '')) LIKE '%forceclose%'
+                            )
+                       THEN 1
+                       ELSE 0
+                   END AS is_force_closed
             FROM shifts s
             JOIN users u ON s.user_id = u.user_id
             LEFT JOIN users cb ON s.closed_by = cb.user_id

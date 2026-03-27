@@ -8,6 +8,7 @@ export default function ActiveShifts() {
   const [showForceCloseModal, setShowForceCloseModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [forceCloseNotes, setForceCloseNotes] = useState('');
+  const [forceClosing, setForceClosing] = useState(false);
   const [shiftPage, setShiftPage] = useState(1);
   const rowsPerPage = 10;
 
@@ -58,7 +59,10 @@ export default function ActiveShifts() {
   };
 
   const handleForceClose = async () => {
+    if (!selectedShift || forceClosing) return;
+
     try {
+      setForceClosing(true);
       await api.post(`/shifts/${selectedShift.shift_id}/force-close`, {
         notes: forceCloseNotes || 'Force-closed by admin'
       });
@@ -69,6 +73,8 @@ export default function ActiveShifts() {
     } catch (error) {
       console.error("Error force-closing shift:", error);
       alert(error.response?.data?.error || 'Failed to force-close shift');
+    } finally {
+      setForceClosing(false);
     }
   };
 
@@ -181,11 +187,11 @@ export default function ActiveShifts() {
 
       {/* Force Close Modal */}
       {showForceCloseModal && selectedShift && (
-        <div className="modal-overlay" onClick={() => setShowForceCloseModal(false)}>
+        <div className="modal-overlay" onClick={forceClosing ? undefined : () => setShowForceCloseModal(false)}>
           <div className="modal-content force-close-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Force Close Shift</h3>
-              <button className="modal-close" onClick={() => setShowForceCloseModal(false)}>×</button>
+              <button className="modal-close" onClick={() => setShowForceCloseModal(false)} disabled={forceClosing}>×</button>
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: '12px' }}>
@@ -201,12 +207,27 @@ export default function ActiveShifts() {
                   onChange={(e) => setForceCloseNotes(e.target.value)}
                   placeholder="e.g., Power outage, cashier absent..."
                   rows={3}
+                  disabled={forceClosing}
                 />
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowForceCloseModal(false)}>Cancel</button>
-              <button className="btn-danger" onClick={handleForceClose}>Force Close Shift</button>
+              <button className="btn-cancel" onClick={() => setShowForceCloseModal(false)} disabled={forceClosing}>Cancel</button>
+              <button className="btn-danger" onClick={handleForceClose} disabled={forceClosing}>
+                {forceClosing ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Force Closing...
+                  </span>
+                ) : (
+                  'Force Close Shift'
+                )}
+              </button>
             </div>
           </div>
         </div>
