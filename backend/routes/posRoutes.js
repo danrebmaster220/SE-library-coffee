@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const posController = require('../controllers/posController');
-const { verifyToken, optionalAuth } = require('../middleware/auth');
+const { verifyToken, optionalAuth, requireActiveShiftForNonAdmin } = require('../middleware/auth');
 
 // Quick cash amounts (public)
 router.get('/quick-cash', posController.getQuickCashAmounts);
@@ -26,7 +26,7 @@ router.get('/orders/preparing', verifyToken, posController.getPreparingOrders);
 router.get('/orders/ready', verifyToken, posController.getReadyOrders);
 
 // Start preparing order
-router.put('/order/:id/preparing', verifyToken, posController.startPreparing);
+router.put('/order/:id/preparing', verifyToken, requireActiveShiftForNonAdmin, posController.startPreparing);
 
 // IMPORTANT: Specific routes MUST come BEFORE parameterized routes
 // Get voided transactions
@@ -42,32 +42,32 @@ router.get('/transactions/completed', verifyToken, posController.getCompletedTra
 router.get('/transactions/:id', verifyToken, posController.getTransactionById);
 
 // Create transaction (from POS - requires auth)
-router.post('/transactions', verifyToken, posController.createTransaction);
+router.post('/transactions', verifyToken, requireActiveShiftForNonAdmin, posController.createTransaction);
 
 // Create order from Kiosk (no auth required)
 router.post('/kiosk/order', posController.createKioskOrder);
 
 // Process payment for pending order
-router.put('/transactions/:id/pay', verifyToken, posController.processPayment);
+router.put('/transactions/:id/pay', verifyToken, requireActiveShiftForNonAdmin, posController.processPayment);
 
 // Mark order as ready
-router.put('/orders/:id/ready', verifyToken, posController.markReady);
+router.put('/orders/:id/ready', verifyToken, requireActiveShiftForNonAdmin, posController.markReady);
 
 // Complete order
-router.put('/orders/:id/complete', verifyToken, posController.completeOrder);
+router.put('/orders/:id/complete', verifyToken, requireActiveShiftForNonAdmin, posController.completeOrder);
 
 // Alternative routes for frontend compatibility (transactions/:id/:status pattern)
-router.put('/transactions/:id/ready', verifyToken, posController.markReady);
-router.put('/transactions/:id/complete', verifyToken, posController.completeOrder);
-router.put('/transactions/:id/preparing', verifyToken, posController.startPreparing);
+router.put('/transactions/:id/ready', verifyToken, requireActiveShiftForNonAdmin, posController.markReady);
+router.put('/transactions/:id/complete', verifyToken, requireActiveShiftForNonAdmin, posController.completeOrder);
+router.put('/transactions/:id/preparing', verifyToken, requireActiveShiftForNonAdmin, posController.startPreparing);
 
 // Void transaction
-router.post('/transactions/:id/void', verifyToken, posController.voidTransaction);
+router.post('/transactions/:id/void', verifyToken, requireActiveShiftForNonAdmin, posController.voidTransaction);
 
 // Refund transaction
-router.post('/transactions/:id/refund', verifyToken, posController.refundTransaction);
+router.post('/transactions/:id/refund', verifyToken, requireActiveShiftForNonAdmin, posController.refundTransaction);
 
 // Remove items from pending transaction (partial void)
-router.put('/transactions/:id/remove-items', verifyToken, posController.removeItemsFromPending);
+router.put('/transactions/:id/remove-items', verifyToken, requireActiveShiftForNonAdmin, posController.removeItemsFromPending);
 
 module.exports = router;
