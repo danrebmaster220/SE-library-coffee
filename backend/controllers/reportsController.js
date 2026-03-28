@@ -2,6 +2,83 @@ const db = require('../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
+const buildAuditLogsWhereClause = ({ startDate, endDate, action, actorUserId, targetType, search }) => {
+    const whereConditions = ['1=1'];
+    const params = [];
+
+    if (startDate) {
+        whereConditions.push('DATE(a.created_at) >= ?');
+        params.push(startDate);
+    }
+
+    if (endDate) {
+        whereConditions.push('DATE(a.created_at) <= ?');
+        params.push(endDate);
+    }
+
+    if (action) {
+        whereConditions.push('a.action = ?');
+        params.push(action);
+    }
+
+    if (actorUserId) {
+        whereConditions.push('a.actor_user_id = ?');
+        params.push(actorUserId);
+    }
+
+    if (targetType) {
+        whereConditions.push('a.target_type = ?');
+        params.push(targetType);
+    }
+
+    if (search) {
+        whereConditions.push(`
+            (
+                a.action LIKE ?
+                OR COALESCE(u.full_name, '') LIKE ?
+                OR COALESCE(u.username, '') LIKE ?
+                OR COALESCE(a.target_type, '') LIKE ?
+                OR CAST(COALESCE(a.target_id, '') AS CHAR) LIKE ?
+                OR COALESCE(a.ip_address, '') LIKE ?
+            )
+        `);
+        const wildcard = `%${search}%`;
+        params.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard);
+    }
+
+    return {
+        whereClause: whereConditions.join(' AND '),
+        params
+    };
+};
+
+const formatAuditActionLabel = (action) => String(action || '-')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const stringifyAuditDetails = (details) => {
+    if (!details) return '-';
+
+    let parsed = details;
+    if (typeof details === 'string') {
+        try {
+            parsed = JSON.parse(details);
+        } catch (_error) {
+            return details;
+        }
+    }
+
+    if (typeof parsed !== 'object' || parsed === null) {
+        return String(parsed);
+    }
+
+    const text = Object.entries(parsed)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' | ');
+
+    return text || '-';
+};
+
 
 // SALES SUMMARY (by date range) - Uses transactions table
 
@@ -384,50 +461,14 @@ exports.getAuditLogs = async (req, res) => {
         const limitNum = Math.min(Math.max(parseInt(limit, 10) || 200, 1), 500);
         const offset = (pageNum - 1) * limitNum;
 
-        const whereConditions = ['1=1'];
-        const params = [];
-
-        if (startDate) {
-            whereConditions.push('DATE(a.created_at) >= ?');
-            params.push(startDate);
-        }
-
-        if (endDate) {
-            whereConditions.push('DATE(a.created_at) <= ?');
-            params.push(endDate);
-        }
-
-        if (action) {
-            whereConditions.push('a.action = ?');
-            params.push(action);
-        }
-
-        if (actorUserId) {
-            whereConditions.push('a.actor_user_id = ?');
-            params.push(actorUserId);
-        }
-
-        if (targetType) {
-            whereConditions.push('a.target_type = ?');
-            params.push(targetType);
-        }
-
-        if (search) {
-            whereConditions.push(`
-                (
-                    a.action LIKE ?
-                    OR COALESCE(u.full_name, '') LIKE ?
-                    OR COALESCE(u.username, '') LIKE ?
-                    OR COALESCE(a.target_type, '') LIKE ?
-                    OR CAST(COALESCE(a.target_id, '') AS CHAR) LIKE ?
-                    OR COALESCE(a.ip_address, '') LIKE ?
-                )
-            `);
-            const wildcard = `%${search}%`;
-            params.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard);
-        }
-
-        const whereClause = whereConditions.join(' AND ');
+        const { whereClause, params } = buildAuditLogsWhereClause({
+            startDate,
+            endDate,
+            action,
+            actorUserId,
+            targetType,
+            search
+        });
 
         const [countRows] = await db.query(
             `
@@ -482,7 +523,7 @@ exports.getAuditLogs = async (req, res) => {
 // EXPORT TO EXCEL
 
 exports.exportExcel = async (req, res) => {
-    const { type, startDate, endDate, orderType, status } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search } = req.query;
 
     try {
         const workbook = new ExcelJS.Workbook();
@@ -1019,6 +1060,130 @@ exports.exportExcel = async (req, res) => {
                 { width: 12 }, // Amount
                 { width: 12 }  // Status
             ];
+        } else if (type === 'audit') {
+            // ============ AUDIT TRAIL REPORT ============
+            const worksheet = workbook.addWorksheet('Audit Trail');
+            filename = `Audit_Trail_${startDate || 'all'}_to_${endDate || 'all'}.xlsx`;
+
+            const { whereClause, params } = buildAuditLogsWhereClause({
+                startDate,
+                endDate,
+                action,
+                actorUserId,
+                targetType,
+                search
+            });
+
+            const [logs] = await db.query(`
+                SELECT
+                    a.audit_id,
+                    a.action,
+                    a.actor_user_id,
+                    a.target_type,
+                    a.target_id,
+                    a.details_json,
+                    a.ip_address,
+                    a.created_at,
+                    u.full_name as actor_full_name,
+                    u.username as actor_username
+                FROM audit_logs a
+                LEFT JOIN users u ON a.actor_user_id = u.user_id
+                WHERE ${whereClause}
+                ORDER BY a.created_at DESC
+                LIMIT 5000
+            `, params);
+
+            const totalEvents = logs.length;
+            const uniqueActors = new Set(logs.map((log) => log.actor_user_id).filter(Boolean)).size;
+            const forceClosures = logs.filter((log) => log.action === 'shift_force_closed').length;
+
+            // Title
+            worksheet.mergeCells('A1:G1');
+            const titleCell = worksheet.getCell('A1');
+            titleCell.value = 'AUDIT TRAIL REPORT';
+            titleCell.font = { bold: true, size: 16, color: { argb: 'FF6B4423' } };
+            titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            worksheet.getRow(1).height = 28;
+
+            // Date range
+            worksheet.mergeCells('A2:G2');
+            const dateRangeCell = worksheet.getCell('A2');
+            dateRangeCell.value = `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`;
+            dateRangeCell.font = { size: 11, color: { argb: 'FF666666' } };
+            dateRangeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            worksheet.getRow(2).height = 20;
+
+            worksheet.getCell('A4').value = 'SUMMARY';
+            worksheet.getCell('A4').font = { bold: true, size: 12 };
+
+            const summaryData = [
+                ['Total Events:', totalEvents],
+                ['Unique Actors:', uniqueActors],
+                ['Shift Force Closures:', forceClosures],
+                ['Action Filter:', action || 'All'],
+                ['Target Filter:', targetType || 'All']
+            ];
+
+            let summaryRow = 5;
+            summaryData.forEach(([label, value]) => {
+                worksheet.getCell(`A${summaryRow}`).value = label;
+                worksheet.getCell(`A${summaryRow}`).style = summaryLabelStyle;
+                worksheet.getCell(`B${summaryRow}`).value = value;
+                worksheet.getCell(`B${summaryRow}`).style = summaryValueStyle;
+                summaryRow++;
+            });
+
+            const dataStartRow = summaryRow + 1;
+            const headers = ['Date/Time', 'Action', 'Actor', 'Target', 'Details', 'IP Address', 'Audit ID'];
+
+            headers.forEach((header, index) => {
+                const cell = worksheet.getCell(dataStartRow, index + 1);
+                cell.value = header;
+                Object.assign(cell, headerStyle);
+            });
+
+            worksheet.getRow(dataStartRow).height = 22;
+
+            logs.forEach((log, index) => {
+                const rowNum = dataStartRow + 1 + index;
+                const row = worksheet.getRow(rowNum);
+
+                const actorName = log.actor_full_name || 'System';
+                const actorUsername = log.actor_username ? ` (@${log.actor_username})` : '';
+                const targetLabel = log.target_type
+                    ? `${log.target_type}${log.target_id != null ? ` #${log.target_id}` : ''}`
+                    : '-';
+
+                row.getCell(1).value = formatDateTime(log.created_at);
+                row.getCell(2).value = formatAuditActionLabel(log.action);
+                row.getCell(3).value = `${actorName}${actorUsername}`;
+                row.getCell(4).value = targetLabel;
+                row.getCell(5).value = stringifyAuditDetails(log.details_json);
+                row.getCell(6).value = log.ip_address || '-';
+                row.getCell(7).value = log.audit_id;
+
+                for (let col = 1; col <= 7; col++) {
+                    const cell = row.getCell(col);
+                    cell.border = cellBorder;
+                    cell.alignment = { horizontal: col === 5 ? 'left' : 'center', vertical: 'middle', wrapText: col === 5 };
+
+                    if (col === 2) {
+                        cell.font = { bold: true, color: { argb: 'FF1565C0' } };
+                    }
+                }
+
+                row.height = 24;
+            });
+
+            worksheet.columns = [
+                { width: 22 }, // Date/Time
+                { width: 22 }, // Action
+                { width: 22 }, // Actor
+                { width: 18 }, // Target
+                { width: 46 }, // Details
+                { width: 18 }, // IP
+                { width: 10 }  // Audit ID
+            ];
         }
 
         // Generate the Excel file
@@ -1038,7 +1203,7 @@ exports.exportExcel = async (req, res) => {
 // EXPORT TO PDF
 
 exports.exportPDF = async (req, res) => {
-    const { type, startDate, endDate, orderType, status } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search } = req.query;
 
     try {
         // Create PDF document
@@ -1332,6 +1497,87 @@ exports.exportPDF = async (req, res) => {
                     formatCurrency(session.fee),
                     session.status
                 ];
+                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
+            });
+        } else if (type === 'audit') {
+            // AUDIT TRAIL REPORT PDF
+            filename = `Audit_Trail_${startDate || 'all'}_to_${endDate || 'all'}.pdf`;
+
+            const { whereClause, params } = buildAuditLogsWhereClause({
+                startDate,
+                endDate,
+                action,
+                actorUserId,
+                targetType,
+                search
+            });
+
+            const [logs] = await db.query(`
+                SELECT
+                    a.audit_id,
+                    a.action,
+                    a.actor_user_id,
+                    a.target_type,
+                    a.target_id,
+                    a.details_json,
+                    a.ip_address,
+                    a.created_at,
+                    u.full_name as actor_full_name,
+                    u.username as actor_username
+                FROM audit_logs a
+                LEFT JOIN users u ON a.actor_user_id = u.user_id
+                WHERE ${whereClause}
+                ORDER BY a.created_at DESC
+                LIMIT 1200
+            `, params);
+
+            const totalEvents = logs.length;
+            const forceClosures = logs.filter((log) => log.action === 'shift_force_closed').length;
+            const uniqueActors = new Set(logs.map((log) => log.actor_user_id).filter(Boolean)).size;
+
+            let y = addPageHeader('Audit Trail Report', `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`);
+
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.text('Summary', 40, y);
+            y += 18;
+            doc.font('Helvetica').fontSize(10).fillColor('black');
+            doc.text(
+                `Total Events: ${totalEvents}    |    Unique Actors: ${uniqueActors}    |    Force Closures: ${forceClosures}`,
+                40,
+                y
+            );
+            y += 30;
+
+            const headers = ['Date/Time', 'Action', 'Actor', 'Target', 'IP', 'Details'];
+            const columnWidths = [120, 100, 120, 90, 80, 250];
+
+            y = drawTableHeader(headers, y, columnWidths);
+
+            logs.forEach((log, index) => {
+                if (y > 520) {
+                    doc.addPage();
+                    y = addPageHeader('Audit Trail Report (cont.)', `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`);
+                    y = drawTableHeader(headers, y, columnWidths);
+                }
+
+                const actorName = log.actor_full_name || 'System';
+                const actorUsername = log.actor_username ? ` @${log.actor_username}` : '';
+                const targetLabel = log.target_type
+                    ? `${log.target_type}${log.target_id != null ? ` #${log.target_id}` : ''}`
+                    : '-';
+
+                const detailsText = stringifyAuditDetails(log.details_json);
+                const limitedDetails = detailsText.length > 120 ? `${detailsText.slice(0, 117)}...` : detailsText;
+
+                const rowData = [
+                    formatDateTime(log.created_at),
+                    formatAuditActionLabel(log.action),
+                    `${actorName}${actorUsername}`,
+                    targetLabel,
+                    log.ip_address || '-',
+                    limitedDetails
+                ];
+
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });
         }

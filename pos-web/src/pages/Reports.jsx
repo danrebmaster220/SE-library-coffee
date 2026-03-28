@@ -165,11 +165,6 @@ export default function Reports() {
   };
 
   const handleExportExcel = async () => {
-    if (activeTab === 'audit') {
-      showToast('Audit trail export is not available yet.', 'warning');
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
@@ -183,6 +178,9 @@ export default function Reports() {
         if (orderStatusFilter) params.append('status', orderStatusFilter);
       } else if (activeTab === 'library') {
         if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+      } else if (activeTab === 'audit') {
+        if (auditActionFilter) params.append('action', auditActionFilter);
+        if (searchTerm) params.append('search', searchTerm);
       }
 
       // Use fetch with auth header to download the file
@@ -225,11 +223,6 @@ export default function Reports() {
   };
 
   const handleExportPDF = async () => {
-    if (activeTab === 'audit') {
-      showToast('Audit trail export is not available yet.', 'warning');
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
@@ -243,6 +236,9 @@ export default function Reports() {
         if (orderStatusFilter) params.append('status', orderStatusFilter);
       } else if (activeTab === 'library') {
         if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+      } else if (activeTab === 'audit') {
+        if (auditActionFilter) params.append('action', auditActionFilter);
+        if (searchTerm) params.append('search', searchTerm);
       }
 
       // Use fetch with auth header to download the file
@@ -509,7 +505,6 @@ export default function Reports() {
           </button>
         </div>
 
-        {activeTab !== 'audit' && (
         <div className="export-dropdown-container" ref={exportDropdownRef}>
           <button 
             className="btn-export" 
@@ -548,7 +543,6 @@ export default function Reports() {
             </div>
           )}
         </div>
-        )}
       </div>
 
       {/* Toolbar Section */}
