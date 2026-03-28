@@ -7,15 +7,15 @@
 const ENV = {
   // Development - Local development connecting to hosted backend
   development: {
-    API_URL: 'https://se-library-coffee-backend.vercel.app/api',
-    SOCKET_URL: 'https://se-library-coffee-backend.vercel.app',
+    API_URL: 'https://library-coffee-api.onrender.com/api',
+    SOCKET_URL: 'https://library-coffee-api.onrender.com',
     ENV_NAME: 'development',
   },
   
   // Production - For deployed/hosted application
   production: {
-    API_URL: 'https://se-library-coffee-backend.vercel.app/api',
-    SOCKET_URL: 'https://se-library-coffee-backend.vercel.app',
+    API_URL: 'https://library-coffee-api.onrender.com/api',
+    SOCKET_URL: 'https://library-coffee-api.onrender.com',
     ENV_NAME: 'production',
   },
 };
