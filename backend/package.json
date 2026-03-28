@@ -9,7 +9,6 @@
     "smoke:shift": "node scripts/smoke_shift_realtime.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node config/init-db.js",
     "seed-users": "node config/seed_users.js"
   },
   "keywords": [],
