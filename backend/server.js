@@ -11,13 +11,36 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://localhost:8081',
+    'https://library-coffee-study-pos.vercel.app'
+];
+
+const normalizeOrigin = (origin) => {
+    if (!origin) return '';
+    return String(origin).trim().replace(/\/+$/, '');
+};
+
 // Parse CORS origins from environment variable
 const getAllowedOrigins = () => {
-    const origins = process.env.CORS_ORIGINS || 'http://localhost:5173';
-    return origins.split(',').map(origin => origin.trim());
+    const configuredOrigins = process.env.CORS_ORIGINS;
+    const origins = configuredOrigins
+        ? configuredOrigins.split(',')
+        : DEFAULT_ALLOWED_ORIGINS;
+
+    const normalized = origins
+        .map((origin) => normalizeOrigin(origin))
+        .filter(Boolean);
+
+    return [...new Set(normalized)];
 };
 
 const allowedOrigins = getAllowedOrigins();
+const isOriginAllowed = (origin) => allowedOrigins.includes(normalizeOrigin(origin));
 
 console.log(`🌍 Environment: ${NODE_ENV}`);
 console.log(`🔗 Allowed CORS origins: ${allowedOrigins.join(', ')}`);
@@ -28,8 +51,21 @@ const server = http.createServer(app);
 // Setup Socket.IO with dynamic CORS
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+        origin: (origin, callback) => {
+            if (!origin || isOriginAllowed(origin)) {
+                return callback(null, true);
+            }
+
+            console.warn(`⚠️ Socket.IO CORS blocked origin: ${origin}`);
+
+            if (NODE_ENV !== 'production') {
+                return callback(null, true);
+            }
+
+            return callback(new Error('Socket.IO origin not allowed by CORS'));
+        },
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        credentials: true
     }
 });
 
@@ -39,14 +75,21 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        if (isOriginAllowed(origin)) {
             callback(null, true);
         } else {
             console.warn(`⚠️ CORS blocked origin: ${origin}`);
-            callback(null, true); // In development, allow anyway but warn
+            if (NODE_ENV !== 'production') {
+                callback(null, true); // In development, allow anyway but warn
+            } else {
+                callback(new Error('Origin not allowed by CORS'));
+            }
         }
     },
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204
 }));
 
 app.use(express.json({ limit: '10mb' }));
