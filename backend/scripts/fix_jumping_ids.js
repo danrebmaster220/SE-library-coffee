@@ -16,11 +16,13 @@ async function run() {
             {
                 table: 'categories',
                 idCol: 'category_id',
+                jumpThreshold: 1000,
                 children: [{ table: 'items', fk: 'category_id' }]
             },
             {
                 table: 'discounts',
                 idCol: 'discount_id',
+                jumpThreshold: 1000,
                 children: [
                     { table: 'orders', fk: 'discount_id' },
                     { table: 'transactions', fk: 'discount_id' }
@@ -29,6 +31,7 @@ async function run() {
             {
                 table: 'users',
                 idCol: 'user_id',
+                jumpThreshold: 1000,
                 children: [
                     { table: 'transactions', fk: 'processed_by' },
                     { table: 'transactions', fk: 'voided_by' },
@@ -39,17 +42,38 @@ async function run() {
             {
                 table: 'items',
                 idCol: 'item_id',
+                jumpThreshold: 1000,
                 children: [
                     { table: 'order_items', fk: 'item_id' },
                     { table: 'transaction_items', fk: 'item_id' },
                     { table: 'item_customization_groups', fk: 'item_id' }
                 ]
+            },
+            {
+                table: 'audit_logs',
+                idCol: 'audit_id',
+                jumpThreshold: 30000,
+                children: []
             }
         ];
 
         for (const meta of tableMaps) {
             console.log(`\n🔍 Checking table: ${meta.table}`);
-            const [rows] = await connection.query(`SELECT ${meta.idCol} FROM ${meta.table} WHERE ${meta.idCol} >= 1000 ORDER BY ${meta.idCol} ASC`);
+            const [tableExists] = await connection.query(
+                `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+                [meta.table]
+            );
+
+            if (tableExists.length === 0) {
+                console.log(`  ⏭️  Skipping ${meta.table} (table does not exist).`);
+                continue;
+            }
+
+            const threshold = meta.jumpThreshold || 1000;
+            const [rows] = await connection.query(
+                `SELECT ${meta.idCol} FROM ${meta.table} WHERE ${meta.idCol} >= ? ORDER BY ${meta.idCol} ASC`,
+                [threshold]
+            );
             
             if (rows.length === 0) {
                 console.log(`  ✓ No jumping IDs found in ${meta.table}.`);
@@ -59,7 +83,10 @@ async function run() {
             console.log(`  ⚠️ Found ${rows.length} jumping IDs in ${meta.table}. Fixing...`);
 
             // Get current max valid ID
-            const [maxRows] = await connection.query(`SELECT MAX(${meta.idCol}) as maxId FROM ${meta.table} WHERE ${meta.idCol} < 1000`);
+            const [maxRows] = await connection.query(
+                `SELECT MAX(${meta.idCol}) as maxId FROM ${meta.table} WHERE ${meta.idCol} < ?`,
+                [threshold]
+            );
             let nextValidId = (maxRows[0].maxId || 0) + 1;
 
             for (const row of rows) {
@@ -76,6 +103,30 @@ async function run() {
                     if (updateInfo.affectedRows > 0) {
                         console.log(`      ↳ Updated ${updateInfo.affectedRows} references in ${child.table}`);
                     }
+                }
+            }
+        }
+
+        const [auditTableExists] = await connection.query(
+            `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_logs'`
+        );
+
+        if (auditTableExists.length > 0) {
+            const [auditMaxRows] = await connection.query('SELECT MAX(audit_id) AS maxId FROM audit_logs');
+            const nextAuditId = Number(auditMaxRows[0].maxId || 0) + 1;
+
+            await connection.query(`ALTER TABLE audit_logs AUTO_INCREMENT = ${nextAuditId}`);
+            console.log(`\n🔢 Set audit_logs AUTO_INCREMENT to ${nextAuditId}.`);
+
+            const [versionRows] = await connection.query('SELECT VERSION() AS version');
+            const dbVersion = String(versionRows?.[0]?.version || '');
+
+            if (dbVersion.toLowerCase().includes('tidb')) {
+                try {
+                    await connection.query('ALTER TABLE audit_logs AUTO_ID_CACHE = 1');
+                    console.log('🧩 Set audit_logs AUTO_ID_CACHE=1 for TiDB to minimize future ID jumps.');
+                } catch (cacheError) {
+                    console.log(`⚠️ Could not set AUTO_ID_CACHE for audit_logs: ${cacheError.message}`);
                 }
             }
         }
