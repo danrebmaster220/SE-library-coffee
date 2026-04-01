@@ -113,7 +113,9 @@ const customizationRoutes = require('./routes/customizationRoutes');
 const posRoutes = require('./routes/posRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const shiftRoutes = require('./routes/shiftRoutes');
-const { verifySocketToken } = require('./middleware/auth');
+const { verifySocketToken, verifyToken, isAdmin } = require('./middleware/auth');
+
+const ENABLE_TIDB_FIX_ROUTE = String(process.env.ENABLE_TIDB_FIX_ROUTE || '').toLowerCase() === 'true';
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -165,8 +167,13 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
-// TEMPORARY DB ID FIX SCRIPT ROUTE - Hit this URL once in the browser to fix jumping TiDB IDs
-app.get('/api/fix-tidb-ids', async (req, res) => {
+// Temporary maintenance route for TiDB ID resequencing.
+// Disabled by default. Enable intentionally with ENABLE_TIDB_FIX_ROUTE=true.
+app.get('/api/fix-tidb-ids', verifyToken, isAdmin, async (req, res) => {
+    if (!ENABLE_TIDB_FIX_ROUTE) {
+        return res.status(404).json({ error: 'Route not available.' });
+    }
+
     try {
         const fixScript = require('./scripts/fix_jumping_ids');
         await fixScript();
