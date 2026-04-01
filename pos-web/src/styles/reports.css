@@ -143,6 +143,26 @@
   border-color: var(--coffee-dark, #6b4423);
 }
 
+.audit-id-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #444;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audit-id-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--coffee-dark, #6b4423);
+}
+
 .btn-apply {
   padding: 10px 20px;
   background: var(--coffee-dark, #6b4423);
@@ -462,6 +482,53 @@
   color: #1976d2;
 }
 
+.status-badge.audit-action-badge {
+  border: 1px solid transparent;
+  text-transform: none;
+}
+
+.status-badge.audit-auth {
+  background: #e7f5ff;
+  color: #0b7285;
+  border-color: #b3e5fc;
+}
+
+.status-badge.audit-shift {
+  background: #fff3bf;
+  color: #8d6b00;
+  border-color: #ffe08a;
+}
+
+.status-badge.audit-order {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.status-badge.audit-inventory {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-color: #e1bee7;
+}
+
+.status-badge.audit-admin {
+  background: #fff4e6;
+  color: #e67700;
+  border-color: #ffd8a8;
+}
+
+.status-badge.audit-risk {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #ffcdd2;
+}
+
+.status-badge.audit-other {
+  background: #f1f3f5;
+  color: #495057;
+  border-color: #dee2e6;
+}
+
 .discount-cell {
   color: #c62828;
 }
@@ -469,6 +536,12 @@
 .total-cell {
   font-weight: 600;
   color: var(--coffee-dark, #6b4423);
+}
+
+.audit-id-cell {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 600;
+  color: #495057;
 }
 
 /* Legacy styles kept for compatibility */

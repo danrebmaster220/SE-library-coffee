@@ -37,6 +37,7 @@ export default function Reports() {
   // Audit report state
   const [auditData, setAuditData] = useState([]);
   const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [showAuditId, setShowAuditId] = useState(false);
 
   // Pagination states
   const [ordersPage, setOrdersPage] = useState(1);
@@ -309,6 +310,60 @@ export default function Reports() {
     return String(action)
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (match) => match.toUpperCase());
+  };
+
+  const getAuditActionBadgeClass = (action) => {
+    const normalized = String(action || '').toLowerCase();
+
+    if (!normalized) return 'audit-other';
+
+    if (normalized.includes('login') || normalized.includes('logout') || normalized.includes('auth')) {
+      return 'audit-auth';
+    }
+
+    if (normalized.startsWith('shift_') || normalized.includes('shift')) {
+      return 'audit-shift';
+    }
+
+    if (
+      normalized.includes('order') ||
+      normalized.includes('transaction') ||
+      normalized.includes('payment') ||
+      normalized.includes('checkout') ||
+      normalized.includes('void') ||
+      normalized.includes('refund')
+    ) {
+      return 'audit-order';
+    }
+
+    if (
+      normalized.includes('item') ||
+      normalized.includes('menu') ||
+      normalized.includes('stock') ||
+      normalized.includes('inventory')
+    ) {
+      return 'audit-inventory';
+    }
+
+    if (
+      normalized.includes('user') ||
+      normalized.includes('role') ||
+      normalized.includes('permission') ||
+      normalized.includes('admin')
+    ) {
+      return 'audit-admin';
+    }
+
+    if (
+      normalized.includes('error') ||
+      normalized.includes('fail') ||
+      normalized.includes('denied') ||
+      normalized.includes('blocked')
+    ) {
+      return 'audit-risk';
+    }
+
+    return 'audit-other';
   };
 
   const formatAuditDetails = (details) => {
@@ -628,16 +683,26 @@ export default function Reports() {
           )}
 
           {activeTab === 'audit' && (
-            <select
-              className="filter-select"
-              value={auditActionFilter}
-              onChange={(e) => setAuditActionFilter(e.target.value)}
-            >
-              <option value="">All Actions</option>
-              <option value="shift_started">Shift Started</option>
-              <option value="shift_ended">Shift Ended</option>
-              <option value="shift_force_closed">Shift Force Closed</option>
-            </select>
+            <>
+              <select
+                className="filter-select"
+                value={auditActionFilter}
+                onChange={(e) => setAuditActionFilter(e.target.value)}
+              >
+                <option value="">All Actions</option>
+                <option value="shift_started">Shift Started</option>
+                <option value="shift_ended">Shift Ended</option>
+                <option value="shift_force_closed">Shift Force Closed</option>
+              </select>
+              <label className="audit-id-toggle">
+                <input
+                  type="checkbox"
+                  checked={showAuditId}
+                  onChange={(e) => setShowAuditId(e.target.checked)}
+                />
+                Show Audit ID
+              </label>
+            </>
           )}
 
           <button className="btn-apply" onClick={handleApplyFilters}>
@@ -1018,6 +1083,7 @@ export default function Reports() {
                   <table className="data-table">
                     <thead>
                       <tr>
+                        {showAuditId && <th>Audit ID</th>}
                         <th>Date/Time</th>
                         <th>Action</th>
                         <th>Actor</th>
@@ -1029,9 +1095,12 @@ export default function Reports() {
                     <tbody>
                       {paginatedAudit.map((log) => (
                         <tr key={log.audit_id}>
+                          {showAuditId && <td className="audit-id-cell">{log.audit_id}</td>}
                           <td>{formatDateTime(log.created_at)}</td>
                           <td>
-                            <span className="status-badge completed">{formatAuditAction(log.action)}</span>
+                            <span className={`status-badge audit-action-badge ${getAuditActionBadgeClass(log.action)}`}>
+                              {formatAuditAction(log.action)}
+                            </span>
                           </td>
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
