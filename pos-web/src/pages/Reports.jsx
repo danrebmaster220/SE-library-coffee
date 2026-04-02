@@ -1209,7 +1209,7 @@ export default function Reports() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        {showAuditId && <th>Audit ID</th>}
+                        {showAuditId && <th>Log ID</th>}
                         <th>Date/Time</th>
                         <th>Action</th>
                         <th>Actor</th>
@@ -1219,9 +1219,16 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedAudit.map((log) => (
+                      {paginatedAudit.map((log, idx) => {
+                        const logDisplayId = filteredAudit.length - (auditStartIndex + idx);
+
+                        return (
                         <tr key={log.audit_id}>
-                          {showAuditId && <td className="audit-id-cell">{log.audit_id}</td>}
+                          {showAuditId && (
+                            <td className="audit-id-cell" title={`DB ID: ${log.audit_id}`}>
+                              {logDisplayId}
+                            </td>
+                          )}
                           <td>{formatDateTime(log.created_at)}</td>
                           <td>
                             <span className={`status-badge audit-action-badge ${getAuditActionBadgeClass(log.action)}`}>
@@ -1244,7 +1251,7 @@ export default function Reports() {
                           </td>
                           <td style={{ maxWidth: '320px' }}>{formatAuditDetails(log.details_json)}</td>
                         </tr>
-                      ))}
+                      );})}
                     </tbody>
                   </table>
                   {auditTotalPages > 1 && (
