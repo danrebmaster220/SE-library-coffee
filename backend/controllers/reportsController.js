@@ -82,7 +82,10 @@ const stringifyAuditDetails = (details) => {
         return String(parsed);
     }
 
+    const hiddenKeys = new Set(['backfilled', 'target_user_id']);
+
     const text = Object.entries(parsed)
+        .filter(([key]) => !hiddenKeys.has(key))
         .map(([key, value]) => `${key}: ${value}`)
         .join(' | ');
 
@@ -1218,7 +1221,7 @@ exports.exportExcel = async (req, res) => {
             });
 
             const dataStartRow = summaryRow + 1;
-            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'Details', 'IP Address', 'Audit ID'];
+            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'Details', 'Audit ID'];
 
             headers.forEach((header, index) => {
                 const cell = worksheet.getCell(dataStartRow, index + 1);
@@ -1246,10 +1249,9 @@ exports.exportExcel = async (req, res) => {
                 row.getCell(4).value = affectedName === '-' ? '-' : `${affectedName}${affectedUsername}`;
                 row.getCell(5).value = targetLabel;
                 row.getCell(6).value = stringifyAuditDetails(log.details_json);
-                row.getCell(7).value = log.ip_address || '-';
-                row.getCell(8).value = log.audit_id;
+                row.getCell(7).value = log.audit_id;
 
-                for (let col = 1; col <= 8; col++) {
+                for (let col = 1; col <= 7; col++) {
                     const cell = row.getCell(col);
                     cell.border = cellBorder;
                     cell.alignment = { horizontal: col === 6 ? 'left' : 'center', vertical: 'middle', wrapText: col === 6 };
@@ -1268,8 +1270,7 @@ exports.exportExcel = async (req, res) => {
                 { width: 22 }, // Actor
                 { width: 22 }, // Affected Staff
                 { width: 18 }, // Target
-                { width: 42 }, // Details
-                { width: 18 }, // IP
+                { width: 48 }, // Details
                 { width: 10 }  // Audit ID
             ];
         }
@@ -1660,8 +1661,8 @@ exports.exportPDF = async (req, res) => {
             );
             y += 30;
 
-            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'IP', 'Details'];
-            const columnWidths = [105, 90, 100, 100, 80, 70, 215];
+            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'Details'];
+            const columnWidths = [120, 95, 105, 105, 90, 245];
 
             y = drawTableHeader(headers, y, columnWidths);
 
@@ -1689,7 +1690,6 @@ exports.exportPDF = async (req, res) => {
                     `${actorName}${actorUsername}`,
                     affectedName === '-' ? '-' : `${affectedName}${affectedUsername}`,
                     targetLabel,
-                    log.ip_address || '-',
                     limitedDetails
                 ];
 

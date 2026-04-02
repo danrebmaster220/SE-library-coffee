@@ -409,8 +409,7 @@ async function backfillShiftForceClosedAuditLogs() {
                 JSON_OBJECT(
                     'target_user_id', s.user_id,
                     'expected_cash', s.expected_cash,
-                    'notes', COALESCE(s.notes, 'Force-closed by admin (backfilled)'),
-                    'backfilled', TRUE
+                    'notes', COALESCE(s.notes, 'Force-closed by admin (backfilled)')
                 ) as details_json,
                 NULL as ip_address,
                 COALESCE(s.end_time, s.start_time, NOW()) as created_at

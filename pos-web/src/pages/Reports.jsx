@@ -446,7 +446,10 @@ export default function Reports() {
       return String(parsed);
     }
 
+    const hiddenKeys = new Set(['backfilled', 'target_user_id']);
+
     const preview = Object.entries(parsed)
+      .filter(([key]) => !hiddenKeys.has(key))
       .slice(0, 3)
       .map(([key, value]) => `${key}: ${value}`)
       .join(' | ');
@@ -1196,7 +1199,6 @@ export default function Reports() {
                         <th>Affected Staff</th>
                         <th>Target</th>
                         <th>Details</th>
-                        <th>IP Address</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1224,7 +1226,6 @@ export default function Reports() {
                               : '-'}
                           </td>
                           <td style={{ maxWidth: '320px' }}>{formatAuditDetails(log.details_json)}</td>
-                          <td>{log.ip_address || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
