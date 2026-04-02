@@ -43,6 +43,9 @@ async function runMigrations() {
         // Migration 11: Backfill historical force-closed shifts into audit logs
         await backfillShiftForceClosedAuditLogs();
 
+        // Migration 12: Clean technical backfill terms from audit details
+        await sanitizeAuditBackfillDetails();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -438,6 +441,54 @@ async function backfillShiftForceClosedAuditLogs() {
         }
     } catch (error) {
         console.error('   ⚠️ backfillShiftForceClosedAuditLogs:', error.message);
+    }
+}
+
+async function sanitizeAuditBackfillDetails() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'audit_logs'
+        `);
+
+        if (tables.length === 0) {
+            console.log('   ⏭️  Skipped audit detail cleanup (audit_logs missing)');
+            return;
+        }
+
+        // Remove technical wording from legacy backfilled notes.
+        const [notesResult] = await db.query(`
+            UPDATE audit_logs
+            SET details_json = JSON_SET(
+                details_json,
+                '$.notes',
+                TRIM(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(details_json, '$.notes')), '(backfilled)', ''))
+            )
+            WHERE action = 'shift_force_closed'
+            AND JSON_EXTRACT(details_json, '$.notes') IS NOT NULL
+            AND JSON_UNQUOTE(JSON_EXTRACT(details_json, '$.notes')) LIKE '%(backfilled)%'
+        `);
+
+        // Remove legacy technical marker key from older rows.
+        const [flagResult] = await db.query(`
+            UPDATE audit_logs
+            SET details_json = JSON_REMOVE(details_json, '$.backfilled')
+            WHERE action = 'shift_force_closed'
+            AND JSON_EXTRACT(details_json, '$.backfilled') IS NOT NULL
+        `);
+
+        const notesCleaned = Number(notesResult?.affectedRows || 0);
+        const flagsRemoved = Number(flagResult?.affectedRows || 0);
+
+        if (notesCleaned > 0 || flagsRemoved > 0) {
+            console.log(`   ✅ Cleaned audit details (notes: ${notesCleaned}, flags: ${flagsRemoved})`);
+        } else {
+            console.log('   ⏭️  No audit detail cleanup needed');
+        }
+    } catch (error) {
+        console.error('   ⚠️ sanitizeAuditBackfillDetails:', error.message);
     }
 }
 
