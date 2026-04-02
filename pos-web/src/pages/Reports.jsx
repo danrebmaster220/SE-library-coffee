@@ -39,7 +39,6 @@ export default function Reports() {
   // Audit report state
   const [auditData, setAuditData] = useState([]);
   const [auditActionFilter, setAuditActionFilter] = useState('');
-  const [showAuditId, setShowAuditId] = useState(false);
 
   // Pagination states
   const [ordersPage, setOrdersPage] = useState(1);
@@ -820,14 +819,6 @@ export default function Reports() {
                 <option value="shift_ended">Shift Ended</option>
                 <option value="shift_force_closed">Shift Force Closed</option>
               </select>
-              <label className="audit-id-toggle">
-                <input
-                  type="checkbox"
-                  checked={showAuditId}
-                  onChange={(e) => setShowAuditId(e.target.checked)}
-                />
-                Show Audit ID
-              </label>
             </>
           )}
 
@@ -1209,7 +1200,7 @@ export default function Reports() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        {showAuditId && <th>Log ID</th>}
+                        <th>Log ID</th>
                         <th>Date/Time</th>
                         <th>Action</th>
                         <th>Actor</th>
@@ -1224,11 +1215,7 @@ export default function Reports() {
 
                         return (
                         <tr key={log.audit_id}>
-                          {showAuditId && (
-                            <td className="audit-id-cell" title={`DB ID: ${log.audit_id}`}>
-                              {logDisplayId}
-                            </td>
-                          )}
+                          <td className="audit-id-cell">{logDisplayId}</td>
                           <td>{formatDateTime(log.created_at)}</td>
                           <td>
                             <span className={`status-badge audit-action-badge ${getAuditActionBadgeClass(log.action)}`}>
