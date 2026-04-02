@@ -11,6 +11,8 @@ export default function Reports() {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [cashierFilter, setCashierFilter] = useState('');
+  const [cashierOptions, setCashierOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   
   // Export dropdown state
@@ -60,6 +62,10 @@ export default function Reports() {
     setEndDate(today);
   }, []);
 
+  useEffect(() => {
+    fetchCashierOptions();
+  }, []);
+
   // Fetch data when tab or filters change
   useEffect(() => {
     if (startDate && endDate) {
@@ -101,7 +107,13 @@ export default function Reports() {
   const fetchOrdersReport = async () => {
     try {
       const response = await api.get('/reports/orders', {
-        params: { startDate, endDate, orderType: orderTypeFilter, status: orderStatusFilter }
+        params: {
+          startDate,
+          endDate,
+          orderType: orderTypeFilter,
+          status: orderStatusFilter,
+          cashierUserId: cashierFilter || undefined
+        }
       });
       setOrdersData(response.data.orders || []);
     } catch (error) {
@@ -112,10 +124,15 @@ export default function Reports() {
 
   const fetchSalesReport = async () => {
     try {
-      console.log('Fetching sales report with params:', { startDate, endDate });
+      const params = {
+        startDate,
+        endDate,
+        cashierUserId: cashierFilter || undefined
+      };
+      console.log('Fetching sales report with params:', params);
       const [summaryRes, detailsRes] = await Promise.all([
-        api.get('/reports/sales-summary', { params: { startDate, endDate } }),
-        api.get('/reports/sales-details', { params: { startDate, endDate } })
+        api.get('/reports/sales-summary', { params }),
+        api.get('/reports/sales-details', { params })
       ]);
       console.log('Sales summary response:', summaryRes.data);
       console.log('Sales details response:', detailsRes.data);
@@ -128,9 +145,21 @@ export default function Reports() {
 
   const fetchLibraryReport = async () => {
     try {
-      console.log('Fetching library report with params:', { startDate, endDate, status: sessionStatusFilter, search: searchTerm });
+      console.log('Fetching library report with params:', {
+        startDate,
+        endDate,
+        status: sessionStatusFilter,
+        search: searchTerm,
+        cashierUserId: cashierFilter || undefined
+      });
       const response = await api.get('/reports/library', {
-        params: { startDate, endDate, status: sessionStatusFilter, search: searchTerm }
+        params: {
+          startDate,
+          endDate,
+          status: sessionStatusFilter,
+          search: searchTerm,
+          cashierUserId: cashierFilter || undefined
+        }
       });
       console.log('Library report response:', response.data);
       setLibraryData(response.data.sessions || []);
@@ -149,6 +178,7 @@ export default function Reports() {
           startDate,
           endDate,
           action: auditActionFilter,
+          actorUserId: cashierFilter || undefined,
           search: searchTerm,
           limit: 500
         }
@@ -165,6 +195,26 @@ export default function Reports() {
     fetchReportData();
   };
 
+  const fetchCashierOptions = async () => {
+    try {
+      const response = await api.get('/users');
+      const users = Array.isArray(response.data) ? response.data : [];
+      const cashiers = users
+        .filter((user) => String(user.role_name || '').toLowerCase() === 'cashier')
+        .filter((user) => String(user.status || '').toLowerCase() === 'active')
+        .map((user) => ({
+          user_id: user.user_id,
+          full_name: user.full_name,
+          username: user.username
+        }));
+
+      setCashierOptions(cashiers);
+    } catch (error) {
+      console.error('Error fetching cashier options:', error);
+      setCashierOptions([]);
+    }
+  };
+
   const handleExportExcel = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -177,10 +227,15 @@ export default function Reports() {
       if (activeTab === 'orders') {
         if (orderTypeFilter) params.append('orderType', orderTypeFilter);
         if (orderStatusFilter) params.append('status', orderStatusFilter);
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
+      } else if (activeTab === 'sales') {
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'library') {
         if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'audit') {
         if (auditActionFilter) params.append('action', auditActionFilter);
+        if (cashierFilter) params.append('actorUserId', cashierFilter);
         if (searchTerm) params.append('search', searchTerm);
       }
 
@@ -235,10 +290,15 @@ export default function Reports() {
       if (activeTab === 'orders') {
         if (orderTypeFilter) params.append('orderType', orderTypeFilter);
         if (orderStatusFilter) params.append('status', orderStatusFilter);
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
+      } else if (activeTab === 'sales') {
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'library') {
         if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+        if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'audit') {
         if (auditActionFilter) params.append('action', auditActionFilter);
+        if (cashierFilter) params.append('actorUserId', cashierFilter);
         if (searchTerm) params.append('search', searchTerm);
       }
 
@@ -373,7 +433,7 @@ export default function Reports() {
     if (typeof details === 'string') {
       try {
         parsed = JSON.parse(details);
-      } catch (_error) {
+      } catch {
         return details;
       }
     }
@@ -437,19 +497,19 @@ export default function Reports() {
   // Reset page when filter/search changes
   useEffect(() => {
     setOrdersPage(1);
-  }, [searchTerm, ordersData, orderTypeFilter, orderStatusFilter]);
+  }, [searchTerm, ordersData, orderTypeFilter, orderStatusFilter, cashierFilter]);
 
   useEffect(() => {
     setSalesPage(1);
-  }, [salesDetails]);
+  }, [salesDetails, cashierFilter]);
 
   useEffect(() => {
     setLibraryPage(1);
-  }, [searchTerm, libraryData, sessionStatusFilter]);
+  }, [searchTerm, libraryData, sessionStatusFilter, cashierFilter]);
 
   useEffect(() => {
     setAuditPage(1);
-  }, [searchTerm, auditData, auditActionFilter]);
+  }, [searchTerm, auditData, auditActionFilter, cashierFilter]);
 
   // Pagination calculations for Orders
   const ordersTotalPages = Math.ceil(filteredOrders.length / rowsPerPage);
@@ -643,6 +703,19 @@ export default function Reports() {
           </div>
 
           {/* Conditional Filters based on active tab */}
+          <select
+            className="filter-select filter-select--cashier"
+            value={cashierFilter}
+            onChange={(e) => setCashierFilter(e.target.value)}
+          >
+            <option value="">All Cashiers</option>
+            {cashierOptions.map((cashier) => (
+              <option key={cashier.user_id} value={cashier.user_id}>
+                {cashier.full_name || cashier.username || `Cashier #${cashier.user_id}`}
+              </option>
+            ))}
+          </select>
+
           {activeTab === 'orders' && (
             <>
               <select

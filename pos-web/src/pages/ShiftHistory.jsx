@@ -8,12 +8,15 @@ export default function ShiftHistory() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [cashierFilter, setCashierFilter] = useState('');
+  const [cashierOptions, setCashierOptions] = useState([]);
   const [selectedShift, setSelectedShift] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const rowsPerPage = 10;
 
   useEffect(() => {
     fetchHistory();
+    fetchCashierOptions();
 
     const handleShiftUpdated = () => fetchHistory(false);
     window.addEventListener('shiftUpdated', handleShiftUpdated);
@@ -28,16 +31,22 @@ export default function ShiftHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchHistory = async (resetPage = true) => {
+  const fetchHistory = async (resetPage = true, overrides = {}) => {
     try {
       setLoading(true);
       if (resetPage) {
         setHistoryPage(1);
       }
+
+      const effectiveStartDate = overrides.startDate ?? startDate;
+      const effectiveEndDate = overrides.endDate ?? endDate;
+      const effectiveCashierFilter = overrides.cashierFilter ?? cashierFilter;
+
       let url = "/shifts/history";
       const params = [];
-      if (startDate) params.push(`start_date=${startDate}`);
-      if (endDate) params.push(`end_date=${endDate}`);
+      if (effectiveStartDate) params.push(`start_date=${effectiveStartDate}`);
+      if (effectiveEndDate) params.push(`end_date=${effectiveEndDate}`);
+      if (effectiveCashierFilter) params.push(`user_id=${effectiveCashierFilter}`);
       if (params.length > 0) url += '?' + params.join('&');
       
       const response = await api.get(url);
@@ -46,6 +55,26 @@ export default function ShiftHistory() {
       console.error("Error fetching shift history:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCashierOptions = async () => {
+    try {
+      const response = await api.get('/users');
+      const users = Array.isArray(response.data) ? response.data : [];
+      const cashiers = users
+        .filter((user) => String(user.role_name || '').toLowerCase() === 'cashier')
+        .filter((user) => String(user.status || '').toLowerCase() === 'active')
+        .map((user) => ({
+          user_id: user.user_id,
+          full_name: user.full_name,
+          username: user.username
+        }));
+
+      setCashierOptions(cashiers);
+    } catch (error) {
+      console.error('Error fetching cashier options:', error);
+      setCashierOptions([]);
     }
   };
 
@@ -116,9 +145,28 @@ export default function ShiftHistory() {
           <label>To:</label>
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
-        <button className="btn-filter" onClick={fetchHistory}>Apply Filter</button>
-        {(startDate || endDate) && (
-          <button className="btn-clear-filter" onClick={() => { setStartDate(''); setEndDate(''); fetchHistory(); }}>
+        <div className="filter-group">
+          <label>Cashier:</label>
+          <select className="filter-select-cashier" value={cashierFilter} onChange={(e) => setCashierFilter(e.target.value)}>
+            <option value="">All Cashiers</option>
+            {cashierOptions.map((cashier) => (
+              <option key={cashier.user_id} value={cashier.user_id}>
+                {cashier.full_name || cashier.username || `Cashier #${cashier.user_id}`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button className="btn-filter" onClick={() => fetchHistory(true)}>Apply Filter</button>
+        {(startDate || endDate || cashierFilter) && (
+          <button
+            className="btn-clear-filter"
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+              setCashierFilter('');
+              fetchHistory(true, { startDate: '', endDate: '', cashierFilter: '' });
+            }}
+          >
             Clear
           </button>
         )}

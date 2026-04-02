@@ -115,6 +115,25 @@
   outline: none;
 }
 
+.filter-group .filter-select-cashier {
+  min-width: 170px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  appearance: none;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+
+.filter-group .filter-select-cashier:focus {
+  border-color: #8D6E63;
+  box-shadow: 0 0 0 2px rgba(141, 110, 99, 0.12);
+}
+
 .btn-filter {
   padding: 6px 14px;
   background: #5D4037;
@@ -450,4 +469,26 @@
   margin: 0;
   color: #999;
   font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .filter-bar {
+    padding: 10px 12px;
+  }
+
+  .filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-group input[type="date"],
+  .filter-group .filter-select-cashier {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .btn-filter,
+  .btn-clear-filter {
+    width: 100%;
+  }
 }

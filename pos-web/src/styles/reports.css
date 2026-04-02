@@ -69,6 +69,13 @@
   flex-wrap: wrap;
 }
 
+.toolbar-left .search-input,
+.toolbar-left .date-input,
+.toolbar-left .filter-select,
+.toolbar-left .btn-apply {
+  min-height: 42px;
+}
+
 .toolbar-right {
   display: flex;
   align-items: center;
@@ -141,6 +148,10 @@
 .filter-select:focus {
   outline: none;
   border-color: var(--coffee-dark, #6b4423);
+}
+
+.filter-select--cashier {
+  min-width: 180px;
 }
 
 .audit-id-toggle {
@@ -850,6 +861,10 @@
   box-sizing: border-box;
 }
 
+.filter-select--cashier {
+  min-width: 0;
+}
+
 .btn-apply {
   width: 100%;
 }
@@ -1033,6 +1048,12 @@
   .toolbar-left {
     flex-direction: row;
     width: auto;
+    row-gap: 10px;
+    column-gap: 10px;
+  }
+
+  .toolbar-left > * {
+    flex-shrink: 0;
   }
   
   .toolbar-right {
@@ -1121,6 +1142,31 @@
 
 /* === 1024px: Tablet Landscape / Small Desktop === */
 @media (min-width: 1024px) {
+  .toolbar-left {
+    row-gap: 8px;
+    column-gap: 8px;
+  }
+
+  .search-input {
+    width: 200px;
+  }
+
+  .date-input {
+    min-width: 132px;
+  }
+
+  .filter-select {
+    min-width: 128px;
+  }
+
+  .filter-select--cashier {
+    min-width: 168px;
+  }
+
+  .btn-apply {
+    padding: 10px 16px;
+  }
+
   .summary-cards {
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
@@ -1141,8 +1187,36 @@
   }
 }
 
+/* Fine-tune report header alignment on common laptop widths */
+@media (min-width: 1024px) and (max-width: 1365px) {
+  .report-header {
+    align-items: flex-end;
+  }
+
+  .export-dropdown-container {
+    display: flex;
+    align-items: center;
+  }
+
+  .export-dropdown-container .btn-export {
+    min-height: 52px;
+  }
+}
+
 /* === 1280px+: Desktop === */
 @media (min-width: 1280px) {
+  .search-input {
+    width: 240px;
+  }
+
+  .date-input {
+    min-width: 140px;
+  }
+
+  .filter-select--cashier {
+    min-width: 190px;
+  }
+
   .summary-cards {
     grid-template-columns: repeat(6, 1fr);
   }

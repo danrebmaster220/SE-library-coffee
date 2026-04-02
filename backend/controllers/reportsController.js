@@ -83,7 +83,7 @@ const stringifyAuditDetails = (details) => {
 // SALES SUMMARY (by date range) - Uses transactions table
 
 exports.getSalesSummary = async (req, res) => {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, cashierUserId } = req.query;
 
     try {
         let whereConditions = ["t.status != 'voided'"];
@@ -95,6 +95,11 @@ exports.getSalesSummary = async (req, res) => {
         } else {
             // Default to today
             whereConditions.push('DATE(t.created_at) = CURDATE()');
+        }
+
+        if (cashierUserId) {
+            whereConditions.push('t.processed_by = ?');
+            params.push(cashierUserId);
         }
 
         const whereClause = whereConditions.join(' AND ');
@@ -273,7 +278,7 @@ exports.getHourlySales = async (req, res) => {
 // ORDERS REPORT (detailed list)
 
 exports.getOrdersReport = async (req, res) => {
-    const { startDate, endDate, orderType, status } = req.query;
+    const { startDate, endDate, orderType, status, cashierUserId } = req.query;
 
     try {
         let whereConditions = ['1=1'];
@@ -292,6 +297,11 @@ exports.getOrdersReport = async (req, res) => {
         if (status) {
             whereConditions.push('t.status = ?');
             params.push(status);
+        }
+
+        if (cashierUserId) {
+            whereConditions.push('t.processed_by = ?');
+            params.push(cashierUserId);
         }
 
         const [orders] = await db.query(`
@@ -327,7 +337,7 @@ exports.getOrdersReport = async (req, res) => {
 // SALES DETAILS (daily breakdown)
 
 exports.getSalesDetails = async (req, res) => {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, cashierUserId } = req.query;
 
     try {
         let whereConditions = ["t.status != 'voided'"];
@@ -336,6 +346,11 @@ exports.getSalesDetails = async (req, res) => {
         if (startDate && endDate) {
             whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
             params.push(startDate, endDate);
+        }
+
+        if (cashierUserId) {
+            whereConditions.push('t.processed_by = ?');
+            params.push(cashierUserId);
         }
 
         const [details] = await db.query(`
@@ -363,8 +378,8 @@ exports.getSalesDetails = async (req, res) => {
 // LIBRARY REPORT (session list with summary)
 
 exports.getLibraryReport = async (req, res) => {
-    const { startDate, endDate, status, search } = req.query;
-    console.log('Library report request:', { startDate, endDate, status, search });
+    const { startDate, endDate, status, search, cashierUserId } = req.query;
+    console.log('Library report request:', { startDate, endDate, status, search, cashierUserId });
 
     try {
         let whereConditions = ['1=1'];
@@ -383,6 +398,19 @@ exports.getLibraryReport = async (req, res) => {
         if (search) {
             whereConditions.push('(ls.customer_name LIKE ? OR ls.session_id LIKE ?)');
             params.push(`%${search}%`, `%${search}%`);
+        }
+
+        if (cashierUserId) {
+            whereConditions.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM transactions t
+                    WHERE t.library_session_id = ls.session_id
+                    AND t.processed_by = ?
+                    AND t.status != 'voided'
+                )
+            `);
+            params.push(cashierUserId);
         }
 
         const whereClause = whereConditions.join(' AND ');
@@ -523,7 +551,7 @@ exports.getAuditLogs = async (req, res) => {
 // EXPORT TO EXCEL
 
 exports.exportExcel = async (req, res) => {
-    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search, cashierUserId } = req.query;
 
     try {
         const workbook = new ExcelJS.Workbook();
@@ -614,6 +642,11 @@ exports.exportExcel = async (req, res) => {
             if (status) {
                 whereConditions.push('t.status = ?');
                 params.push(status);
+            }
+
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                params.push(cashierUserId);
             }
 
             // Get orders data
@@ -774,6 +807,11 @@ exports.exportExcel = async (req, res) => {
                 params.push(startDate, endDate);
             }
 
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                params.push(cashierUserId);
+            }
+
             // Get daily sales breakdown
             const [salesDetails] = await db.query(`
                 SELECT 
@@ -923,6 +961,19 @@ exports.exportExcel = async (req, res) => {
             if (status && status !== 'all') {
                 whereConditions.push('ls.status = ?');
                 params.push(status);
+            }
+
+            if (cashierUserId) {
+                whereConditions.push(`
+                    EXISTS (
+                        SELECT 1
+                        FROM transactions t
+                        WHERE t.library_session_id = ls.session_id
+                        AND t.processed_by = ?
+                        AND t.status != 'voided'
+                    )
+                `);
+                params.push(cashierUserId);
             }
 
             // Get sessions
@@ -1203,7 +1254,7 @@ exports.exportExcel = async (req, res) => {
 // EXPORT TO PDF
 
 exports.exportPDF = async (req, res) => {
-    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search, cashierUserId } = req.query;
 
     try {
         // Create PDF document
@@ -1325,6 +1376,11 @@ exports.exportPDF = async (req, res) => {
                 params.push(status);
             }
 
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                params.push(cashierUserId);
+            }
+
             const [orders] = await db.query(`
                 SELECT 
                     t.transaction_id,
@@ -1394,9 +1450,10 @@ exports.exportPDF = async (req, res) => {
                 FROM transactions t
                 WHERE t.status != 'voided'
                 AND DATE(t.created_at) BETWEEN ? AND ?
+                ${cashierUserId ? 'AND t.processed_by = ?' : ''}
                 GROUP BY DATE(t.created_at)
                 ORDER BY DATE(t.created_at) DESC
-            `, [startDate, endDate]);
+            `, cashierUserId ? [startDate, endDate, cashierUserId] : [startDate, endDate]);
 
             // Calculate totals
             const totalOrders = dailySales.reduce((sum, d) => sum + d.order_count, 0);
@@ -1443,6 +1500,19 @@ exports.exportPDF = async (req, res) => {
             if (status) {
                 whereConditions.push('ls.status = ?');
                 params.push(status);
+            }
+
+            if (cashierUserId) {
+                whereConditions.push(`
+                    EXISTS (
+                        SELECT 1
+                        FROM transactions t
+                        WHERE t.library_session_id = ls.session_id
+                        AND t.processed_by = ?
+                        AND t.status != 'voided'
+                    )
+                `);
+                params.push(cashierUserId);
             }
 
             const [sessions] = await db.query(`
