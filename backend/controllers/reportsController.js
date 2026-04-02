@@ -545,9 +545,13 @@ exports.getAuditLogs = async (req, res) => {
                 a.ip_address,
                 a.created_at,
                 u.full_name as actor_full_name,
-                u.username as actor_username
+                u.username as actor_username,
+                tu.full_name as affected_staff_full_name,
+                tu.username as affected_staff_username
             FROM audit_logs a
             LEFT JOIN users u ON a.actor_user_id = u.user_id
+            LEFT JOIN users tu
+                ON tu.user_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.details_json, '$.target_user_id')) AS UNSIGNED)
             WHERE ${whereClause}
             ORDER BY a.created_at DESC
             LIMIT ? OFFSET ?
@@ -1161,9 +1165,13 @@ exports.exportExcel = async (req, res) => {
                     a.ip_address,
                     a.created_at,
                     u.full_name as actor_full_name,
-                    u.username as actor_username
+                    u.username as actor_username,
+                    tu.full_name as affected_staff_full_name,
+                    tu.username as affected_staff_username
                 FROM audit_logs a
                 LEFT JOIN users u ON a.actor_user_id = u.user_id
+                LEFT JOIN users tu
+                    ON tu.user_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.details_json, '$.target_user_id')) AS UNSIGNED)
                 WHERE ${whereClause}
                 ORDER BY a.created_at DESC
                 LIMIT 5000
@@ -1174,7 +1182,7 @@ exports.exportExcel = async (req, res) => {
             const forceClosures = logs.filter((log) => log.action === 'shift_force_closed').length;
 
             // Title
-            worksheet.mergeCells('A1:G1');
+            worksheet.mergeCells('A1:H1');
             const titleCell = worksheet.getCell('A1');
             titleCell.value = 'AUDIT TRAIL REPORT';
             titleCell.font = { bold: true, size: 16, color: { argb: 'FF6B4423' } };
@@ -1182,7 +1190,7 @@ exports.exportExcel = async (req, res) => {
             worksheet.getRow(1).height = 28;
 
             // Date range
-            worksheet.mergeCells('A2:G2');
+            worksheet.mergeCells('A2:H2');
             const dateRangeCell = worksheet.getCell('A2');
             dateRangeCell.value = `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`;
             dateRangeCell.font = { size: 11, color: { argb: 'FF666666' } };
@@ -1210,7 +1218,7 @@ exports.exportExcel = async (req, res) => {
             });
 
             const dataStartRow = summaryRow + 1;
-            const headers = ['Date/Time', 'Action', 'Actor', 'Target', 'Details', 'IP Address', 'Audit ID'];
+            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'Details', 'IP Address', 'Audit ID'];
 
             headers.forEach((header, index) => {
                 const cell = worksheet.getCell(dataStartRow, index + 1);
@@ -1226,6 +1234,8 @@ exports.exportExcel = async (req, res) => {
 
                 const actorName = log.actor_full_name || 'System';
                 const actorUsername = log.actor_username ? ` (@${log.actor_username})` : '';
+                const affectedName = log.affected_staff_full_name || '-';
+                const affectedUsername = log.affected_staff_username ? ` (@${log.affected_staff_username})` : '';
                 const targetLabel = log.target_type
                     ? `${log.target_type}${log.target_id != null ? ` #${log.target_id}` : ''}`
                     : '-';
@@ -1233,15 +1243,16 @@ exports.exportExcel = async (req, res) => {
                 row.getCell(1).value = formatDateTime(log.created_at);
                 row.getCell(2).value = formatAuditActionLabel(log.action);
                 row.getCell(3).value = `${actorName}${actorUsername}`;
-                row.getCell(4).value = targetLabel;
-                row.getCell(5).value = stringifyAuditDetails(log.details_json);
-                row.getCell(6).value = log.ip_address || '-';
-                row.getCell(7).value = log.audit_id;
+                row.getCell(4).value = affectedName === '-' ? '-' : `${affectedName}${affectedUsername}`;
+                row.getCell(5).value = targetLabel;
+                row.getCell(6).value = stringifyAuditDetails(log.details_json);
+                row.getCell(7).value = log.ip_address || '-';
+                row.getCell(8).value = log.audit_id;
 
-                for (let col = 1; col <= 7; col++) {
+                for (let col = 1; col <= 8; col++) {
                     const cell = row.getCell(col);
                     cell.border = cellBorder;
-                    cell.alignment = { horizontal: col === 5 ? 'left' : 'center', vertical: 'middle', wrapText: col === 5 };
+                    cell.alignment = { horizontal: col === 6 ? 'left' : 'center', vertical: 'middle', wrapText: col === 6 };
 
                     if (col === 2) {
                         cell.font = { bold: true, color: { argb: 'FF1565C0' } };
@@ -1255,8 +1266,9 @@ exports.exportExcel = async (req, res) => {
                 { width: 22 }, // Date/Time
                 { width: 22 }, // Action
                 { width: 22 }, // Actor
+                { width: 22 }, // Affected Staff
                 { width: 18 }, // Target
-                { width: 46 }, // Details
+                { width: 42 }, // Details
                 { width: 18 }, // IP
                 { width: 10 }  // Audit ID
             ];
@@ -1619,9 +1631,13 @@ exports.exportPDF = async (req, res) => {
                     a.ip_address,
                     a.created_at,
                     u.full_name as actor_full_name,
-                    u.username as actor_username
+                    u.username as actor_username,
+                    tu.full_name as affected_staff_full_name,
+                    tu.username as affected_staff_username
                 FROM audit_logs a
                 LEFT JOIN users u ON a.actor_user_id = u.user_id
+                LEFT JOIN users tu
+                    ON tu.user_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.details_json, '$.target_user_id')) AS UNSIGNED)
                 WHERE ${whereClause}
                 ORDER BY a.created_at DESC
                 LIMIT 1200
@@ -1644,8 +1660,8 @@ exports.exportPDF = async (req, res) => {
             );
             y += 30;
 
-            const headers = ['Date/Time', 'Action', 'Actor', 'Target', 'IP', 'Details'];
-            const columnWidths = [120, 100, 120, 90, 80, 250];
+            const headers = ['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'IP', 'Details'];
+            const columnWidths = [105, 90, 100, 100, 80, 70, 215];
 
             y = drawTableHeader(headers, y, columnWidths);
 
@@ -1658,6 +1674,8 @@ exports.exportPDF = async (req, res) => {
 
                 const actorName = log.actor_full_name || 'System';
                 const actorUsername = log.actor_username ? ` @${log.actor_username}` : '';
+                const affectedName = log.affected_staff_full_name || '-';
+                const affectedUsername = log.affected_staff_username ? ` @${log.affected_staff_username}` : '';
                 const targetLabel = log.target_type
                     ? `${log.target_type}${log.target_id != null ? ` #${log.target_id}` : ''}`
                     : '-';
@@ -1669,6 +1687,7 @@ exports.exportPDF = async (req, res) => {
                     formatDateTime(log.created_at),
                     formatAuditActionLabel(log.action),
                     `${actorName}${actorUsername}`,
+                    affectedName === '-' ? '-' : `${affectedName}${affectedUsername}`,
                     targetLabel,
                     log.ip_address || '-',
                     limitedDetails

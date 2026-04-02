@@ -454,6 +454,33 @@ export default function Reports() {
     return preview || '-';
   };
 
+  const getAuditAffectedStaffLabel = (log) => {
+    if (log?.affected_staff_full_name || log?.affected_staff_username) {
+      const fullName = log.affected_staff_full_name || '';
+      const username = log.affected_staff_username ? `@${log.affected_staff_username}` : '';
+      return `${fullName} ${username}`.trim();
+    }
+
+    let parsed = log?.details_json;
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        return '-';
+      }
+    }
+
+    const targetUserId = parsed?.target_user_id;
+    if (!targetUserId) return '-';
+
+    const matchedStaff = cashierOptions.find((staff) => Number(staff.user_id) === Number(targetUserId));
+    if (matchedStaff) {
+      return `${matchedStaff.full_name || matchedStaff.username || `User #${targetUserId}`}`;
+    }
+
+    return `User #${targetUserId}`;
+  };
+
   // Filter data based on search term
   const filteredOrders = ordersData.filter(order => {
     const searchLower = searchTerm.toLowerCase();
@@ -487,12 +514,14 @@ export default function Reports() {
     const searchLower = searchTerm.toLowerCase();
     const actor = `${log.actor_full_name || ''} ${log.actor_username || ''}`.toLowerCase();
     const targetText = `${log.target_type || ''} ${log.target_id || ''}`.toLowerCase();
+    const affectedStaffText = getAuditAffectedStaffLabel(log).toLowerCase();
     const actionText = String(log.action || '').toLowerCase();
     const ipText = String(log.ip_address || '').toLowerCase();
 
     return (
       actionText.includes(searchLower) ||
       actor.includes(searchLower) ||
+      affectedStaffText.includes(searchLower) ||
       targetText.includes(searchLower) ||
       ipText.includes(searchLower)
     );
@@ -1164,6 +1193,7 @@ export default function Reports() {
                         <th>Date/Time</th>
                         <th>Action</th>
                         <th>Actor</th>
+                        <th>Affected Staff</th>
                         <th>Target</th>
                         <th>Details</th>
                         <th>IP Address</th>
@@ -1187,6 +1217,7 @@ export default function Reports() {
                               </span>
                             </div>
                           </td>
+                          <td>{getAuditAffectedStaffLabel(log)}</td>
                           <td>
                             {log.target_type
                               ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}`
