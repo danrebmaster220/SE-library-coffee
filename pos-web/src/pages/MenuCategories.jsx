@@ -8,7 +8,7 @@ export default function MenuCategories() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({ name: "", status: "active" });
+  const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -78,20 +78,25 @@ export default function MenuCategories() {
 
   const openEditModal = (category) => {
     setEditingCategory(category);
-    setFormData({ name: category.name, status: category.status || "active" });
+    setFormData({
+      name: category.name,
+      status: category.status || "active",
+      allow_hot: Number(category.allow_hot ?? 1) === 1,
+      allow_iced: Number(category.allow_iced ?? 1) === 1
+    });
     setShowModal(true);
   };
 
   const openAddModal = () => {
     setEditingCategory(null);
-    setFormData({ name: "", status: "active" });
+    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true });
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingCategory(null);
-    setFormData({ name: "", status: "active" });
+    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true });
   };
 
   const filteredCategories = categories.filter((cat) => {
@@ -186,6 +191,7 @@ export default function MenuCategories() {
                   <tr>
                     <th>ID</th>
                     <th>Category Name</th>
+                    <th>Temp Modes</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -196,6 +202,17 @@ export default function MenuCategories() {
                   <tr key={category.category_id}>
                     <td>#{category.category_id}</td>
                     <td><span className="item-name-text">{category.name}</span></td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: '#5d4037', fontWeight: 600 }}>
+                        {(() => {
+                          const allowHot = Number(category.allow_hot ?? 1) === 1;
+                          const allowIced = Number(category.allow_iced ?? 1) === 1;
+                          if (!allowHot && !allowIced) return 'Disabled';
+                          if (allowHot && allowIced) return 'Hot / Iced';
+                          return allowHot ? 'Hot' : 'Iced';
+                        })()}
+                      </span>
+                    </td>
                     <td>
                       <span className={`status-badge ${category.status === "active" ? "status-active" : "status-inactive"}`}>
                         {category.status === "active" ? "Active" : "Inactive"}
@@ -279,6 +296,29 @@ export default function MenuCategories() {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
+              <div className="form-group checkbox-group" style={{ marginTop: '10px' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.allow_hot}
+                    onChange={(e) => setFormData({ ...formData, allow_hot: e.target.checked })}
+                  />
+                  <span>Allow Hot in this category</span>
+                </label>
+              </div>
+              <div className="form-group checkbox-group" style={{ marginTop: '4px' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.allow_iced}
+                    onChange={(e) => setFormData({ ...formData, allow_iced: e.target.checked })}
+                  />
+                  <span>Allow Iced in this category</span>
+                </label>
+              </div>
+              <small className="form-hint" style={{ display: 'block', marginTop: '6px' }}>
+                These toggles control which Temperature options appear for items in this category.
+              </small>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel

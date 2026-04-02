@@ -46,6 +46,12 @@ async function runMigrations() {
         // Migration 12: Clean technical backfill terms from audit details
         await sanitizeAuditBackfillDetails();
 
+        // Migration 13: Add category-level hot/iced visibility flags
+        await addCategoryTempVisibilityColumns();
+
+        // Migration 14: Create item-level variant pricing table
+        await createItemVariantPricingTable();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -489,6 +495,88 @@ async function sanitizeAuditBackfillDetails() {
         }
     } catch (error) {
         console.error('   ⚠️ sanitizeAuditBackfillDetails:', error.message);
+    }
+}
+
+async function addCategoryTempVisibilityColumns() {
+    try {
+        const [hotCol] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'categories'
+            AND COLUMN_NAME = 'allow_hot'
+        `);
+
+        if (hotCol.length === 0) {
+            await db.query(`
+                ALTER TABLE categories
+                ADD COLUMN allow_hot TINYINT(1) NOT NULL DEFAULT 1
+            `);
+            console.log('   ✅ Added categories.allow_hot');
+        } else {
+            console.log('   ⏭️  categories.allow_hot already exists');
+        }
+
+        const [icedCol] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'categories'
+            AND COLUMN_NAME = 'allow_iced'
+        `);
+
+        if (icedCol.length === 0) {
+            await db.query(`
+                ALTER TABLE categories
+                ADD COLUMN allow_iced TINYINT(1) NOT NULL DEFAULT 1
+            `);
+            console.log('   ✅ Added categories.allow_iced');
+        } else {
+            console.log('   ⏭️  categories.allow_iced already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addCategoryTempVisibilityColumns:', error.message);
+    }
+}
+
+async function createItemVariantPricingTable() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'item_variant_prices'
+        `);
+
+        if (tables.length > 0) {
+            console.log('   ⏭️  item_variant_prices table already exists');
+            return;
+        }
+
+        await db.query(`
+            CREATE TABLE item_variant_prices (
+                variant_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                item_id INT NOT NULL,
+                size_option_id INT NULL,
+                temp_option_id INT NULL,
+                price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_item_variant_combo (item_id, size_option_id, temp_option_id),
+                INDEX idx_item_variant_item (item_id),
+                INDEX idx_item_variant_size (size_option_id),
+                INDEX idx_item_variant_temp (temp_option_id),
+                CONSTRAINT fk_item_variant_item FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE,
+                CONSTRAINT fk_item_variant_size FOREIGN KEY (size_option_id) REFERENCES customization_options(option_id) ON DELETE SET NULL,
+                CONSTRAINT fk_item_variant_temp FOREIGN KEY (temp_option_id) REFERENCES customization_options(option_id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        `);
+
+        console.log('   ✅ Created item_variant_prices table');
+    } catch (error) {
+        console.error('   ⚠️ createItemVariantPricingTable:', error.message);
     }
 }
 

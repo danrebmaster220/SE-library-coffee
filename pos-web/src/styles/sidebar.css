@@ -75,9 +75,10 @@
 /* Sidebar Header / Logo */
 .sidebar-header {
   padding: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  border-bottom: 1px solid rgba(62, 39, 35, 0.2);
   flex-shrink: 0;
-  background: rgba(255,255,255,0.05);
+  background: #c3a585;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.45);
   min-height: 80px;
 }
 
@@ -92,8 +93,8 @@
   height: 55px;
   border-radius: 8px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
-  background: rgba(255,255,255,0.1);
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.18));
+  background: #efe6d8;
   padding: 4px;
   flex-shrink: 0;
   transition: width 0.3s ease, height 0.3s ease;
@@ -105,6 +106,9 @@
 }
 
 .logo-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow: hidden;
   white-space: nowrap;
   transition: opacity 0.2s ease, width 0.3s ease;
@@ -114,16 +118,18 @@
   font-family: 'Poppins', sans-serif;
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: #3e2723;
   letter-spacing: 2px;
   margin: 0;
+  text-align: center;
 }
 
 .logo-text p {
   font-size: 10px;
-  color: var(--sidebar-text-muted);
+  color: #6f6258;
   letter-spacing: 1px;
   margin: 0;
+  text-align: center;
 }
 
 /* Navigation */

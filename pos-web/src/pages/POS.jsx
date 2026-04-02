@@ -6,6 +6,22 @@ import VoidTransactionModal from '../components/VoidTransactionModal';
 import Toast from '../components/Toast';
 import '../styles/pos.css';
 
+const isSizeGroupName = (name) => String(name || '').toLowerCase().includes('size');
+const isTempGroupName = (name) => String(name || '').toLowerCase().includes('temperature');
+
+const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
+  const rows = Array.isArray(variants) ? variants : [];
+  if (rows.length === 0) return null;
+
+  return rows.find((row) => {
+    const rowSize = row.size_option_id ?? null;
+    const rowTemp = row.temp_option_id ?? null;
+    const wantedSize = sizeOptionId ?? null;
+    const wantedTemp = tempOptionId ?? null;
+    return rowSize === wantedSize && rowTemp === wantedTemp;
+  }) || null;
+};
+
 export default function POS() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -236,7 +252,11 @@ export default function POS() {
         // No auto-selection - let user choose
         const defaults = {};
         
-        setCustomizingItem(item);
+        setCustomizingItem({
+          ...item,
+          base_price: parseFloat(baristaData.base_price ?? item.price),
+          variant_pricing: baristaData.variant_pricing || []
+        });
         setCustomizationGroups(groups);
         setSelectedCustomizations(defaults);
         setShowCustomization(true);
@@ -266,7 +286,11 @@ export default function POS() {
       const isCustomizable = res.data.is_customizable;
       
       if (isCustomizable && groups.length > 0) {
-        setCustomizingItem(item);
+        setCustomizingItem({
+          ...item,
+          base_price: parseFloat(res.data.base_price ?? item.price),
+          variant_pricing: res.data.variant_pricing || []
+        });
         setCustomizationGroups(groups);
         // No auto-selection - let user choose
         const defaults = {};
@@ -366,6 +390,26 @@ export default function POS() {
     
     // Slight delay to show loading state and prevent rapid double-clicks
     await new Promise(r => setTimeout(r, 200));
+
+    const selectedSizeGroup = customizationGroups.find(g => isSizeGroupName(g.name));
+    const selectedTempGroup = customizationGroups.find(g => isTempGroupName(g.name));
+    const selectedSizeOptionId = selectedSizeGroup
+      ? (selectedCustomizations[selectedSizeGroup.group_id || selectedSizeGroup.id] || [])[0] || null
+      : null;
+    const selectedTempOptionId = selectedTempGroup
+      ? (selectedCustomizations[selectedTempGroup.group_id || selectedTempGroup.id] || [])[0] || null
+      : null;
+
+    const defaultBasePrice = parseFloat(customizingItem.base_price ?? customizingItem.price) || 0;
+    const variantMatch = findVariantMatch(
+      customizingItem.variant_pricing,
+      selectedSizeOptionId,
+      selectedTempOptionId
+    );
+    const usingVariantBasePrice = !!variantMatch;
+    const resolvedBasePrice = usingVariantBasePrice
+      ? (parseFloat(variantMatch.price) || defaultBasePrice)
+      : defaultBasePrice;
     
     const customizations = [];
     let customizationTotal = 0;
@@ -377,7 +421,8 @@ export default function POS() {
         optionIds.forEach(optId => {
           const option = group.options.find(o => (o.option_id || o.id) === optId);
           if (option) {
-            const optPrice = parseFloat(option.price || option.price_per_unit) || 0;
+            const isVariantDriverGroup = usingVariantBasePrice && (isSizeGroupName(group.name) || isTempGroupName(group.name));
+            const optPrice = isVariantDriverGroup ? 0 : (parseFloat(option.price || option.price_per_unit) || 0);
             customizations.push({
               group_id: group.group_id || group.id,
               group_name: group.name,
@@ -420,10 +465,10 @@ export default function POS() {
       id: Date.now(),
       item_id: customizingItem.item_id,
       name: customizingItem.name,
-      base_price: parseFloat(customizingItem.price),
+      base_price: Number(resolvedBasePrice.toFixed(2)),
       customizations,
       customization_total: Number(customizationTotal.toFixed(2)),
-      total_price: Number((parseFloat(customizingItem.price) + customizationTotal).toFixed(2)),
+      total_price: Number((resolvedBasePrice + customizationTotal).toFixed(2)),
       quantity: 1
     };
 

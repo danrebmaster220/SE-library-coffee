@@ -428,18 +428,13 @@ export default function LibraryTransactions() {
   }
 
   return (
-    <div className="main-content library-transactions-page" style={{ position: 'relative' }}>
+    <div className="main-content library-transactions-page">
       {/* Shift Restricted Overlay */}
       {!hasActiveShift && !shiftChecking && !isAdmin && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)', zIndex: 1000,
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-          textAlign: 'center', padding: '20px', borderRadius: '8px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
-          <h2 style={{ fontSize: '24px', color: '#333', marginBottom: '8px', fontWeight: 'bold' }}>Shift Not Started</h2>
-          <p style={{ color: '#666', fontSize: '15px', maxWidth: '400px' }}>
+        <div className="shift-locked-overlay">
+          <div className="shift-locked-icon">💰</div>
+          <h2 className="shift-locked-title">Shift Not Started</h2>
+          <p className="shift-locked-message">
             You must start your shift using the 'Start Shift' button in the top bar to process StudyHall sessions.
           </p>
         </div>

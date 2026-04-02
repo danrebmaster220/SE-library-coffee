@@ -31,6 +31,124 @@ export default function MenuItems() {
     is_customizable: false,
     selected_groups: []
   });
+  const [variantPricing, setVariantPricing] = useState([]);
+
+  const isSizeGroup = (name) => String(name || "").toLowerCase().includes("size");
+  const isTempGroup = (name) => String(name || "").toLowerCase().includes("temperature");
+
+  const getSelectedGroupObjects = () => {
+    const selectedSet = new Set((formData.selected_groups || []).map(Number));
+    return customizationGroups.filter(group => selectedSet.has(Number(group.group_id)));
+  };
+
+  const getVariantDriverGroups = () => {
+    const selectedGroups = getSelectedGroupObjects();
+    const sizeGroup = selectedGroups.find(group => isSizeGroup(group.name));
+    const tempGroup = selectedGroups.find(group => isTempGroup(group.name));
+
+    const availableSizeOptions = (sizeGroup?.options || []).filter(opt => opt.status === 'available');
+    const availableTempOptions = (tempGroup?.options || []).filter(opt => opt.status === 'available');
+
+    return {
+      sizeGroup,
+      tempGroup,
+      availableSizeOptions,
+      availableTempOptions
+    };
+  };
+
+  const getVariantPriceValue = (sizeOptionId, tempOptionId) => {
+    const found = variantPricing.find(row => {
+      const rowSize = row.size_option_id ?? null;
+      const rowTemp = row.temp_option_id ?? null;
+      return rowSize === (sizeOptionId ?? null) && rowTemp === (tempOptionId ?? null);
+    });
+
+    if (found && found.price !== undefined && found.price !== null && found.price !== "") {
+      return String(found.price);
+    }
+
+    return formData.price || "0.00";
+  };
+
+  const setVariantPriceValue = (sizeOptionId, tempOptionId, priceValue) => {
+    if (!(priceValue === '' || /^\d*\.?\d{0,2}$/.test(priceValue))) return;
+
+    setVariantPricing(prev => {
+      const keySize = sizeOptionId ?? null;
+      const keyTemp = tempOptionId ?? null;
+      const idx = prev.findIndex(row => {
+        const rowSize = row.size_option_id ?? null;
+        const rowTemp = row.temp_option_id ?? null;
+        return rowSize === keySize && rowTemp === keyTemp;
+      });
+
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], price: priceValue };
+        return next;
+      }
+
+      return [
+        ...prev,
+        {
+          size_option_id: keySize,
+          temp_option_id: keyTemp,
+          price: priceValue,
+          status: 'active'
+        }
+      ];
+    });
+  };
+
+  const buildVariantPayload = () => {
+    const { availableSizeOptions, availableTempOptions } = getVariantDriverGroups();
+    const variants = [];
+    const parsePrice = (rawValue) => {
+      const n = parseFloat(rawValue);
+      return Number.isNaN(n) ? parseFloat(formData.price || 0) || 0 : n;
+    };
+
+    if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
+      availableTempOptions.forEach(tempOpt => {
+        availableSizeOptions.forEach(sizeOpt => {
+          variants.push({
+            size_option_id: sizeOpt.option_id,
+            temp_option_id: tempOpt.option_id,
+            price: parsePrice(getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)),
+            status: 'active'
+          });
+        });
+      });
+      return variants;
+    }
+
+    if (availableSizeOptions.length > 0) {
+      availableSizeOptions.forEach(sizeOpt => {
+        variants.push({
+          size_option_id: sizeOpt.option_id,
+          temp_option_id: null,
+          price: parsePrice(getVariantPriceValue(sizeOpt.option_id, null)),
+          status: 'active'
+        });
+      });
+      return variants;
+    }
+
+    if (availableTempOptions.length > 0) {
+      availableTempOptions.forEach(tempOpt => {
+        variants.push({
+          size_option_id: null,
+          temp_option_id: tempOpt.option_id,
+          price: parsePrice(getVariantPriceValue(null, tempOpt.option_id)),
+          status: 'active'
+        });
+      });
+      return variants;
+    }
+
+    return [];
+  };
 
   useEffect(() => {
     fetchData();
@@ -102,6 +220,14 @@ export default function MenuItems() {
         });
       }
 
+      // Save item-level variant matrix (revision 9/10)
+      if (itemId) {
+        const variantPayload = formData.is_customizable ? buildVariantPayload() : [];
+        await api.put(`/customizations/item/${itemId}/variant-prices`, {
+          variants: variantPayload
+        });
+      }
+
       await fetchData();
       closeModal();
     } catch (error) {
@@ -142,11 +268,21 @@ export default function MenuItems() {
     
     // Fetch linked customization groups for this item
     let linkedGroups = [];
+    let existingVariants = [];
     try {
-      const groupsRes = await api.get(`/customizations/item/${item.item_id}/groups`);
+      const [groupsRes, variantsRes] = await Promise.all([
+        api.get(`/customizations/item/${item.item_id}/groups`),
+        api.get(`/customizations/item/${item.item_id}/variant-prices`)
+      ]);
       linkedGroups = (groupsRes.data.groups || []).map(g => g.group_id);
+      existingVariants = (variantsRes.data.variants || []).map(row => ({
+        size_option_id: row.size_option_id ?? null,
+        temp_option_id: row.temp_option_id ?? null,
+        price: row.price,
+        status: row.status || 'active'
+      }));
     } catch (error) {
-      console.error("Error fetching item groups:", error);
+      console.error("Error fetching item groups/variants:", error);
     }
 
     setFormData({
@@ -161,6 +297,7 @@ export default function MenuItems() {
       selected_groups: linkedGroups
     });
     setImagePreview(item.image || null);
+    setVariantPricing(existingVariants);
     setShowModal(true);
   };
 
@@ -177,6 +314,7 @@ export default function MenuItems() {
       is_customizable: false,
       selected_groups: []
     });
+    setVariantPricing([]);
     setImagePreview(null);
     setShowModal(true);
   };
@@ -199,6 +337,7 @@ export default function MenuItems() {
       is_customizable: false,
       selected_groups: []
     });
+    setVariantPricing([]);
   };
 
   const handleGroupToggle = (groupId) => {
@@ -253,6 +392,47 @@ export default function MenuItems() {
 
     return result;
   };
+
+  const {
+    sizeGroup,
+    tempGroup,
+    availableSizeOptions,
+    availableTempOptions
+  } = getVariantDriverGroups();
+
+  const showVariantPricingEditor = formData.is_customizable && (
+    availableSizeOptions.length > 0 || availableTempOptions.length > 0
+  );
+
+  const buildVariantKey = (sizeOptionId, tempOptionId) => `${sizeOptionId ?? 'null'}:${tempOptionId ?? 'null'}`;
+
+  const expectedVariantKeys = (() => {
+    const keys = [];
+    if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
+      availableTempOptions.forEach(tempOpt => {
+        availableSizeOptions.forEach(sizeOpt => {
+          keys.push(buildVariantKey(sizeOpt.option_id, tempOpt.option_id));
+        });
+      });
+      return keys;
+    }
+    if (availableSizeOptions.length > 0) {
+      availableSizeOptions.forEach(sizeOpt => keys.push(buildVariantKey(sizeOpt.option_id, null)));
+      return keys;
+    }
+    if (availableTempOptions.length > 0) {
+      availableTempOptions.forEach(tempOpt => keys.push(buildVariantKey(null, tempOpt.option_id)));
+      return keys;
+    }
+    return keys;
+  })();
+
+  const existingVariantKeys = new Set(
+    (variantPricing || []).map(row => buildVariantKey(row.size_option_id ?? null, row.temp_option_id ?? null))
+  );
+
+  const missingVariantCount = expectedVariantKeys.filter(key => !existingVariantKeys.has(key)).length;
+  const isVariantMatrixComplete = expectedVariantKeys.length > 0 && missingVariantCount === 0;
 
   return (
     <div className="main-content">
@@ -607,6 +787,106 @@ export default function MenuItems() {
                         <p className="no-groups-hint">No customization groups available. Create groups in Customizations page first.</p>
                       )}
                     </div>
+
+                    {showVariantPricingEditor && (
+                      <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e6e0d8' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <label className="form-label" style={{ marginBottom: 0 }}>Variant Pricing Matrix</label>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              background: isVariantMatrixComplete ? '#e8f5e9' : '#fff3e0',
+                              color: isVariantMatrixComplete ? '#2e7d32' : '#b26a00',
+                              border: `1px solid ${isVariantMatrixComplete ? '#a5d6a7' : '#ffd08a'}`
+                            }}
+                          >
+                            {isVariantMatrixComplete ? 'Complete' : `Incomplete (${missingVariantCount} missing)`}
+                          </span>
+                        </div>
+                        <small className="form-hint" style={{ display: 'block', marginBottom: '10px' }}>
+                          Set item-specific base prices by Size/Temperature. These override global Size/Temperature option prices.
+                        </small>
+
+                        {availableSizeOptions.length > 0 && availableTempOptions.length > 0 && (
+                          <div style={{ overflowX: 'auto' }}>
+                            <table className="data-table" style={{ minWidth: '540px', marginBottom: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ minWidth: '130px' }}>Temperature \ Size</th>
+                                  {availableSizeOptions.map(sizeOpt => (
+                                    <th key={sizeOpt.option_id}>{sizeOpt.name}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {availableTempOptions.map(tempOpt => (
+                                  <tr key={tempOpt.option_id}>
+                                    <td style={{ fontWeight: 600 }}>{tempOpt.name}</td>
+                                    {availableSizeOptions.map(sizeOpt => (
+                                      <td key={`${tempOpt.option_id}-${sizeOpt.option_id}`}>
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          className="form-input"
+                                          value={getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)}
+                                          onChange={(e) => setVariantPriceValue(sizeOpt.option_id, tempOpt.option_id, e.target.value)}
+                                          style={{ minWidth: '88px', padding: '8px 10px' }}
+                                        />
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {availableSizeOptions.length > 0 && availableTempOptions.length === 0 && (
+                          <div className="groups-checkbox-list">
+                            {availableSizeOptions.map(sizeOpt => (
+                              <div key={sizeOpt.option_id} className="group-checkbox-item" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="group-checkbox-label" style={{ marginBottom: 0 }}>
+                                  <strong>{sizeOpt.name}</strong>
+                                  <small>{sizeGroup?.name}</small>
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  value={getVariantPriceValue(sizeOpt.option_id, null)}
+                                  onChange={(e) => setVariantPriceValue(sizeOpt.option_id, null, e.target.value)}
+                                  style={{ width: '120px' }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {availableTempOptions.length > 0 && availableSizeOptions.length === 0 && (
+                          <div className="groups-checkbox-list">
+                            {availableTempOptions.map(tempOpt => (
+                              <div key={tempOpt.option_id} className="group-checkbox-item" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="group-checkbox-label" style={{ marginBottom: 0 }}>
+                                  <strong>{tempOpt.name}</strong>
+                                  <small>{tempGroup?.name}</small>
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  value={getVariantPriceValue(null, tempOpt.option_id)}
+                                  onChange={(e) => setVariantPriceValue(null, tempOpt.option_id, e.target.value)}
+                                  style={{ width: '120px' }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

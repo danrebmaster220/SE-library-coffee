@@ -442,7 +442,7 @@ export default function Sidebar() {
           <div className="logo">
             <img src={logoImg} alt="Library Coffee Logo" className="logo-img" />
             <div className="logo-text">
-              <h1>STUDYHALL</h1>
+              <h1>THE LIBRARY</h1>
               <p>Coffee + Study</p>
             </div>
           </div>

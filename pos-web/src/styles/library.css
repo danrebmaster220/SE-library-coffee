@@ -1026,8 +1026,55 @@
 }
 
 .main-content.library-transactions-page {
-  background: #f1e0c9;
+  background: var(--cream);
   min-height: 100%;
+}
+
+.shift-locked-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.cashier-layout .shift-locked-overlay {
+  top: 60px;
+}
+
+@media (max-height: 700px) {
+  .cashier-layout .shift-locked-overlay {
+    top: 50px;
+  }
+}
+
+@media (max-height: 600px) {
+  .cashier-layout .shift-locked-overlay {
+    top: 44px;
+  }
+}
+
+.shift-locked-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.shift-locked-title {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.shift-locked-message {
+  color: #666;
+  font-size: 15px;
+  max-width: 400px;
 }
 
 .stat-card.stat-available {
@@ -1082,10 +1129,8 @@
 }
 
 .seat-grid-container {
-  background:
-    radial-gradient(circle at top right, rgba(255, 232, 191, 0.7), transparent 45%),
-    linear-gradient(180deg, #fffdf8 0%, #fff6ea 100%);
-  padding: 24px;
+  background: #fcfaf6;
+  padding: 18px;
   border-radius: 12px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -1125,8 +1170,8 @@
 
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
 }
 
 .table-section-compact {
@@ -1140,7 +1185,7 @@
 .table-header-compact {
   background: linear-gradient(135deg, #6f4a2d 0%, #8d5f3b 100%);
   color: #fff;
-  padding: 12px 14px;
+  padding: 8px 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1155,7 +1200,7 @@
 
 .table-title-main {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -1163,7 +1208,7 @@
 }
 
 .table-title-sub {
-  font-size: 11px;
+  font-size: 10px;
   opacity: 0.85;
   margin-top: 2px;
 }
@@ -1176,14 +1221,14 @@
 }
 
 .table-stat-pill {
-  min-width: 24px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 7px;
-  font-size: 11px;
+  padding: 0 6px;
+  font-size: 10px;
   font-weight: 700;
   border: 1px solid transparent;
 }
@@ -1214,21 +1259,21 @@
 
 .seats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
-  gap: 10px;
-  padding: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 6px;
+  padding: 6px;
 }
 
 .seat-grid-container .seat-item {
   width: 100%;
   height: auto;
-  min-height: 82px;
-  border-radius: 12px;
+  min-height: 56px;
+  border-radius: 9px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: space-between;
-  padding: 10px;
+  padding: 6px;
   box-sizing: border-box;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -1270,18 +1315,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
 }
 
 .seat-item .seat-number {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .seat-status-tag {
   border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 10px;
+  padding: 2px 5px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -1308,8 +1353,8 @@
 }
 
 .seat-meta {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 9px;
   line-height: 1.25;
   opacity: 0.9;
 }
@@ -1898,7 +1943,7 @@ button.btn-void-small:disabled {
   }
 
   .seat-grid-container .seats-row {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   }
   
   .legend {
@@ -2030,13 +2075,13 @@ button.btn-void-small:disabled {
   }
   
   .seat-grid-container .seats-row {
-    gap: 8px;
-    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 7px;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   }
 
   .seat-grid-container .seat-item {
-    min-height: 76px;
-    padding: 9px;
+    min-height: 70px;
+    padding: 8px;
   }
 }
 
@@ -2235,22 +2280,22 @@ button.btn-void-small:disabled {
   }
   
   .seat-grid-container .seats-row {
-    gap: 6px;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 5px;
+    grid-template-columns: repeat(auto-fill, minmax(102px, 1fr));
   }
 
   .seat-grid-container .seat-item {
-    min-height: 70px;
-    padding: 8px;
+    min-height: 64px;
+    padding: 7px;
   }
 
   .seat-status-tag {
-    font-size: 9px;
-    padding: 2px 6px;
+    font-size: 8px;
+    padding: 2px 5px;
   }
 
   .seat-meta {
-    font-size: 11px;
+    font-size: 10px;
   }
   
   /* History filters */

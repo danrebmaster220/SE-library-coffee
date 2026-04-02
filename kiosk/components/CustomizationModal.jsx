@@ -15,12 +15,29 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 
+const isSizeGroupName = (name) => String(name || "").toLowerCase().includes("size");
+const isTempGroupName = (name) => String(name || "").toLowerCase().includes("temperature");
+
+const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
+  const rows = Array.isArray(variants) ? variants : [];
+  if (rows.length === 0) return null;
+
+  return rows.find((row) => {
+    const rowSize = row.size_option_id ?? null;
+    const rowTemp = row.temp_option_id ?? null;
+    const wantedSize = sizeOptionId ?? null;
+    const wantedTemp = tempOptionId ?? null;
+    return rowSize === wantedSize && rowTemp === wantedTemp;
+  }) || null;
+};
+
 const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
   const [loading, setLoading] = useState(true);
   const [customizationGroups, setCustomizationGroups] = useState([]);
   const [selections, setSelections] = useState({});
   const [isCustomizable, setIsCustomizable] = useState(false);
   const [activeAddonTab, setActiveAddonTab] = useState(null);
+  const [variantPricing, setVariantPricing] = useState([]);
   
   const { isPhone, isLandscape, width, height } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -41,6 +58,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
       if (data.is_customizable && data.groups && data.groups.length > 0) {
         setIsCustomizable(true);
         setCustomizationGroups(data.groups);
+        setVariantPricing(data.variant_pricing || []);
         
         const initialSelections = {};
         data.groups.forEach(group => {
@@ -82,10 +100,12 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
       } else {
         setIsCustomizable(false);
         setCustomizationGroups([]);
+        setVariantPricing([]);
       }
     } catch (error) {
       console.error("Error fetching customizations:", error);
       setIsCustomizable(false);
+      setVariantPricing([]);
     } finally {
       setLoading(false);
     }
@@ -175,14 +195,42 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
     return false;
   };
 
+  const getResolvedBasePrice = () => {
+    const defaultBasePrice = parseFloat(item?.price || item?.item_price || 0);
+    if (!Array.isArray(variantPricing) || variantPricing.length === 0) {
+      return { basePrice: defaultBasePrice, usingVariant: false };
+    }
+
+    const sizeGroup = customizationGroups.find(group => isSizeGroupName(group.name));
+    const tempGroup = customizationGroups.find(group => isTempGroupName(group.name));
+    const sizeOptionId = sizeGroup ? (selections[sizeGroup.group_id]?.option?.option_id ?? null) : null;
+    const tempOptionId = tempGroup ? (selections[tempGroup.group_id]?.option?.option_id ?? null) : null;
+
+    const match = findVariantMatch(variantPricing, sizeOptionId, tempOptionId);
+    if (!match) {
+      return { basePrice: defaultBasePrice, usingVariant: false };
+    }
+
+    const variantPrice = parseFloat(match.price);
+    return {
+      basePrice: Number.isNaN(variantPrice) ? defaultBasePrice : variantPrice,
+      usingVariant: true
+    };
+  };
+
   const calculatePrice = () => {
-    let total = parseFloat(item?.price || item?.item_price || 0);
+    const { basePrice, usingVariant } = getResolvedBasePrice();
+    let total = basePrice;
     
-    Object.values(selections).forEach(groupSelection => {
+    Object.entries(selections).forEach(([groupId, groupSelection]) => {
       if (!groupSelection) return;
+      const group = customizationGroups.find(g => String(g.group_id) === String(groupId));
       
       if (groupSelection.type === "single" && groupSelection.option) {
-        total += parseFloat(groupSelection.option.price || 0);
+        const isVariantDriverGroup = usingVariant && (isSizeGroupName(group?.name) || isTempGroupName(group?.name));
+        if (!isVariantDriverGroup) {
+          total += parseFloat(groupSelection.option.price || 0);
+        }
       }
       
       if (groupSelection.type === "quantity" && groupSelection.options) {
@@ -237,6 +285,8 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
       Alert.alert("Required Selection", `Please select: ${missingRequired.join(", ")}`);
       return;
     }
+
+    const { usingVariant } = getResolvedBasePrice();
     
     const customizationArray = [];
     
@@ -247,12 +297,13 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
       const groupName = group?.name || "";
       
       if (groupSelection.type === "single" && groupSelection.option) {
+        const isVariantDriverGroup = usingVariant && (isSizeGroupName(groupName) || isTempGroupName(groupName));
         customizationArray.push({
           option_id: groupSelection.option.option_id,
           option_name: groupSelection.option.name,
           group_name: groupName,
           quantity: 1,
-          price: parseFloat(groupSelection.option.price || 0)
+          price: isVariantDriverGroup ? 0 : parseFloat(groupSelection.option.price || 0)
         });
       }
       
@@ -293,13 +344,14 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
   };
 
   // Categorize groups
-  const sizeGroup = customizationGroups.find(g => g.name === "Size");
-  const temperatureGroup = customizationGroups.find(g => g.name === "Temperature");
+  const sizeGroup = customizationGroups.find(g => isSizeGroupName(g.name));
+  const temperatureGroup = customizationGroups.find(g => isTempGroupName(g.name));
+  const hasVariantPricing = Array.isArray(variantPricing) && variantPricing.length > 0;
   
   // Add-on tab groups - All groups except Size and Temperature (which are shown in the main section)
   // Includes: quantity-based inputs, single-select non-required, and multiple-select groups
   const addonTabGroups = customizationGroups.filter(g => 
-    g.name !== "Size" && g.name !== "Temperature" && (
+    !isSizeGroupName(g.name) && !isTempGroupName(g.name) && (
       g.input_type === "quantity" || 
       g.selection_type === "multiple" ||
       (g.selection_type === "single" && !g.is_required)
@@ -390,7 +442,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                         <Text style={[phoneStyles.optionText, isOptionSelected(sizeGroup.group_id, option) && phoneStyles.selectedText]}>
                           {option.name}
                         </Text>
-                        {parseFloat(option.price) > 0 && (
+                        {!hasVariantPricing && parseFloat(option.price) > 0 && (
                           <Text style={[phoneStyles.optionPrice, isOptionSelected(sizeGroup.group_id, option) && phoneStyles.selectedText]}>
                             +{peso}{parseFloat(option.price).toFixed(2)}
                           </Text>
@@ -550,7 +602,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
                 <Text style={[s.optionText, isOptionSelected(sizeGroup.group_id, option) && s.selectedText]}>
                   {option.name}
                 </Text>
-                {parseFloat(option.price) > 0 && (
+                {!hasVariantPricing && parseFloat(option.price) > 0 && (
                   <Text style={[s.optionPrice, isOptionSelected(sizeGroup.group_id, option) && s.selectedText]}>
                     +{peso}{parseFloat(option.price).toFixed(2)}
                   </Text>

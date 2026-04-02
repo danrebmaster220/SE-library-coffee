@@ -1,5 +1,83 @@
 const db = require('../config/db');
 
+const isTemperatureGroup = (groupName) => String(groupName || '').trim().toLowerCase().includes('temperature');
+const isSizeGroup = (groupName) => String(groupName || '').trim().toLowerCase().includes('size');
+const isHotOption = (optionName) => String(optionName || '').trim().toLowerCase().includes('hot');
+const isIcedOption = (optionName) => {
+    const lowered = String(optionName || '').trim().toLowerCase();
+    return lowered.includes('iced') || lowered.includes('cold');
+};
+
+const toNumberOrNull = (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
+const getItemTemperatureFlags = async (itemId) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                COALESCE(c.allow_hot, 1) AS allow_hot,
+                COALESCE(c.allow_iced, 1) AS allow_iced
+            FROM items i
+            JOIN categories c ON i.category_id = c.category_id
+            WHERE i.item_id = ?
+            LIMIT 1
+        `, [itemId]);
+
+        if (rows.length === 0) {
+            return { allow_hot: true, allow_iced: true };
+        }
+
+        return {
+            allow_hot: !!rows[0].allow_hot,
+            allow_iced: !!rows[0].allow_iced
+        };
+    } catch (error) {
+        return { allow_hot: true, allow_iced: true };
+    }
+};
+
+const applyTemperatureFilter = (group, flags) => {
+    if (!isTemperatureGroup(group?.name)) return group;
+
+    return {
+        ...group,
+        options: (group.options || []).filter((option) => {
+            if (isHotOption(option.name) && !flags.allow_hot) return false;
+            if (isIcedOption(option.name) && !flags.allow_iced) return false;
+            return true;
+        })
+    };
+};
+
+const getItemVariantPricing = async (itemId) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                ivp.variant_id,
+                ivp.item_id,
+                ivp.size_option_id,
+                ivp.temp_option_id,
+                ivp.price,
+                ivp.status,
+                sopt.name AS size_option_name,
+                topt.name AS temp_option_name
+            FROM item_variant_prices ivp
+            LEFT JOIN customization_options sopt ON sopt.option_id = ivp.size_option_id
+            LEFT JOIN customization_options topt ON topt.option_id = ivp.temp_option_id
+            WHERE ivp.item_id = ?
+            AND ivp.status = 'active'
+            ORDER BY ivp.variant_id ASC
+        `, [itemId]);
+
+        return rows;
+    } catch (error) {
+        return [];
+    }
+};
+
 
 // CUSTOMIZATION GROUPS
 
@@ -11,7 +89,6 @@ exports.getGroups = async (req, res) => {
             ORDER BY display_order ASC
         `);
 
-        // Get options for each group
         for (let group of groups) {
             const [options] = await db.query(`
                 SELECT * FROM customization_options 
@@ -36,7 +113,6 @@ exports.getActiveGroups = async (req, res) => {
             ORDER BY display_order ASC
         `);
 
-        // Get available options for each group
         for (let group of groups) {
             const [options] = await db.query(`
                 SELECT * FROM customization_options 
@@ -57,9 +133,10 @@ exports.getItemCustomizations = async (req, res) => {
     const { itemId } = req.params;
 
     try {
-        // First check if item is customizable
+        const temperatureFlags = await getItemTemperatureFlags(itemId);
+
         const [items] = await db.query(
-            'SELECT is_customizable FROM items WHERE item_id = ?',
+            'SELECT item_id, is_customizable, price FROM items WHERE item_id = ?',
             [itemId]
         );
 
@@ -67,11 +144,18 @@ exports.getItemCustomizations = async (req, res) => {
             return res.status(404).json({ error: 'Item not found' });
         }
 
-        if (!items[0].is_customizable) {
-            return res.json({ groups: [], is_customizable: false });
+        const item = items[0];
+
+        if (!item.is_customizable) {
+            return res.json({
+                groups: [],
+                is_customizable: false,
+                base_price: Number(item.price || 0),
+                variant_pricing: [],
+                temperature_flags: temperatureFlags
+            });
         }
 
-        // Get linked customization groups for this item
         const [groups] = await db.query(`
             SELECT cg.* FROM customization_groups cg
             INNER JOIN item_customization_groups icg ON cg.group_id = icg.group_id
@@ -79,7 +163,6 @@ exports.getItemCustomizations = async (req, res) => {
             ORDER BY cg.display_order ASC
         `, [itemId]);
 
-        // Get available options for each group
         for (let group of groups) {
             const [options] = await db.query(`
                 SELECT * FROM customization_options 
@@ -89,7 +172,16 @@ exports.getItemCustomizations = async (req, res) => {
             group.options = options;
         }
 
-        res.json({ groups, is_customizable: true });
+        const filteredGroups = groups.map((group) => applyTemperatureFilter(group, temperatureFlags));
+        const variantPricing = await getItemVariantPricing(itemId);
+
+        res.json({
+            groups: filteredGroups,
+            is_customizable: true,
+            base_price: Number(item.price || 0),
+            variant_pricing: variantPricing,
+            temperature_flags: temperatureFlags
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -217,27 +309,23 @@ exports.deleteOption = async (req, res) => {
 // Link customization groups to an item
 exports.linkItemGroups = async (req, res) => {
     const { itemId } = req.params;
-    const { group_ids } = req.body; // Array of group IDs
+    const { group_ids } = req.body;
 
     try {
-        // First, remove existing links
         await db.query('DELETE FROM item_customization_groups WHERE item_id = ?', [itemId]);
 
-        // Then, add new links
         if (group_ids && group_ids.length > 0) {
-            const values = group_ids.map(gid => [itemId, gid]);
+            const values = group_ids.map((gid) => [itemId, gid]);
             await db.query(
                 'INSERT INTO item_customization_groups (item_id, group_id) VALUES ?',
                 [values]
             );
 
-            // Also mark the item as customizable
             await db.query(
                 'UPDATE items SET is_customizable = TRUE WHERE item_id = ?',
                 [itemId]
             );
         } else {
-            // If no groups, mark as not customizable
             await db.query(
                 'UPDATE items SET is_customizable = FALSE WHERE item_id = ?',
                 [itemId]
@@ -268,6 +356,74 @@ exports.getItemGroups = async (req, res) => {
     }
 };
 
+// Get variant pricing rows for an item (admin)
+exports.getItemVariantPrices = async (req, res) => {
+    const { itemId } = req.params;
+
+    try {
+        const variants = await getItemVariantPricing(itemId);
+        res.json({ variants });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Replace variant pricing rows for an item (admin)
+exports.saveItemVariantPrices = async (req, res) => {
+    const { itemId } = req.params;
+    const { variants } = req.body;
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        await connection.query('DELETE FROM item_variant_prices WHERE item_id = ?', [itemId]);
+
+        const variantList = Array.isArray(variants) ? variants : [];
+        const dedupe = new Set();
+        const values = [];
+
+        for (const row of variantList) {
+            const sizeOptionId = toNumberOrNull(row.size_option_id);
+            const tempOptionId = toNumberOrNull(row.temp_option_id);
+            const price = Number(row.price);
+            const status = String(row.status || 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active';
+
+            if ((sizeOptionId === null && tempOptionId === null) || Number.isNaN(price)) {
+                continue;
+            }
+
+            const key = `${sizeOptionId ?? 'null'}:${tempOptionId ?? 'null'}`;
+            if (dedupe.has(key)) continue;
+            dedupe.add(key);
+
+            values.push([
+                Number(itemId),
+                sizeOptionId,
+                tempOptionId,
+                Number(price.toFixed(2)),
+                status
+            ]);
+        }
+
+        if (values.length > 0) {
+            await connection.query(
+                `INSERT INTO item_variant_prices (item_id, size_option_id, temp_option_id, price, status)
+                 VALUES ?`,
+                [values]
+            );
+        }
+
+        await connection.commit();
+        res.json({ message: 'Variant prices saved successfully', count: values.length });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+};
+
 
 // AUTO CUSTOMIZATION FOR BARISTA ITEMS
 
@@ -279,9 +435,10 @@ exports.getBaristaDefaults = async (req, res) => {
     const { itemId } = req.params;
 
     try {
-        // Check if item exists and get its station
+        const temperatureFlags = await getItemTemperatureFlags(itemId);
+
         const [items] = await db.query(
-            `SELECT item_id, name, station, is_customizable FROM items WHERE item_id = ?`,
+            `SELECT item_id, name, station, is_customizable, price FROM items WHERE item_id = ?`,
             [itemId]
         );
 
@@ -291,17 +448,18 @@ exports.getBaristaDefaults = async (req, res) => {
 
         const item = items[0];
 
-        // If item is not customizable, no customization needed
         if (!item.is_customizable) {
-            return res.json({ 
+            return res.json({
                 needs_size_temp: false,
                 size_group: null,
                 temp_group: null,
-                addon_groups: []
+                addon_groups: [],
+                base_price: Number(item.price || 0),
+                variant_pricing: [],
+                temperature_flags: temperatureFlags
             });
         }
 
-        // Get ALL customization groups linked to this item
         const [linkedGroups] = await db.query(`
             SELECT cg.* FROM customization_groups cg
             INNER JOIN item_customization_groups icg ON cg.group_id = icg.group_id
@@ -314,32 +472,42 @@ exports.getBaristaDefaults = async (req, res) => {
         let addon_groups = [];
 
         for (let group of linkedGroups) {
-            // Fetch options for this group
             const [options] = await db.query(`
-                SELECT * FROM customization_options 
+                SELECT * FROM customization_options
                 WHERE group_id = ? AND status = 'available'
                 ORDER BY display_order ASC
             `, [group.group_id]);
-            group.options = options;
-            group.allow_multiple = group.selection_type === 'multiple';
 
-            // Categorize the group
-            if (group.name.toLowerCase().includes('size')) {
-                size_group = group;
-            } else if (group.name.toLowerCase().includes('temperature')) {
-                temp_group = group;
+            group.options = options;
+            const preparedGroup = applyTemperatureFilter(group, temperatureFlags);
+            const preparedOptions = preparedGroup.options || [];
+
+            if ((isSizeGroup(preparedGroup.name) || isTemperatureGroup(preparedGroup.name)) && preparedOptions.length === 0) {
+                continue;
+            }
+
+            preparedGroup.allow_multiple = preparedGroup.selection_type === 'multiple';
+
+            if (isSizeGroup(preparedGroup.name)) {
+                size_group = preparedGroup;
+            } else if (isTemperatureGroup(preparedGroup.name)) {
+                temp_group = preparedGroup;
             } else {
-                addon_groups.push(group);
+                addon_groups.push(preparedGroup);
             }
         }
+
+        const variantPricing = await getItemVariantPricing(itemId);
 
         res.json({
             needs_size_temp: !!(size_group || temp_group),
             size_group,
             temp_group,
-            addon_groups
+            addon_groups,
+            base_price: Number(item.price || 0),
+            variant_pricing: variantPricing,
+            temperature_flags: temperatureFlags
         });
-
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

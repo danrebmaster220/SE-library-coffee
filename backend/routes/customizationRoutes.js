@@ -48,6 +48,12 @@ router.get('/item/:itemId/groups', customizationController.getItemGroups);
 // Link groups to an item
 router.put('/item/:itemId/groups', verifyToken, customizationController.linkItemGroups);
 
+// Get variant prices for an item (admin)
+router.get('/item/:itemId/variant-prices', verifyToken, customizationController.getItemVariantPrices);
+
+// Save variant prices for an item (admin)
+router.put('/item/:itemId/variant-prices', verifyToken, customizationController.saveItemVariantPrices);
+
 // Get barista item defaults (Size/Temperature) for POS manual ordering
 router.get('/barista-defaults/:itemId', customizationController.getBaristaDefaults);
 

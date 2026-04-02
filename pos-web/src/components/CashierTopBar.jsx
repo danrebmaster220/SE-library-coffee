@@ -243,7 +243,7 @@ export default function CashierTopBar() {
         <div className="topbar-logo">
           <img src={logoImg} alt="Library Coffee Logo" className="topbar-logo-img" />
           <div className="logo-text">
-            <span className="logo-title">STUDYHALL</span>
+            <span className="logo-title">THE LIBRARY</span>
             <span className="logo-subtitle">Coffee + Study</span>
           </div>
         </div>

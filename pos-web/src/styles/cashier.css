@@ -27,9 +27,12 @@
 .topbar-logo-img {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  border-radius: 9px;
+  object-fit: contain;
+  padding: 4px;
+  background: linear-gradient(145deg, #f1e7d8 0%, #dac2a4 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .topbar-logo .logo-icon {
@@ -52,7 +55,7 @@
 
 .topbar-logo .logo-subtitle {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.5px;
 }
 
@@ -488,8 +491,30 @@
     padding: 0 12px;
   }
 
+  .topbar-logo {
+    gap: 8px;
+  }
+
+  .topbar-logo-img {
+    width: 30px;
+    height: 30px;
+    padding: 3px;
+    border-radius: 8px;
+  }
+
   .topbar-logo .logo-text {
-    display: none;
+    display: flex;
+    line-height: 1.05;
+  }
+
+  .topbar-logo .logo-title {
+    font-size: 14px;
+    letter-spacing: 0.6px;
+  }
+
+  .topbar-logo .logo-subtitle {
+    font-size: 9px;
+    letter-spacing: 0.35px;
   }
 
   .topbar-nav-item {
@@ -514,6 +539,16 @@
 }
 
 @media (max-width: 480px) {
+  .topbar-logo .logo-title {
+    font-size: 12px;
+    letter-spacing: 0.4px;
+  }
+
+  .topbar-logo .logo-subtitle {
+    font-size: 8px;
+    letter-spacing: 0.25px;
+  }
+
   .topbar-nav-item {
     padding: 6px 10px;
   }

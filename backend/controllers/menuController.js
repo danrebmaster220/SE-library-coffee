@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+const toTinyBool = (value, fallback = 1) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'number') return value ? 1 : 0;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return 1;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return 0;
+    return fallback;
+};
+
 
 // CATEGORIES
 
@@ -15,7 +25,7 @@ exports.getCategories = async (req, res) => {
 
 // Create Category
 exports.createCategory = async (req, res) => {
-    const { name, icon, status } = req.body;
+    const { name, icon, status, allow_hot, allow_iced } = req.body;
     let connection;
 
     try {
@@ -27,8 +37,14 @@ exports.createCategory = async (req, res) => {
         const nextId = maxResult[0].nextId;
 
         await connection.query(
-            'INSERT INTO categories (category_id, name, status) VALUES (?, ?, ?)',
-            [nextId, name, status || 'active']
+            'INSERT INTO categories (category_id, name, status, allow_hot, allow_iced) VALUES (?, ?, ?, ?, ?)',
+            [
+                nextId,
+                name,
+                status || 'active',
+                toTinyBool(allow_hot, 1),
+                toTinyBool(allow_iced, 1)
+            ]
         );
         
         await connection.commit();
@@ -47,12 +63,18 @@ exports.createCategory = async (req, res) => {
 // Update Category
 exports.updateCategory = async (req, res) => {
     const { id } = req.params;
-    const { name, icon, status } = req.body;
+    const { name, icon, status, allow_hot, allow_iced } = req.body;
 
     try {
         await db.query(
-            'UPDATE categories SET name = ?, status = ? WHERE category_id = ?',
-            [name, status, id]
+            'UPDATE categories SET name = ?, status = ?, allow_hot = ?, allow_iced = ? WHERE category_id = ?',
+            [
+                name,
+                status,
+                toTinyBool(allow_hot, 1),
+                toTinyBool(allow_iced, 1),
+                id
+            ]
         );
         res.json({ message: 'Category updated successfully' });
     } catch (error) {
