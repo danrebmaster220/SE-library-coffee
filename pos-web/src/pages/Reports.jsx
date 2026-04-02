@@ -178,7 +178,7 @@ export default function Reports() {
           startDate,
           endDate,
           action: auditActionFilter,
-          actorUserId: cashierFilter || undefined,
+          staffUserId: cashierFilter || undefined,
           search: searchTerm,
           limit: 500
         }
@@ -199,16 +199,20 @@ export default function Reports() {
     try {
       const response = await api.get('/users');
       const users = Array.isArray(response.data) ? response.data : [];
-      const cashiers = users
-        .filter((user) => String(user.role_name || '').toLowerCase() === 'cashier')
+      const staffUsers = users
+        .filter((user) => {
+          const role = String(user.role_name || '').toLowerCase();
+          return role === 'cashier' || role === 'admin';
+        })
         .filter((user) => String(user.status || '').toLowerCase() === 'active')
         .map((user) => ({
           user_id: user.user_id,
           full_name: user.full_name,
-          username: user.username
+          username: user.username,
+          role_name: user.role_name
         }));
 
-      setCashierOptions(cashiers);
+      setCashierOptions(staffUsers);
     } catch (error) {
       console.error('Error fetching cashier options:', error);
       setCashierOptions([]);
@@ -235,7 +239,7 @@ export default function Reports() {
         if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'audit') {
         if (auditActionFilter) params.append('action', auditActionFilter);
-        if (cashierFilter) params.append('actorUserId', cashierFilter);
+        if (cashierFilter) params.append('staffUserId', cashierFilter);
         if (searchTerm) params.append('search', searchTerm);
       }
 
@@ -298,7 +302,7 @@ export default function Reports() {
         if (cashierFilter) params.append('cashierUserId', cashierFilter);
       } else if (activeTab === 'audit') {
         if (auditActionFilter) params.append('action', auditActionFilter);
-        if (cashierFilter) params.append('actorUserId', cashierFilter);
+        if (cashierFilter) params.append('staffUserId', cashierFilter);
         if (searchTerm) params.append('search', searchTerm);
       }
 
@@ -708,10 +712,10 @@ export default function Reports() {
             value={cashierFilter}
             onChange={(e) => setCashierFilter(e.target.value)}
           >
-            <option value="">All Cashiers</option>
-            {cashierOptions.map((cashier) => (
-              <option key={cashier.user_id} value={cashier.user_id}>
-                {cashier.full_name || cashier.username || `Cashier #${cashier.user_id}`}
+            <option value="">All Staff</option>
+            {cashierOptions.map((staff) => (
+              <option key={staff.user_id} value={staff.user_id}>
+                {staff.full_name || staff.username || `User #${staff.user_id}`}
               </option>
             ))}
           </select>
@@ -838,7 +842,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Gross Sales</h4>
+                <h4>Net Sales</h4>
                 <p className="summary-value">{formatCurrency(salesData?.total_sales || 0)}</p>
               </div>
             </div>

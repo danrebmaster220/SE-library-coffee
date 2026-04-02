@@ -62,16 +62,20 @@ export default function ShiftHistory() {
     try {
       const response = await api.get('/users');
       const users = Array.isArray(response.data) ? response.data : [];
-      const cashiers = users
-        .filter((user) => String(user.role_name || '').toLowerCase() === 'cashier')
+      const staffUsers = users
+        .filter((user) => {
+          const role = String(user.role_name || '').toLowerCase();
+          return role === 'cashier' || role === 'admin';
+        })
         .filter((user) => String(user.status || '').toLowerCase() === 'active')
         .map((user) => ({
           user_id: user.user_id,
           full_name: user.full_name,
-          username: user.username
+          username: user.username,
+          role_name: user.role_name
         }));
 
-      setCashierOptions(cashiers);
+      setCashierOptions(staffUsers);
     } catch (error) {
       console.error('Error fetching cashier options:', error);
       setCashierOptions([]);
@@ -146,12 +150,12 @@ export default function ShiftHistory() {
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
         <div className="filter-group">
-          <label>Cashier:</label>
+          <label>Staff:</label>
           <select className="filter-select-cashier" value={cashierFilter} onChange={(e) => setCashierFilter(e.target.value)}>
-            <option value="">All Cashiers</option>
-            {cashierOptions.map((cashier) => (
-              <option key={cashier.user_id} value={cashier.user_id}>
-                {cashier.full_name || cashier.username || `Cashier #${cashier.user_id}`}
+            <option value="">All Staff</option>
+            {cashierOptions.map((staff) => (
+              <option key={staff.user_id} value={staff.user_id}>
+                {staff.full_name || staff.username || `User #${staff.user_id}`}
               </option>
             ))}
           </select>

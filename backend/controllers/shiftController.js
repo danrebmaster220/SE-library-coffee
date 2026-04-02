@@ -371,7 +371,7 @@ async function getShiftSummary(shift) {
                 COUNT(*) as total_transactions
             FROM transactions 
             WHERE processed_by = ? 
-            AND status IN ('completed', 'preparing', 'ready')
+            AND status IN ('completed', 'preparing', 'ready', 'refunded')
             AND created_at >= ?
             ${shift.end_time ? 'AND created_at <= ?' : ''}
         `, shift.end_time 
@@ -406,25 +406,55 @@ async function getShiftSummary(shift) {
             : [shift.user_id, shift.start_time]
         );
 
-        // Total refunds during this shift
-        const [refundResult] = await db.query(`
-            SELECT COALESCE(SUM(total_amount), 0) as total_refunds
-            FROM transactions 
-            WHERE processed_by = ? 
-            AND status = 'refunded'
-            AND created_at >= ?
-            ${shift.end_time ? 'AND created_at <= ?' : ''}
-        `, shift.end_time
-            ? [shift.user_id, shift.start_time, shift.end_time]
-            : [shift.user_id, shift.start_time]
-        );
+        // Total cash refunds during this shift.
+        // Use void_log refund metadata when available; fall back to legacy refunded transaction totals.
+        let totalRefunds = 0;
+        try {
+            const [refundRows] = await db.query(`
+                SELECT 
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN vl.action_type = 'refund' THEN COALESCE(vl.refund_amount, vl.original_amount, 0)
+                                WHEN vl.action_type IS NULL AND t.status = 'refunded' THEN COALESCE(vl.original_amount, 0)
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) as total_refunds
+                FROM void_log vl
+                JOIN transactions t ON t.transaction_id = vl.transaction_id
+                WHERE t.processed_by = ?
+                AND vl.voided_at >= ?
+                ${shift.end_time ? 'AND vl.voided_at <= ?' : ''}
+            `, shift.end_time
+                ? [shift.user_id, shift.start_time, shift.end_time]
+                : [shift.user_id, shift.start_time]
+            );
+
+            totalRefunds = parseFloat(refundRows?.[0]?.total_refunds) || 0;
+        } catch (_refundLogError) {
+            const [fallbackRefundRows] = await db.query(`
+                SELECT COALESCE(SUM(total_amount), 0) as total_refunds
+                FROM transactions 
+                WHERE processed_by = ? 
+                AND status = 'refunded'
+                AND created_at >= ?
+                ${shift.end_time ? 'AND created_at <= ?' : ''}
+            `, shift.end_time
+                ? [shift.user_id, shift.start_time, shift.end_time]
+                : [shift.user_id, shift.start_time]
+            );
+
+            totalRefunds = parseFloat(fallbackRefundRows?.[0]?.total_refunds) || 0;
+        }
 
         return {
             running_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
             total_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
             total_transactions: parseInt(salesResult[0].total_transactions) || 0,
             total_voids: parseInt(voidResult[0].total_voids) || 0,
-            total_refunds: parseFloat(refundResult[0].total_refunds) || 0
+            total_refunds: totalRefunds
         };
     } catch (error) {
         console.error('getShiftSummary error:', error.message);

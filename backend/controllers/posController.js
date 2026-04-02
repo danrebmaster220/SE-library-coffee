@@ -1417,7 +1417,7 @@ exports.refundTransaction = async (req, res) => {
     try {
         await connection.beginTransaction();
         const { id } = req.params;
-        const { reason, adminUsername, refundedItems, refundLibrary } = req.body;
+        const { reason, adminUsername, refundedItems, refundLibrary, refundMethod } = req.body;
         const processed_by = getRequestUserId(req); // Current logged in user (requires auth)
 
         // Find transaction
@@ -1450,32 +1450,113 @@ exports.refundTransaction = async (req, res) => {
             // but we could also double check it here if needed.
         }
 
-        // For this phase, we'll mark the transaction as refunded and subtract total amount
-        // You can expand this to item-level refunds later using the refundedItems array.
-        
+        const normalizedRefundMethod = String(refundMethod || 'cash').toLowerCase() === 'item' ? 'item' : 'cash';
+
         let refundAmount = 0;
-        if (refundedItems && refundedItems.length > 0) {
-            // Need to calculate amount from items or trust frontend
-            // For now, if partial refund exists, we would deduct the specific amount
-            // Since this is a simple implementation, if they check all, we do a full refund.
-            // If partial, you'd calculate exact refund payload.
-            // We'll trust the logic from POS.
+        const selectedItemIds = Array.isArray(refundedItems)
+            ? refundedItems.map((itemId) => Number(itemId)).filter((itemId) => Number.isInteger(itemId) && itemId > 0)
+            : [];
+
+        if (selectedItemIds.length > 0) {
+            const placeholders = selectedItemIds.map(() => '?').join(', ');
+            const [refundItemTotals] = await connection.query(
+                `
+                SELECT COALESCE(SUM(ti.total_price), 0) as refund_amount
+                FROM transaction_items ti
+                WHERE ti.transaction_id = ?
+                AND ti.transaction_item_id IN (${placeholders})
+                `,
+                [transaction.transaction_id, ...selectedItemIds]
+            );
+            refundAmount += parseFloat(refundItemTotals?.[0]?.refund_amount || 0);
         }
+
+        if (refundLibrary && transaction.library_booking) {
+            try {
+                const booking = typeof transaction.library_booking === 'string'
+                    ? JSON.parse(transaction.library_booking)
+                    : transaction.library_booking;
+                refundAmount += parseFloat(booking?.amount || booking?.amount_paid || 0) || 0;
+            } catch (_error) {
+                // Ignore malformed legacy booking payloads.
+            }
+        }
+
+        if (refundAmount <= 0) {
+            refundAmount = parseFloat(transaction.total_amount || 0);
+        }
+
+        const cashRefundAmount = normalizedRefundMethod === 'cash' ? refundAmount : 0;
 
         await connection.query(
             `UPDATE transactions 
              SET status = 'refunded', 
-                 void_reason = CONCAT(IFNULL(void_reason, ''), ' [REFUNDED: ', ?, ']'),
-                 total_amount = 0,
-                 subtotal = 0,
+                 void_reason = CONCAT(IFNULL(void_reason, ''), ' [REFUNDED: ', ?, '] [METHOD: ', ?, '] [CASH_REFUND: ', ?, ']'),
                  voided_by = ?,
                  voided_at = CURRENT_TIMESTAMP
              WHERE transaction_id = ?`,
-            [reason || 'Customer requested refund', processed_by, transaction.transaction_id]
+            [
+                reason || 'Customer requested refund',
+                normalizedRefundMethod,
+                cashRefundAmount.toFixed(2),
+                processed_by,
+                transaction.transaction_id
+            ]
         );
 
+        try {
+            await connection.query(
+                `
+                INSERT INTO void_log (
+                    transaction_id,
+                    beeper_number,
+                    voided_by,
+                    void_reason,
+                    original_amount,
+                    action_type,
+                    refund_amount
+                ) VALUES (?, ?, ?, ?, ?, 'refund', ?)
+                `,
+                [
+                    transaction.transaction_id,
+                    transaction.beeper_number || 0,
+                    processed_by,
+                    reason || 'Customer requested refund',
+                    parseFloat(transaction.total_amount || 0),
+                    cashRefundAmount
+                ]
+            );
+        } catch (voidLogError) {
+            // Backward compatibility for environments without new void_log columns.
+            await connection.query(
+                `
+                INSERT INTO void_log (
+                    transaction_id,
+                    beeper_number,
+                    voided_by,
+                    void_reason,
+                    original_amount
+                ) VALUES (?, ?, ?, ?, ?)
+                `,
+                [
+                    transaction.transaction_id,
+                    transaction.beeper_number || 0,
+                    processed_by,
+                    reason || 'Customer requested refund',
+                    parseFloat(transaction.total_amount || 0)
+                ]
+            );
+            console.warn('void_log refund metadata skipped:', voidLogError.message);
+        }
+
         await connection.commit();
-        res.json({ success: true, message: 'Transaction refunded successfully', transaction_id: transaction.transaction_id });
+        res.json({
+            success: true,
+            message: `Transaction refunded successfully (${normalizedRefundMethod === 'item' ? 'item replacement' : 'cash return'})`,
+            transaction_id: transaction.transaction_id,
+            refund_method: normalizedRefundMethod,
+            refund_amount: cashRefundAmount
+        });
     } catch (error) {
         await connection.rollback();
         console.error('Refund transaction error:', error);

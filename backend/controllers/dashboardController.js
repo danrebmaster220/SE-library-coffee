@@ -7,11 +7,20 @@ exports.getDashboardStats = async (req, res) => {
         const [salesData] = await db.query(`
             SELECT 
                 COUNT(*) as total_orders,
-                COALESCE(SUM(total_amount), 0) as total_sales,
-                COALESCE(AVG(total_amount), 0) as avg_order_value
-            FROM transactions 
-            WHERE DATE(created_at) = CURDATE() 
-            AND status NOT IN ('voided', 'pending', 'refunded')
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as total_sales,
+                CASE
+                    WHEN COUNT(*) > 0 THEN (COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0)) / COUNT(*)
+                    ELSE 0
+                END as avg_order_value
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE DATE(t.created_at) = CURDATE()
+            AND t.status NOT IN ('voided', 'pending')
         `);
 
         // Order status counts for today
@@ -31,7 +40,7 @@ exports.getDashboardStats = async (req, res) => {
             SELECT COUNT(DISTINCT beeper_number) as unique_customers
             FROM transactions 
             WHERE DATE(created_at) = CURDATE()
-            AND status NOT IN ('voided', 'pending', 'refunded')
+            AND status NOT IN ('voided', 'pending')
         `);
 
         // Library seats status
@@ -96,12 +105,18 @@ exports.getSalesChart = async (req, res) => {
         // Hourly sales for today
         const [todayData] = await db.query(`
             SELECT 
-                HOUR(created_at) as hour,
-                COALESCE(SUM(total_amount), 0) as sales
-            FROM transactions 
-            WHERE DATE(created_at) = CURDATE()
-            AND status NOT IN ('voided', 'pending', 'refunded')
-            GROUP BY HOUR(created_at)
+                HOUR(t.created_at) as hour,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE DATE(t.created_at) = CURDATE()
+            AND t.status NOT IN ('voided', 'pending')
+            GROUP BY HOUR(t.created_at)
             ORDER BY hour ASC
         `);
         
@@ -119,12 +134,18 @@ exports.getSalesChart = async (req, res) => {
         // Daily sales for current week
         const [weekData] = await db.query(`
             SELECT 
-                DAYOFWEEK(created_at) as day_num,
-                COALESCE(SUM(total_amount), 0) as sales
-            FROM transactions 
-            WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
-            AND status NOT IN ('voided', 'pending', 'refunded')
-            GROUP BY DAYOFWEEK(created_at)
+                DAYOFWEEK(t.created_at) as day_num,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)
+            AND t.status NOT IN ('voided', 'pending')
+            GROUP BY DAYOFWEEK(t.created_at)
             ORDER BY day_num ASC
         `);
         
@@ -142,12 +163,18 @@ exports.getSalesChart = async (req, res) => {
         // Weekly sales for current month
         const [monthData] = await db.query(`
             SELECT 
-                WEEK(created_at, 1) - WEEK(DATE_FORMAT(created_at, '%Y-%m-01'), 1) + 1 as week_num,
-                COALESCE(SUM(total_amount), 0) as sales
-            FROM transactions 
-            WHERE MONTH(created_at) = MONTH(CURDATE())
-            AND YEAR(created_at) = YEAR(CURDATE())
-            AND status NOT IN ('voided', 'pending', 'refunded')
+                WEEK(t.created_at, 1) - WEEK(DATE_FORMAT(t.created_at, '%Y-%m-01'), 1) + 1 as week_num,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE MONTH(t.created_at) = MONTH(CURDATE())
+            AND YEAR(t.created_at) = YEAR(CURDATE())
+            AND t.status NOT IN ('voided', 'pending')
             GROUP BY week_num
             ORDER BY week_num ASC
         `);
@@ -165,12 +192,18 @@ exports.getSalesChart = async (req, res) => {
         // Monthly sales for current year
         const [yearData] = await db.query(`
             SELECT 
-                MONTH(created_at) as month_num,
-                COALESCE(SUM(total_amount), 0) as sales
-            FROM transactions 
-            WHERE YEAR(created_at) = YEAR(CURDATE())
-            AND status NOT IN ('voided', 'pending', 'refunded')
-            GROUP BY MONTH(created_at)
+                MONTH(t.created_at) as month_num,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE YEAR(t.created_at) = YEAR(CURDATE())
+            AND t.status NOT IN ('voided', 'pending')
+            GROUP BY MONTH(t.created_at)
             ORDER BY month_num ASC
         `);
         
@@ -202,13 +235,28 @@ exports.getCategorySales = async (req, res) => {
         const [categorySales] = await db.query(`
             SELECT 
                 c.name as category_name,
-                COALESCE(SUM(ti.total_price), 0) as total_sales
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN t.transaction_id IS NULL THEN 0
+                            WHEN t.status = 'refunded' AND COALESCE(vl.refund_amount, 0) > 0 THEN 0
+                            ELSE ti.total_price
+                        END
+                    ),
+                    0
+                ) as total_sales
             FROM categories c
             LEFT JOIN items i ON c.category_id = i.category_id
             LEFT JOIN transaction_items ti ON i.item_id = ti.item_id
             LEFT JOIN transactions t ON ti.transaction_id = t.transaction_id 
                 AND DATE(t.created_at) = CURDATE()
-                AND t.status NOT IN ('voided', 'pending', 'refunded')
+                AND t.status NOT IN ('voided', 'pending')
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
             WHERE c.status = 'active'
             GROUP BY c.category_id, c.name
             ORDER BY total_sales DESC

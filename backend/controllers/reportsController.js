@@ -2,7 +2,7 @@ const db = require('../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
-const buildAuditLogsWhereClause = ({ startDate, endDate, action, actorUserId, targetType, search }) => {
+const buildAuditLogsWhereClause = ({ startDate, endDate, action, actorUserId, staffUserId, targetType, search }) => {
     const whereConditions = ['1=1'];
     const params = [];
 
@@ -24,6 +24,16 @@ const buildAuditLogsWhereClause = ({ startDate, endDate, action, actorUserId, ta
     if (actorUserId) {
         whereConditions.push('a.actor_user_id = ?');
         params.push(actorUserId);
+    }
+
+    if (staffUserId) {
+        whereConditions.push(`
+            (
+                a.actor_user_id = ?
+                OR CAST(JSON_UNQUOTE(JSON_EXTRACT(a.details_json, '$.target_user_id')) AS UNSIGNED) = ?
+            )
+        `);
+        params.push(staffUserId, staffUserId);
     }
 
     if (targetType) {
@@ -107,14 +117,26 @@ exports.getSalesSummary = async (req, res) => {
         const [summary] = await db.query(`
             SELECT 
                 COUNT(t.transaction_id) as total_orders,
-                COALESCE(SUM(t.subtotal), 0) as total_sales,
-                COALESCE(AVG(t.total_amount), 0) as average_order_value,
-                COALESCE(SUM(t.discount_amount), 0) as total_discounts
+                COALESCE(SUM(t.subtotal), 0) as gross_sales,
+                COALESCE(SUM(t.discount_amount), 0) as total_discounts,
+                COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as total_refunds,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as total_sales,
+                CASE
+                    WHEN COUNT(t.transaction_id) > 0
+                        THEN (COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0)) / COUNT(t.transaction_id)
+                    ELSE 0
+                END as average_order_value
             FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
             WHERE ${whereClause}
         `, params);
 
-        res.json(summary[0] || { total_orders: 0, total_sales: 0, average_order_value: 0, total_discounts: 0 });
+        res.json(summary[0] || { total_orders: 0, gross_sales: 0, total_sales: 0, average_order_value: 0, total_discounts: 0, total_refunds: 0 });
 
     } catch (error) {
         console.error('Sales summary error:', error);
@@ -359,9 +381,16 @@ exports.getSalesDetails = async (req, res) => {
                 COUNT(t.transaction_id) as transaction_count,
                 SUM(t.subtotal) as gross_sales,
                 SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
-                SUM(t.total_amount) as net_sales,
-                AVG(t.total_amount) as avg_order_value
+                SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
+                SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
+                AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
             FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
             WHERE ${whereConditions.join(' AND ')}
             GROUP BY DATE(t.created_at)
             ORDER BY DATE(t.created_at) DESC
@@ -478,6 +507,7 @@ exports.getAuditLogs = async (req, res) => {
         endDate,
         action,
         actorUserId,
+        staffUserId,
         targetType,
         search,
         page,
@@ -494,6 +524,7 @@ exports.getAuditLogs = async (req, res) => {
             endDate,
             action,
             actorUserId,
+            staffUserId,
             targetType,
             search
         });
@@ -551,7 +582,7 @@ exports.getAuditLogs = async (req, res) => {
 // EXPORT TO EXCEL
 
 exports.exportExcel = async (req, res) => {
-    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search, cashierUserId } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, staffUserId, targetType, search, cashierUserId } = req.query;
 
     try {
         const workbook = new ExcelJS.Workbook();
@@ -819,9 +850,16 @@ exports.exportExcel = async (req, res) => {
                     COUNT(t.transaction_id) as transaction_count,
                     SUM(t.subtotal) as gross_sales,
                     SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
-                    SUM(t.total_amount) as net_sales,
-                    AVG(t.total_amount) as avg_order_value
+                    SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
+                    SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
+                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
                 FROM transactions t
+                LEFT JOIN (
+                    SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                    FROM void_log
+                    WHERE action_type = 'refund'
+                    GROUP BY transaction_id
+                ) vl ON vl.transaction_id = t.transaction_id
                 WHERE ${whereConditions.join(' AND ')}
                 GROUP BY DATE(t.created_at)
                 ORDER BY DATE(t.created_at) DESC
@@ -831,6 +869,7 @@ exports.exportExcel = async (req, res) => {
             const totalTransactions = salesDetails.reduce((sum, d) => sum + parseInt(d.transaction_count), 0);
             const totalGrossSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.gross_sales || 0), 0);
             const totalDiscounts = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
+            const totalRefunds = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
             const totalNetSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_sales || 0), 0);
             const avgOrderValue = totalTransactions > 0 ? totalNetSales / totalTransactions : 0;
 
@@ -865,6 +904,7 @@ exports.exportExcel = async (req, res) => {
                 ['Total Transactions:', totalTransactions],
                 ['Gross Sales:', `₱${formatCurrency(totalGrossSales)}`],
                 ['Total Discounts:', `₱${formatCurrency(totalDiscounts)}`],
+                ['Total Cash Refunds:', `₱${formatCurrency(totalRefunds)}`],
                 ['Net Sales:', `₱${formatCurrency(totalNetSales)}`],
                 ['Average Order Value:', `₱${formatCurrency(avgOrderValue)}`]
             ];
@@ -1121,6 +1161,7 @@ exports.exportExcel = async (req, res) => {
                 endDate,
                 action,
                 actorUserId,
+                staffUserId,
                 targetType,
                 search
             });
@@ -1254,7 +1295,7 @@ exports.exportExcel = async (req, res) => {
 // EXPORT TO PDF
 
 exports.exportPDF = async (req, res) => {
-    const { type, startDate, endDate, orderType, status, action, actorUserId, targetType, search, cashierUserId } = req.query;
+    const { type, startDate, endDate, orderType, status, action, actorUserId, staffUserId, targetType, search, cashierUserId } = req.query;
 
     try {
         // Create PDF document
@@ -1446,8 +1487,15 @@ exports.exportPDF = async (req, res) => {
                     DATE(t.created_at) as sale_date,
                     COUNT(DISTINCT t.transaction_id) as order_count,
                     SUM(t.total_amount) as total_sales,
-                    SUM(t.discount_amount) as total_discounts
+                    SUM(t.discount_amount) as total_discounts,
+                    SUM(COALESCE(vl.refund_amount, 0)) as total_refunds
                 FROM transactions t
+                LEFT JOIN (
+                    SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                    FROM void_log
+                    WHERE action_type = 'refund'
+                    GROUP BY transaction_id
+                ) vl ON vl.transaction_id = t.transaction_id
                 WHERE t.status != 'voided'
                 AND DATE(t.created_at) BETWEEN ? AND ?
                 ${cashierUserId ? 'AND t.processed_by = ?' : ''}
@@ -1459,6 +1507,7 @@ exports.exportPDF = async (req, res) => {
             const totalOrders = dailySales.reduce((sum, d) => sum + d.order_count, 0);
             const totalSales = dailySales.reduce((sum, d) => sum + parseFloat(d.total_sales || 0), 0);
             const totalDiscounts = dailySales.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
+            const totalRefunds = dailySales.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
 
             // Page header
             let y = addPageHeader('Sales Report', `Date Range: ${startDate} to ${endDate}`);
@@ -1468,7 +1517,7 @@ exports.exportPDF = async (req, res) => {
             doc.text('Summary', 40, y);
             y += 18;
             doc.font('Helvetica').fontSize(10).fillColor('black');
-            doc.text(`Total Orders: ${totalOrders}    |    Total Sales: ${formatCurrency(totalSales)}    |    Total Discounts: ${formatCurrency(totalDiscounts)}`, 40, y);
+            doc.text(`Total Orders: ${totalOrders}    |    Gross Sales: ${formatCurrency(totalSales)}    |    Discounts: ${formatCurrency(totalDiscounts)}    |    Refunds: ${formatCurrency(totalRefunds)}`, 40, y);
             y += 30;
 
             // Table
@@ -1479,7 +1528,7 @@ exports.exportPDF = async (req, res) => {
 
             dailySales.forEach((day, index) => {
                 y = checkNewPage(y);
-                const netSales = parseFloat(day.total_sales || 0) - parseFloat(day.total_discounts || 0);
+                const netSales = parseFloat(day.total_sales || 0) - parseFloat(day.total_discounts || 0) - parseFloat(day.total_refunds || 0);
                 const rowData = [
                     formatDate(day.sale_date),
                     day.order_count,
@@ -1578,6 +1627,7 @@ exports.exportPDF = async (req, res) => {
                 endDate,
                 action,
                 actorUserId,
+                staffUserId,
                 targetType,
                 search
             });
