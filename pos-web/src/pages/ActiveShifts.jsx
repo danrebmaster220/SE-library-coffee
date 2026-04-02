@@ -12,6 +12,7 @@ export default function ActiveShifts() {
   const [forceClosing, setForceClosing] = useState(false);
   const [shiftPage, setShiftPage] = useState(1);
   const rowsPerPage = 10;
+  const forceCloseReason = forceCloseNotes.trim();
 
   useEffect(() => {
     fetchActiveShifts();
@@ -65,11 +66,15 @@ export default function ActiveShifts() {
 
   const handleForceClose = async () => {
     if (!selectedShift || forceClosing) return;
+    if (!forceCloseReason) {
+      alert('Please provide a reason before force-closing this shift.');
+      return;
+    }
 
     try {
       setForceClosing(true);
       await api.post(`/shifts/${selectedShift.shift_id}/force-close`, {
-        notes: forceCloseNotes || 'Force-closed by admin'
+        notes: forceCloseReason
       });
       setShowForceCloseModal(false);
       setSelectedShift(null);
@@ -212,13 +217,17 @@ export default function ActiveShifts() {
                   onChange={(e) => setForceCloseNotes(e.target.value)}
                   placeholder="e.g., Power outage, cashier absent..."
                   rows={3}
+                  maxLength={500}
                   disabled={forceClosing}
                 />
+                <small style={{ color: '#666', display: 'block', marginTop: '6px' }}>
+                  Reason is required for audit accountability.
+                </small>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn-cancel" onClick={() => setShowForceCloseModal(false)} disabled={forceClosing}>Cancel</button>
-              <button className="btn-danger" onClick={handleForceClose} disabled={forceClosing}>
+              <button className="btn-danger" onClick={handleForceClose} disabled={forceClosing || !forceCloseReason}>
                 {forceClosing ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">

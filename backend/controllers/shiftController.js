@@ -2,6 +2,27 @@ const db = require('../config/db');
 const { logAuditEvent } = require('../services/auditLogService');
 
 const SHIFT_SOCKET_ROOM = 'authenticated-users';
+const MAX_SHIFT_NOTES_LENGTH = 500;
+
+const normalizeMoneyInput = (value, { allowEmptyAsZero = false } = {}) => {
+    if (value === null || value === undefined || value === '') {
+        return allowEmptyAsZero ? 0 : null;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return null;
+    }
+
+    return parsed;
+};
+
+const normalizeNotes = (value) => {
+    if (value === null || value === undefined) return null;
+    const text = String(value).trim();
+    if (!text) return null;
+    return text.slice(0, MAX_SHIFT_NOTES_LENGTH);
+};
 
 const emitShiftUpdated = (req, payload = {}) => {
     const io = req.app?.get('io');
@@ -50,6 +71,11 @@ exports.startShift = async (req, res) => {
     try {
         const userId = req.user?.user_id || req.user?.id;
         const { starting_cash } = req.body;
+        const startingCashValue = normalizeMoneyInput(starting_cash, { allowEmptyAsZero: true });
+
+        if (startingCashValue === null) {
+            return res.status(400).json({ error: 'Starting cash must be a valid non-negative amount.' });
+        }
 
         // Check if user already has an active shift
         const [existing] = await db.query(
@@ -66,7 +92,7 @@ exports.startShift = async (req, res) => {
 
         const [result] = await db.query(
             'INSERT INTO shifts (user_id, starting_cash, start_time, status) VALUES (?, ?, NOW(), ?)',
-            [userId, parseFloat(starting_cash) || 0, 'active']
+            [userId, startingCashValue, 'active']
         );
 
         const [newShift] = await db.query(
@@ -87,7 +113,7 @@ exports.startShift = async (req, res) => {
             shiftId: newShift[0]?.shift_id || null,
             targetUserId: userId,
             details: {
-                starting_cash: parseFloat(starting_cash) || 0
+                starting_cash: startingCashValue
             }
         });
 
@@ -128,32 +154,43 @@ exports.getMyActiveShift = async (req, res) => {
 
 // End the current user's active shift
 exports.endShift = async (req, res) => {
+    let connection;
     try {
         const userId = req.user?.user_id || req.user?.id;
         const { actual_cash, notes } = req.body;
+        const actualCash = normalizeMoneyInput(actual_cash);
+        const normalizedNotes = normalizeNotes(notes);
 
-        // Get the active shift
-        const [shifts] = await db.query(
-            'SELECT * FROM shifts WHERE user_id = ? AND status = ?',
+        if (actualCash === null) {
+            return res.status(400).json({ error: 'Actual cash must be provided as a valid non-negative amount.' });
+        }
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // Lock active shift row to prevent double-close races.
+        const [shifts] = await connection.query(
+            'SELECT * FROM shifts WHERE user_id = ? AND status = ? FOR UPDATE',
             [userId, 'active']
         );
 
         if (shifts.length === 0) {
+            await connection.rollback();
             return res.status(404).json({ error: 'No active shift found' });
         }
 
         const shift = shifts[0];
-        const summary = await getShiftSummary(shift);
+        const closeTime = new Date();
+        const summary = await getShiftSummary({ ...shift, end_time: closeTime }, connection);
 
         // Calculate expected cash = starting cash + cash sales - cash refunds
         const expectedCash = parseFloat(shift.starting_cash) + parseFloat(summary.total_sales) - parseFloat(summary.total_refunds);
-        const actualCash = parseFloat(actual_cash) || 0;
         const cashDifference = actualCash - expectedCash;
 
         // Update the shift
-        await db.query(`
+        await connection.query(`
             UPDATE shifts SET
-                end_time = NOW(),
+                end_time = ?,
                 expected_cash = ?,
                 actual_cash = ?,
                 cash_difference = ?,
@@ -164,8 +201,9 @@ exports.endShift = async (req, res) => {
                 status = 'closed',
                 notes = ?,
                 closed_by = ?
-            WHERE shift_id = ?
+            WHERE shift_id = ? AND status = 'active'
         `, [
+            closeTime,
             expectedCash,
             actualCash,
             cashDifference,
@@ -173,10 +211,12 @@ exports.endShift = async (req, res) => {
             summary.total_transactions,
             summary.total_voids,
             summary.total_refunds,
-            notes || null,
+            normalizedNotes,
             userId,
             shift.shift_id
         ]);
+
+        await connection.commit();
 
         // Get the updated shift
         const [updatedShift] = await db.query(
@@ -201,7 +241,7 @@ exports.endShift = async (req, res) => {
                 expected_cash: expectedCash,
                 actual_cash: actualCash,
                 cash_difference: cashDifference,
-                notes: notes || null
+                notes: normalizedNotes
             }
         });
 
@@ -216,7 +256,16 @@ exports.endShift = async (req, res) => {
             }
         });
     } catch (error) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (_rollbackError) {
+                // No-op: prefer returning original error context.
+            }
+        }
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -295,27 +344,38 @@ exports.getShiftHistory = async (req, res) => {
 
 // Admin: Force close an orphaned shift
 exports.forceCloseShift = async (req, res) => {
+    let connection;
     try {
         const adminId = req.user?.user_id || req.user?.id;
         const { id } = req.params;
         const { notes } = req.body;
+        const normalizedNotes = normalizeNotes(notes);
 
-        const [shifts] = await db.query(
-            'SELECT * FROM shifts WHERE shift_id = ? AND status = ?',
+        if (!normalizedNotes) {
+            return res.status(400).json({ error: 'Reason is required when force-closing a shift.' });
+        }
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [shifts] = await connection.query(
+            'SELECT * FROM shifts WHERE shift_id = ? AND status = ? FOR UPDATE',
             [id, 'active']
         );
 
         if (shifts.length === 0) {
+            await connection.rollback();
             return res.status(404).json({ error: 'Active shift not found' });
         }
 
         const shift = shifts[0];
-        const summary = await getShiftSummary(shift);
+        const closeTime = new Date();
+        const summary = await getShiftSummary({ ...shift, end_time: closeTime }, connection);
         const expectedCash = parseFloat(shift.starting_cash) + parseFloat(summary.total_sales) - parseFloat(summary.total_refunds);
 
-        await db.query(`
+        await connection.query(`
             UPDATE shifts SET
-                end_time = NOW(),
+                end_time = ?,
                 expected_cash = ?,
                 total_sales = ?,
                 total_transactions = ?,
@@ -324,17 +384,20 @@ exports.forceCloseShift = async (req, res) => {
                 status = 'closed',
                 notes = ?,
                 closed_by = ?
-            WHERE shift_id = ?
+            WHERE shift_id = ? AND status = 'active'
         `, [
+            closeTime,
             expectedCash,
             summary.total_sales,
             summary.total_transactions,
             summary.total_voids,
             summary.total_refunds,
-            notes || 'Force-closed by admin',
+            normalizedNotes,
             adminId,
             id
         ]);
+
+        await connection.commit();
 
         emitShiftUpdated(req, {
             action: 'force_closed',
@@ -351,21 +414,30 @@ exports.forceCloseShift = async (req, res) => {
             targetUserId: shift.user_id,
             details: {
                 expected_cash: expectedCash,
-                notes: notes || 'Force-closed by admin'
+                notes: normalizedNotes
             }
         });
 
         res.json({ success: true, message: 'Shift force-closed successfully' });
     } catch (error) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (_rollbackError) {
+                // No-op: prefer returning original error context.
+            }
+        }
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
 // Helper: Calculate shift summary from completed transactions
-async function getShiftSummary(shift) {
+async function getShiftSummary(shift, queryExecutor = db) {
     try {
         // Total completed sales during this shift by this cashier
-        const [salesResult] = await db.query(`
+        const [salesResult] = await queryExecutor.query(`
             SELECT 
                 COALESCE(SUM(total_amount), 0) as total_sales,
                 COUNT(*) as total_transactions
@@ -380,7 +452,7 @@ async function getShiftSummary(shift) {
         );
 
         // Total library sales during this shift
-        const [librarySalesResult] = await db.query(`
+        const [librarySalesResult] = await queryExecutor.query(`
             SELECT 
                 COALESCE(SUM(amount_paid), 0) as library_sales
             FROM library_sessions
@@ -394,7 +466,7 @@ async function getShiftSummary(shift) {
         );
 
         // Total voids during this shift
-        const [voidResult] = await db.query(`
+        const [voidResult] = await queryExecutor.query(`
             SELECT COUNT(*) as total_voids
             FROM transactions 
             WHERE processed_by = ? 
@@ -410,7 +482,7 @@ async function getShiftSummary(shift) {
         // Use void_log refund metadata when available; fall back to legacy refunded transaction totals.
         let totalRefunds = 0;
         try {
-            const [refundRows] = await db.query(`
+            const [refundRows] = await queryExecutor.query(`
                 SELECT 
                     COALESCE(
                         SUM(
@@ -434,7 +506,7 @@ async function getShiftSummary(shift) {
 
             totalRefunds = parseFloat(refundRows?.[0]?.total_refunds) || 0;
         } catch (_refundLogError) {
-            const [fallbackRefundRows] = await db.query(`
+            const [fallbackRefundRows] = await queryExecutor.query(`
                 SELECT COALESCE(SUM(total_amount), 0) as total_refunds
                 FROM transactions 
                 WHERE processed_by = ? 
