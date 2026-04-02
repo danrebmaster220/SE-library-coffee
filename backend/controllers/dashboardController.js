@@ -120,9 +120,9 @@ exports.getSalesChart = async (req, res) => {
             ORDER BY hour ASC
         `);
         
-        // Fill in missing hours (8AM-10PM)
+        // Fill in missing hours based on operating window (8AM-11PM)
         const hourlyData = [];
-        for (let h = 8; h <= 22; h++) {
+        for (let h = 8; h <= 23; h++) {
             const found = todayData.find(d => d.hour === h);
             const hourLabel = h > 12 ? `${h - 12}PM` : (h === 12 ? '12PM' : `${h}AM`);
             hourlyData.push({

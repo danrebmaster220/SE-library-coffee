@@ -658,7 +658,7 @@ export default function Reports() {
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
-            Library Reports
+            StudyHall Reports
           </button>
           <button
             className={`report-tab ${activeTab === 'audit' ? 'active' : ''}`}
@@ -1129,7 +1129,7 @@ export default function Reports() {
             {activeTab === 'library' && (
               filteredLibrary.length === 0 ? (
                 <div className="empty-state">
-                  <p>No library sessions found for the selected date range.</p>
+                  <p>No StudyHall sessions found for the selected date range.</p>
                 </div>
               ) : (
                 <>

@@ -398,17 +398,28 @@ export default function LibraryTransactions() {
   const maintenanceCount = seats.filter(s => s.status === 'maintenance').length;
   const activeRevenue = activeSessions.reduce((sum, s) => sum + calculateFee(s.elapsed_minutes), 0);
 
-  const groupedSeats = tables.map(table => ({
-    tableNum: table.table_number,
-    tableName: table.table_name,
-    seats: seats.filter(s => s.table_number === table.table_number).sort((a, b) => a.seat_number - b.seat_number)
-  }));
+  const groupedSeats = tables.map(table => {
+    const tableSeats = seats
+      .filter(s => s.table_number === table.table_number)
+      .sort((a, b) => a.seat_number - b.seat_number);
+
+    return {
+      tableNum: table.table_number,
+      tableName: table.table_name,
+      seats: tableSeats,
+      totalSeats: tableSeats.length,
+      availableCount: tableSeats.filter(s => s.status === 'available').length,
+      occupiedCount: tableSeats.filter(s => s.status === 'occupied').length,
+      reservedCount: tableSeats.filter(s => s.status === 'reserved').length,
+      maintenanceCount: tableSeats.filter(s => s.status === 'maintenance').length
+    };
+  });
 
   if (loading) {
     return (
-      <div className="main-content">
+      <div className="main-content library-transactions-page">
         <div className="page-header">
-          <h2 className="page-title">Library Management</h2>
+          <h2 className="page-title">StudyHall Transactions</h2>
           <p className="page-subtitle">Transactions and Monitoring</p>
         </div>
         <div className="loading-state">Loading...</div>
@@ -417,7 +428,7 @@ export default function LibraryTransactions() {
   }
 
   return (
-    <div className="main-content" style={{ position: 'relative' }}>
+    <div className="main-content library-transactions-page" style={{ position: 'relative' }}>
       {/* Shift Restricted Overlay */}
       {!hasActiveShift && !shiftChecking && !isAdmin && (
         <div style={{
@@ -429,12 +440,12 @@ export default function LibraryTransactions() {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
           <h2 style={{ fontSize: '24px', color: '#333', marginBottom: '8px', fontWeight: 'bold' }}>Shift Not Started</h2>
           <p style={{ color: '#666', fontSize: '15px', maxWidth: '400px' }}>
-            You must start your shift using the 'Start Shift' button in the top bar to process library sessions.
+            You must start your shift using the 'Start Shift' button in the top bar to process StudyHall sessions.
           </p>
         </div>
       )}
       <div className="page-header">
-        <h2 className="page-title">Library Management</h2>
+        <h2 className="page-title">StudyHall Transactions</h2>
         <p className="page-subtitle">Transactions and Monitoring</p>
       </div>
 
@@ -498,6 +509,14 @@ export default function LibraryTransactions() {
 
       {viewMode === 'grid' && (
         <div className="seat-grid-container">
+          <div className="floor-map-header">
+            <div>
+              <h3>StudyHall Floor Map</h3>
+              <p>Tap a seat card to check in, manage sessions, or inspect reserved seats.</p>
+            </div>
+            <span className="floor-map-pill">{availableCount} Open Seats</span>
+          </div>
+
           {seats.length === 0 ? (
             <div className="empty-state"><p>No seats configured yet.</p><p>Go to Manage Tables to add tables and seats.</p></div>
           ) : (
@@ -505,9 +524,37 @@ export default function LibraryTransactions() {
               {groupedSeats.map(function(group) {
                 return (
                   <div key={group.tableNum} className="table-section-compact">
-                    <div className="table-header-compact">{group.tableName}</div>
+                    <div className="table-header-compact">
+                      <div className="table-title-wrap">
+                        <span className="table-title-main">{group.tableName}</span>
+                        <span className="table-title-sub">{group.totalSeats} seats</span>
+                      </div>
+                      <div className="table-quick-stats">
+                        <span className="table-stat-pill available" title="Available">{group.availableCount}</span>
+                        <span className="table-stat-pill occupied" title="Occupied">{group.occupiedCount}</span>
+                        {group.reservedCount > 0 && <span className="table-stat-pill reserved" title="Reserved">{group.reservedCount}</span>}
+                        {group.maintenanceCount > 0 && <span className="table-stat-pill maintenance" title="Maintenance">{group.maintenanceCount}</span>}
+                      </div>
+                    </div>
                     <div className="seats-row">
                       {group.seats.map(function(seat) {
+                        var remainingMinutes = Number(seat.remaining_minutes || 0);
+                        var statusKey = seat.temporary_lock ? 'reserved' : seat.status;
+                        var statusLabel = 'Available';
+                        var seatNote = 'Tap to check in';
+
+                        if (statusKey === 'occupied') {
+                          statusLabel = 'Occupied';
+                          seatNote = remainingMinutes > 0 ? remainingMinutes + ' min left' : 'In session';
+                        } else if (statusKey === 'reserved') {
+                          statusLabel = 'Reserved';
+                          seatNote = seat.temporary_lock ? 'Kiosk is booking' : 'Awaiting check-in';
+                        } else if (statusKey === 'maintenance') {
+                          statusLabel = 'Maintenance';
+                          seatNote = 'Unavailable';
+                        }
+
+                        var isCritical = seat.status === 'occupied' && remainingMinutes <= 5 && remainingMinutes > 0;
                         var seatClass = 'seat-item ';
                         if (seat.status === 'available') seatClass += 'seat-available';
                         else if (seat.status === 'reserved') seatClass += 'seat-reserved';
@@ -515,8 +562,12 @@ export default function LibraryTransactions() {
                         else seatClass += 'seat-maintenance';
                         return (
                           <div key={seat.seat_id} className={seatClass} onClick={function() { handleSeatClick(seat); }} title={seat.temporary_lock ? 'Being booked by Kiosk...' : seat.status === 'occupied' ? (seat.customer_name || 'Customer') + ' - ' + (seat.elapsed_minutes || 0) + ' mins' : seat.status}>
-                            <span className="seat-number">{seat.seat_number}</span>
-                            {seat.status === 'occupied' && seat.remaining_minutes <= 5 && seat.remaining_minutes > 0 && (<span className="warning-indicator">!</span>)}
+                            <div className="seat-top-row">
+                              <span className="seat-number">S{seat.seat_number}</span>
+                              <span className={'seat-status-tag status-' + statusKey}>{statusLabel}</span>
+                            </div>
+                            <div className={'seat-meta ' + (isCritical ? 'critical' : '')}>{seatNote}</div>
+                            {isCritical && (<span className="warning-indicator">!</span>)}
                             {seat.temporary_lock && <span className="warning-indicator" style={{background: 'orange', color: 'white'}}>⏰</span>}
                           </div>
                         );
@@ -789,7 +840,6 @@ function CheckinModal(props) {
           
           <div className="quick-cash-buttons">
             <button type="button" className="quick-cash-btn exact-btn" onClick={() => handleQuickCash(fee)}>Exact</button>
-            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(100)}>₱100</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(200)}>₱200</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(500)}>₱500</button>
             <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(1000)}>₱1000</button>
@@ -859,7 +909,7 @@ function SessionModal(props) {
           </div>
           <div className="extend-section" style={{padding: '0 20px'}}>
             <h4>Extend Session:</h4>
-            <div className="extend-buttons">
+            <div className="extend-buttons single-option">
               <button className="btn-extend" onClick={function() { handleExtendClick(30); }} disabled={extendingMinutes !== null}>
                 {extendingMinutes === 30 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -873,7 +923,7 @@ function SessionModal(props) {
                   </span>
                 ) : '+30 min (P50)'}
               </button>
-              <button className="btn-extend" onClick={function() { handleExtendClick(60); }} disabled={extendingMinutes !== null}>
+              {/* <button className="btn-extend" onClick={function() { handleExtendClick(60); }} disabled={extendingMinutes !== null}>
                 {extendingMinutes === 60 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
@@ -885,7 +935,7 @@ function SessionModal(props) {
                     Processing...
                   </span>
                 ) : '+60 min (P100)'}
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -963,7 +1013,7 @@ function WarningModal(props) {
         <div className="modal-divider"></div>
         <div className="modal-actions warning-actions">
           <button className="btn-extend" onClick={function() { onExtend(30); }}>Extend +30 min</button>
-          <button className="btn-extend" onClick={function() { onExtend(60); }}>Extend +60 min</button>
+          {/* <button className="btn-extend" onClick={function() { onExtend(60); }}>Extend +60 min</button> */}
           <button className="btn-checkout" onClick={onCheckout}>Checkout Now</button>
           <button className="btn-secondary" onClick={onClose}>Dismiss</button>
         </div>
@@ -1028,7 +1078,7 @@ function VoidSessionModal(props) {
       <div className="modal void-modal" onClick={function(e) { e.stopPropagation(); }}>
         {/* Header */}
         <div className="modal-header">
-          <h3 className="modal-title">Void Library Session</h3>
+          <h3 className="modal-title">Void StudyHall Session</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 

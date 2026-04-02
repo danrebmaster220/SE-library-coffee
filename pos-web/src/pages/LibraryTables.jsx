@@ -139,12 +139,12 @@ export default function LibraryTables() {
         tables, 
         seats_per_table: seatsPerTable 
       });
-      showToast(`Library configured: ${tables} tables × ${seatsPerTable} seats`, 'success');
+      showToast(`StudyHall configured: ${tables} tables × ${seatsPerTable} seats`, 'success');
       setShowConfigureModal(false);
       fetchConfig();
     } catch (err) {
       console.error('Failed to configure library:', err);
-      showToast(err.response?.data?.error || 'Failed to configure library', 'error');
+      showToast(err.response?.data?.error || 'Failed to configure StudyHall', 'error');
     } finally {
       setIsConfiguring(false);
     }
@@ -166,7 +166,7 @@ export default function LibraryTables() {
     return (
       <div className="main-content">
         <div className="page-header">
-          <h2 className="page-title">Library Management</h2>
+          <h2 className="page-title">StudyHall Management</h2>
           <p className="page-subtitle">Manage Tables</p>
         </div>
         <div className="loading-state">Loading configuration...</div>
@@ -177,7 +177,7 @@ export default function LibraryTables() {
   return (
     <div className="main-content">
       <div className="page-header">
-        <h2 className="page-title">Library Management</h2>
+        <h2 className="page-title">StudyHall Management</h2>
         <p className="page-subtitle">Manage Tables</p>
       </div>
 
@@ -350,7 +350,7 @@ export default function LibraryTables() {
         <div className="modal-overlay" onClick={() => setShowConfigureModal(false)}>
           <div className="modal-content library-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', width: '90%' }}>
             <div className="modal-header">
-              <h3 className="modal-title" style={{ color: '#333' }}>⚙️ Quick Configure Library</h3>
+              <h3 className="modal-title" style={{ color: '#333' }}>⚙️ Quick Configure StudyHall</h3>
               <button className="modal-close" onClick={() => setShowConfigureModal(false)} style={{ color: '#666' }}>×</button>
             </div>
             <div style={{ padding: '25px', width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>

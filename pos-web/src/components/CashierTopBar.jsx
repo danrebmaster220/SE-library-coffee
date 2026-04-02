@@ -224,7 +224,7 @@ export default function CashierTopBar() {
 
   const navItems = [
     { id: 'pos', label: 'POS', icon: Icons.pos, path: '/pos' },
-    { id: 'library', label: 'Library', icon: Icons.library, path: '/library/transactions' },
+    { id: 'library', label: 'StudyHall', icon: Icons.library, path: '/library/transactions' },
     { id: 'orders', label: 'Order Queue', icon: Icons.orders, path: '/orders' },
     { id: 'completed', label: 'Completed', icon: Icons.completed, path: '/orders/completed' }
   ];
@@ -243,7 +243,7 @@ export default function CashierTopBar() {
         <div className="topbar-logo">
           <img src={logoImg} alt="Library Coffee Logo" className="topbar-logo-img" />
           <div className="logo-text">
-            <span className="logo-title">LIBRARY</span>
+            <span className="logo-title">STUDYHALL</span>
             <span className="logo-subtitle">Coffee + Study</span>
           </div>
         </div>

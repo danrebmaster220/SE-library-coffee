@@ -202,7 +202,7 @@ export default function Config() {
             <ul>
               <li><strong>Customer Receipts</strong> - Print transaction receipts for customers</li>
               <li><strong>Barista/Kitchen Tickets</strong> - Print order tickets for staff preparation</li>
-              <li><strong>Library Receipts</strong> - Print check-in/checkout receipts for library sessions</li>
+              <li><strong>StudyHall Receipts</strong> - Print check-in/checkout receipts for StudyHall sessions</li>
             </ul>
             <p>Select your printer from the dropdown and click "Test Print" to verify the connection.</p>
           </div>

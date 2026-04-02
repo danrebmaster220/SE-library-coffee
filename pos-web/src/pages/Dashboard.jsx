@@ -5,8 +5,14 @@ import api from '../api';
 import '../styles/dashboard.css';
 
 export default function Dashboard() {
+  const getInitialCompactChart = () => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 900;
+  };
+
   const [salesPeriod, setSalesPeriod] = useState('weekly');
   const [loading, setLoading] = useState(true);
+  const [isCompactChart, setIsCompactChart] = useState(getInitialCompactChart);
 
   const [stats, setStats] = useState({
     todaySales: 0,
@@ -108,6 +114,15 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompactChart(window.innerWidth < 900);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Get current chart data based on selected period
   const getChartData = () => {
     switch (salesPeriod) {
@@ -123,6 +138,13 @@ export default function Dashboard() {
   };
 
   const { data: currentChartData, labelKey } = getChartData();
+
+  const formatXAxisTick = (value, index) => {
+    if (salesPeriod === 'today' && isCompactChart) {
+      return index % 2 === 0 || index === currentChartData.length - 1 ? value : '';
+    }
+    return value;
+  };
 
   // Format currency for tooltip
   const formatCurrency = (value) => `₱${Number(value).toLocaleString()}`;
@@ -250,7 +272,7 @@ export default function Dashboard() {
         <div className="stat-card">
           <div className="stat-icon library">L</div>
           <div className="stat-info">
-            <span className="stat-label">Library</span>
+            <span className="stat-label">StudyHall</span>
             <span className="stat-value">{libraryStatus.available}/{libraryStatus.total}</span>
             <span className="stat-sub">seats available</span>
           </div>
@@ -311,9 +333,12 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece8" vertical={false} />
                 <XAxis
                   dataKey={labelKey}
-                  tick={{ fontSize: 11, fill: '#999' }}
+                  tick={{ fontSize: isCompactChart ? 10 : 11, fill: '#999' }}
                   axisLine={{ stroke: '#eee' }}
                   tickLine={false}
+                  interval={0}
+                  tickMargin={isCompactChart ? 8 : 4}
+                  tickFormatter={formatXAxisTick}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: '#999' }}
@@ -402,7 +427,7 @@ export default function Dashboard() {
         <h3>Quick Actions</h3>
         <div className="actions-row">
           <Link to="/pos" className="action-btn">New Order</Link>
-          <Link to="/library/transactions" className="action-btn">Library</Link>
+          <Link to="/library/transactions" className="action-btn">StudyHall</Link>
           <Link to="/orders" className="action-btn">Orders</Link>
           <Link to="/menu" className="action-btn">Menu</Link>
           <Link to="/reports" className="action-btn">Reports</Link>

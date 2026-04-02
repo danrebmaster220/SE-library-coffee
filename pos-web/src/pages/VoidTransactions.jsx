@@ -55,7 +55,7 @@ export default function VoidTransactions() {
     if (searchId.toUpperCase().startsWith('ORD-')) {
       searchId = searchId.substring(4);
     } else if (searchId.toUpperCase().startsWith('LIB-')) {
-      setSearchError('Library sessions cannot be refunded here. Use Library Management.');
+      setSearchError('StudyHall sessions cannot be refunded here. Use StudyHall Management.');
       setSearchResult(null);
       setSearchLoading(false);
       return;

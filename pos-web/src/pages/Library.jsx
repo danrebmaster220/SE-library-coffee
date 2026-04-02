@@ -119,7 +119,7 @@ export default function Library() {
   return (
     <div className="main-content">
       <div className="page-header">
-        <h2 className="page-title">LIBRARY MANAGEMENT → SEAT GRID</h2>
+        <h2 className="page-title">STUDYHALL MANAGEMENT → SEAT GRID</h2>
         <p className="subtitle">{tables.length} Tables × {seats.length} Total Seats</p>
         <div className="legend">
           <span className="legend-item"><span className="legend-dot available"></span> Available ({availableCount})</span>
@@ -134,7 +134,7 @@ export default function Library() {
       {seats.length === 0 ? (
         <div className="empty-state">
           <p>No seats configured yet.</p>
-          <p>Go to <strong>Library Management → Manage Tables</strong> to add tables and seats.</p>
+          <p>Go to <strong>StudyHall Management → Manage Tables</strong> to add tables and seats.</p>
         </div>
       ) : (
         <div className="tables-container">

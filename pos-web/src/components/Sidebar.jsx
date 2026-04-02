@@ -412,7 +412,7 @@ export default function Sidebar() {
     { id: 'discounts', label: 'Discounts', icon: 'discounts', path: '/discounts', type: 'link' },
     { id: 'beepers', label: 'Beeper Management', icon: 'beeper', path: '/beepers', type: 'link' },
     {
-      id: 'library', label: 'Library Management', icon: 'library', type: 'dropdown',
+      id: 'library', label: 'StudyHall Management', icon: 'library', type: 'dropdown',
       paths: ['/library/tables', '/library/transactions'],
       children: [
         { label: 'Transactions', path: '/library/transactions' },
@@ -442,7 +442,7 @@ export default function Sidebar() {
           <div className="logo">
             <img src={logoImg} alt="Library Coffee Logo" className="logo-img" />
             <div className="logo-text">
-              <h1>LIBRARY</h1>
+              <h1>STUDYHALL</h1>
               <p>Coffee + Study</p>
             </div>
           </div>
