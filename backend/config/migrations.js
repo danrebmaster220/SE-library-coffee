@@ -37,6 +37,9 @@ async function runMigrations() {
         // Migration 9: Create audit logs table for operational traces
         await createAuditLogsTable();
 
+        // Migration 10: Backfill historical force-closed shifts into audit logs
+        await backfillShiftForceClosedAuditLogs();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -308,6 +311,71 @@ async function createAuditLogsTable() {
         console.log('   ✅ Created "audit_logs" table');
     } catch (error) {
         console.error('   ⚠️ createAuditLogsTable:', error.message);
+    }
+}
+
+async function backfillShiftForceClosedAuditLogs() {
+    try {
+        const [requiredTables] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME IN ('audit_logs', 'shifts')
+        `);
+
+        if (requiredTables.length < 2) {
+            console.log('   ⏭️  Skipped force-close audit backfill (required tables missing)');
+            return;
+        }
+
+        const [result] = await db.query(`
+            INSERT INTO audit_logs (
+                action,
+                actor_user_id,
+                target_type,
+                target_id,
+                details_json,
+                ip_address,
+                created_at
+            )
+            SELECT
+                'shift_force_closed' as action,
+                s.closed_by as actor_user_id,
+                'shift' as target_type,
+                s.shift_id as target_id,
+                JSON_OBJECT(
+                    'target_user_id', s.user_id,
+                    'expected_cash', s.expected_cash,
+                    'notes', COALESCE(s.notes, 'Force-closed by admin (backfilled)'),
+                    'backfilled', TRUE
+                ) as details_json,
+                NULL as ip_address,
+                COALESCE(s.end_time, s.start_time, NOW()) as created_at
+            FROM shifts s
+            LEFT JOIN audit_logs a
+                ON a.action = 'shift_force_closed'
+                AND a.target_type = 'shift'
+                AND a.target_id = s.shift_id
+            WHERE s.status = 'closed'
+            AND a.audit_id IS NULL
+            AND s.actual_cash IS NULL
+            AND s.cash_difference IS NULL
+            AND (
+                (s.closed_by IS NOT NULL AND s.closed_by <> s.user_id)
+                OR LOWER(COALESCE(s.notes, '')) LIKE '%force-closed%'
+                OR LOWER(COALESCE(s.notes, '')) LIKE '%force closed%'
+                OR LOWER(COALESCE(s.notes, '')) LIKE '%forceclose%'
+            )
+        `);
+
+        const inserted = Number(result?.affectedRows || 0);
+        if (inserted > 0) {
+            console.log(`   ✅ Backfilled ${inserted} historical shift force-close audit log(s)`);
+        } else {
+            console.log('   ⏭️  No historical force-close audit logs to backfill');
+        }
+    } catch (error) {
+        console.error('   ⚠️ backfillShiftForceClosedAuditLogs:', error.message);
     }
 }
 
