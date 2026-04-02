@@ -430,6 +430,23 @@ export default function Reports() {
     return 'audit-other';
   };
 
+  const AUDIT_DETAIL_LABELS = {
+    starting_cash: 'Starting Cash',
+    expected_cash: 'Expected Cash',
+    actual_cash: 'Actual Cash',
+    cash_difference: 'Cash Difference',
+    notes: 'Notes'
+  };
+
+  const formatAuditDetailKey = (key) => {
+    if (!key) return '';
+    if (AUDIT_DETAIL_LABELS[key]) return AUDIT_DETAIL_LABELS[key];
+
+    return String(key)
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (match) => match.toUpperCase());
+  };
+
   const formatAuditDetails = (details) => {
     if (!details) return '-';
 
@@ -451,7 +468,7 @@ export default function Reports() {
     const preview = Object.entries(parsed)
       .filter(([key]) => !hiddenKeys.has(key))
       .slice(0, 3)
-      .map(([key, value]) => `${key}: ${value}`)
+      .map(([key, value]) => `${formatAuditDetailKey(key)}: ${value}`)
       .join(' | ');
 
     return preview || '-';

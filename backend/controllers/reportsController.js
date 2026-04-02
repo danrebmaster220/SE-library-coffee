@@ -66,6 +66,23 @@ const formatAuditActionLabel = (action) => String(action || '-')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const AUDIT_DETAIL_LABELS = {
+    starting_cash: 'Starting Cash',
+    expected_cash: 'Expected Cash',
+    actual_cash: 'Actual Cash',
+    cash_difference: 'Cash Difference',
+    notes: 'Notes'
+};
+
+const formatAuditDetailKey = (key) => {
+    if (!key) return '';
+    if (AUDIT_DETAIL_LABELS[key]) return AUDIT_DETAIL_LABELS[key];
+
+    return String(key)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const stringifyAuditDetails = (details) => {
     if (!details) return '-';
 
@@ -86,7 +103,7 @@ const stringifyAuditDetails = (details) => {
 
     const text = Object.entries(parsed)
         .filter(([key]) => !hiddenKeys.has(key))
-        .map(([key, value]) => `${key}: ${value}`)
+        .map(([key, value]) => `${formatAuditDetailKey(key)}: ${value}`)
         .join(' | ');
 
     return text || '-';
