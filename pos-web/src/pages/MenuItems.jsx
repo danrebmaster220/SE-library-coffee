@@ -77,27 +77,56 @@ export default function MenuItems() {
     setVariantPricing(prev => {
       const keySize = sizeOptionId ?? null;
       const keyTemp = tempOptionId ?? null;
-      const idx = prev.findIndex(row => {
-        const rowSize = row.size_option_id ?? null;
-        const rowTemp = row.temp_option_id ?? null;
-        return rowSize === keySize && rowTemp === keyTemp;
-      });
+      const keyOf = (s, t) => `${s ?? 'null'}:${t ?? 'null'}`;
+      const rowMap = new Map(
+        (prev || []).map(row => [
+          keyOf(row.size_option_id ?? null, row.temp_option_id ?? null),
+          { ...row }
+        ])
+      );
 
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], price: priceValue };
-        return next;
-      }
-
-      return [
-        ...prev,
+      // Apply the user-edited cell first.
+      rowMap.set(
+        keyOf(keySize, keyTemp),
         {
           size_option_id: keySize,
           temp_option_id: keyTemp,
           price: priceValue,
           status: 'active'
         }
-      ];
+      );
+
+      // Auto-hydrate missing draft combinations so one edit can make matrix save-ready.
+      const fallbackPrice = formData.price || '0.00';
+      const ensureCombo = (s, t) => {
+        const comboKey = keyOf(s, t);
+        if (!rowMap.has(comboKey)) {
+          rowMap.set(comboKey, {
+            size_option_id: s,
+            temp_option_id: t,
+            price: fallbackPrice,
+            status: 'active'
+          });
+        }
+      };
+
+      if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
+        availableTempOptions.forEach(tempOpt => {
+          availableSizeOptions.forEach(sizeOpt => {
+            ensureCombo(sizeOpt.option_id, tempOpt.option_id);
+          });
+        });
+      } else if (availableSizeOptions.length > 0) {
+        availableSizeOptions.forEach(sizeOpt => {
+          ensureCombo(sizeOpt.option_id, null);
+        });
+      } else if (availableTempOptions.length > 0) {
+        availableTempOptions.forEach(tempOpt => {
+          ensureCombo(null, tempOpt.option_id);
+        });
+      }
+
+      return Array.from(rowMap.values());
     });
   };
 
@@ -405,35 +434,32 @@ export default function MenuItems() {
     availableSizeOptions.length > 0 || availableTempOptions.length > 0
   );
 
-  const buildVariantKey = (sizeOptionId, tempOptionId) => `${sizeOptionId ?? 'null'}:${tempOptionId ?? 'null'}`;
-
-  const expectedVariantKeys = (() => {
-    const keys = [];
+  const expectedVariantCombos = (() => {
+    const combos = [];
     if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
       availableTempOptions.forEach(tempOpt => {
         availableSizeOptions.forEach(sizeOpt => {
-          keys.push(buildVariantKey(sizeOpt.option_id, tempOpt.option_id));
+          combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: tempOpt.option_id });
         });
       });
-      return keys;
+      return combos;
     }
     if (availableSizeOptions.length > 0) {
-      availableSizeOptions.forEach(sizeOpt => keys.push(buildVariantKey(sizeOpt.option_id, null)));
-      return keys;
+      availableSizeOptions.forEach(sizeOpt => combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: null }));
+      return combos;
     }
     if (availableTempOptions.length > 0) {
-      availableTempOptions.forEach(tempOpt => keys.push(buildVariantKey(null, tempOpt.option_id)));
-      return keys;
+      availableTempOptions.forEach(tempOpt => combos.push({ sizeOptionId: null, tempOptionId: tempOpt.option_id }));
+      return combos;
     }
-    return keys;
+    return combos;
   })();
 
-  const existingVariantKeys = new Set(
-    (variantPricing || []).map(row => buildVariantKey(row.size_option_id ?? null, row.temp_option_id ?? null))
-  );
-
-  const missingVariantCount = expectedVariantKeys.filter(key => !existingVariantKeys.has(key)).length;
-  const isVariantMatrixComplete = expectedVariantKeys.length > 0 && missingVariantCount === 0;
+  const missingVariantCount = expectedVariantCombos.filter(combo => {
+    const value = getVariantPriceValue(combo.sizeOptionId, combo.tempOptionId);
+    return value === undefined || value === null || String(value).trim() === '';
+  }).length;
+  const isVariantMatrixComplete = expectedVariantCombos.length > 0 && missingVariantCount === 0;
 
   return (
     <div className="main-content">
@@ -812,11 +838,11 @@ export default function MenuItems() {
                         </small>
 
                         {availableSizeOptions.length > 0 && availableTempOptions.length > 0 && (
-                          <div style={{ overflowX: 'auto' }}>
-                            <table className="data-table" style={{ minWidth: '540px', marginBottom: 0 }}>
+                          <div style={{ width: '100%' }}>
+                            <table className="data-table" style={{ width: '100%', minWidth: 0, tableLayout: 'fixed', marginBottom: 0 }}>
                               <thead>
                                 <tr>
-                                  <th style={{ minWidth: '130px' }}>Temperature \ Size</th>
+                                  <th style={{ width: '40%', whiteSpace: 'normal' }}>Temperature \ Size</th>
                                   {availableSizeOptions.map(sizeOpt => (
                                     <th key={sizeOpt.option_id}>{sizeOpt.name}</th>
                                   ))}
@@ -834,7 +860,7 @@ export default function MenuItems() {
                                           className="form-input"
                                           value={getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)}
                                           onChange={(e) => setVariantPriceValue(sizeOpt.option_id, tempOpt.option_id, e.target.value)}
-                                          style={{ minWidth: '88px', padding: '8px 10px' }}
+                                          style={{ width: '100%', minWidth: 0, padding: '8px 10px' }}
                                         />
                                       </td>
                                     ))}
