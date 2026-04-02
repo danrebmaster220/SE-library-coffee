@@ -1423,6 +1423,7 @@ export default function POS() {
         const requiredGroups = customizationGroups.filter(g => g.is_required);
         const addonGroups = customizationGroups.filter(g => !g.is_required);
         const currentAddonGroup = addonGroups.find(g => (g.group_id || g.id) === activeAddonTab) || addonGroups[0];
+        const hasVariantPricing = Array.isArray(customizingItem.variant_pricing) && customizingItem.variant_pricing.length > 0;
         
         return (
           <div className="modal-overlay">
@@ -1449,6 +1450,7 @@ export default function POS() {
                             {group.options.map(option => {
                               const optionId = option.option_id || option.id;
                               const optPrice = parseFloat(option.price || option.price_per_unit) || 0;
+                              const isVariantDriverGroup = hasVariantPricing && (isSizeGroupName(group.name) || isTempGroupName(group.name));
                               const isSelected = (selectedCustomizations[groupId] || []).includes(optionId);
                               return (
                                 <label key={optionId} className={`option-chip ${isSelected ? 'selected' : ''}`}>
@@ -1460,7 +1462,7 @@ export default function POS() {
                                   />
                                   <span className="chip-content">
                                     <span className="option-name">{option.name}</span>
-                                    {optPrice > 0 && <span className="option-price">+₱{optPrice.toFixed(2)}</span>}
+                                    {optPrice > 0 && !isVariantDriverGroup && <span className="option-price">+₱{optPrice.toFixed(2)}</span>}
                                   </span>
                                 </label>
                               );
