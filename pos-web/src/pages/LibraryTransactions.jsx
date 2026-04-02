@@ -354,11 +354,6 @@ export default function LibraryTransactions() {
     }
   };
 
-  const openVoidModal = (session) => {
-    setVoidingSession(session);
-    setShowVoidModal(true);
-  };
-
   const calculateFee = (minutes) => {
     let fee = 100.00;
     if (minutes > 120) {

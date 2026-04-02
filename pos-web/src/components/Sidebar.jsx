@@ -160,7 +160,6 @@ export default function Sidebar() {
   useEffect(() => {
     const newMenus = getOpenMenusForPath(location.pathname);
     if (Object.keys(newMenus).length > 0) {
-      // eslint-disable-next-line
       setOpenMenus(prev => ({ ...prev, ...newMenus }));
     }
   }, [location.pathname]);

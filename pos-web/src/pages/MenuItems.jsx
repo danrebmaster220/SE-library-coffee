@@ -231,8 +231,9 @@ export default function MenuItems() {
       await fetchData();
       closeModal();
     } catch (error) {
-      console.error("Error saving item:", error);
-      alert("Failed to save item. Please check all fields are filled correctly.");
+      const backendMessage = error?.response?.data?.error;
+      console.error("Error saving item:", error?.response?.data || error);
+      alert(backendMessage || "Failed to save item. Please check all fields are filled correctly.");
     } finally {
       setIsSubmitting(false);
     }

@@ -54,6 +54,7 @@ const applyTemperatureFilter = (group, flags) => {
 
 const getItemVariantPricing = async (itemId) => {
     try {
+        await ensureVariantPricingTable(db);
         const [rows] = await db.query(`
             SELECT
                 ivp.variant_id,
@@ -76,6 +77,36 @@ const getItemVariantPricing = async (itemId) => {
     } catch (error) {
         return [];
     }
+};
+
+const ensureVariantPricingTable = async (queryRunner) => {
+    await queryRunner.query(`
+        CREATE TABLE IF NOT EXISTS item_variant_prices (
+            variant_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            item_id INT NOT NULL,
+            size_option_id INT NULL,
+            temp_option_id INT NULL,
+            price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_item_variant_combo (item_id, size_option_id, temp_option_id),
+            INDEX idx_item_variant_item (item_id),
+            INDEX idx_item_variant_size (size_option_id),
+            INDEX idx_item_variant_temp (temp_option_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    `);
+};
+
+const mapVariantPricingError = (error) => {
+    const code = error?.code || '';
+    if (code === 'ER_ACCESS_DENIED_ERROR' || code === 'ER_DBACCESS_DENIED_ERROR' || code === 'ER_TABLEACCESS_DENIED_ERROR') {
+        return 'Database permission denied while saving variant prices. Check DB credentials/privileges.';
+    }
+    if (code === 'ER_NO_SUCH_TABLE') {
+        return 'Variant pricing table is missing. Restart backend to run migrations, then try again.';
+    }
+    return error?.message || 'Failed to save variant prices.';
 };
 
 
@@ -377,6 +408,8 @@ exports.saveItemVariantPrices = async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        await ensureVariantPricingTable(connection);
+
         await connection.query('DELETE FROM item_variant_prices WHERE item_id = ?', [itemId]);
 
         const variantList = Array.isArray(variants) ? variants : [];
@@ -418,7 +451,10 @@ exports.saveItemVariantPrices = async (req, res) => {
         res.json({ message: 'Variant prices saved successfully', count: values.length });
     } catch (error) {
         await connection.rollback();
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+            error: mapVariantPricingError(error),
+            code: error?.code || 'UNKNOWN'
+        });
     } finally {
         connection.release();
     }

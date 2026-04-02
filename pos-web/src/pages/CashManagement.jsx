@@ -10,12 +10,11 @@ export default function CashManagement() {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(socketService.isConnected());
 
   useEffect(() => {
-    const socket = socketService.connect();
+    socketService.connect();
 
     const handleConnect = () => setIsRealtimeConnected(true);
     const handleDisconnect = () => setIsRealtimeConnected(false);
 
-    setIsRealtimeConnected(socketService.isConnected());
     socketService.on('connect', handleConnect);
     socketService.on('disconnect', handleDisconnect);
 
