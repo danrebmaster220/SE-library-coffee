@@ -473,13 +473,14 @@ exports.processPayment = async (req, res) => {
             // Create library session
             const [sessionResult] = await connection.query(`
                 INSERT INTO library_sessions 
-                (seat_id, customer_name, paid_minutes, amount_paid, status, start_time) 
-                VALUES (?, ?, ?, ?, 'active', NOW())
+                (seat_id, customer_name, paid_minutes, amount_paid, status, start_time, processed_by) 
+                VALUES (?, ?, ?, ?, 'active', NOW(), ?)
             `, [
                 libraryBooking.seat_id,
                 libraryBooking.customer_name,
                 libraryBooking.duration_minutes,
-                libraryBooking.amount
+                libraryBooking.amount,
+                transaction.processed_by || userId || null
             ]);
             
             librarySessionId = sessionResult.insertId;

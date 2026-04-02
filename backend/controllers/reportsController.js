@@ -430,15 +430,7 @@ exports.getLibraryReport = async (req, res) => {
         }
 
         if (cashierUserId) {
-            whereConditions.push(`
-                EXISTS (
-                    SELECT 1
-                    FROM transactions t
-                    WHERE t.library_session_id = ls.session_id
-                    AND t.processed_by = ?
-                    AND t.status != 'voided'
-                )
-            `);
+            whereConditions.push('ls.processed_by = ?');
             params.push(cashierUserId);
         }
 
@@ -1004,15 +996,7 @@ exports.exportExcel = async (req, res) => {
             }
 
             if (cashierUserId) {
-                whereConditions.push(`
-                    EXISTS (
-                        SELECT 1
-                        FROM transactions t
-                        WHERE t.library_session_id = ls.session_id
-                        AND t.processed_by = ?
-                        AND t.status != 'voided'
-                    )
-                `);
+                whereConditions.push('ls.processed_by = ?');
                 params.push(cashierUserId);
             }
 
@@ -1552,15 +1536,7 @@ exports.exportPDF = async (req, res) => {
             }
 
             if (cashierUserId) {
-                whereConditions.push(`
-                    EXISTS (
-                        SELECT 1
-                        FROM transactions t
-                        WHERE t.library_session_id = ls.session_id
-                        AND t.processed_by = ?
-                        AND t.status != 'voided'
-                    )
-                `);
+                whereConditions.push('ls.processed_by = ?');
                 params.push(cashierUserId);
             }
 

@@ -27,17 +27,20 @@ async function runMigrations() {
         // Migration 6: Add 'processed_by' column to library_sessions
         await addLibraryProcessedBy();
 
-        // Migration 7: Fix library_sessions seat_id foreign key constraint
+        // Migration 7: Backfill/index library_sessions.processed_by from transactions
+        await backfillLibrarySessionsProcessedBy();
+
+        // Migration 8: Fix library_sessions seat_id foreign key constraint
         await fixLibrarySessionsForeignKey();
 
-        // Migration 8: Fix library_tables duplicate bug
+        // Migration 9: Fix library_tables duplicate bug
         await fixLibraryTablesDuplicateBug();
         await fixLibrarySessionsGhostBug();
 
-        // Migration 9: Create audit logs table for operational traces
+        // Migration 10: Create audit logs table for operational traces
         await createAuditLogsTable();
 
-        // Migration 10: Backfill historical force-closed shifts into audit logs
+        // Migration 11: Backfill historical force-closed shifts into audit logs
         await backfillShiftForceClosedAuditLogs();
 
         console.log('✅ All database migrations completed successfully.');
@@ -198,6 +201,66 @@ async function addLibraryProcessedBy() {
         }
     } catch (error) {
         console.error('   ⚠️ addLibraryProcessedBy:', error.message);
+    }
+}
+
+async function backfillLibrarySessionsProcessedBy() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'library_sessions'
+            AND COLUMN_NAME = 'processed_by'
+        `);
+
+        if (cols.length === 0) {
+            console.log('   ⏭️  Skipped library_sessions processed_by backfill (column missing)');
+            return;
+        }
+
+        const [backfillResult] = await db.query(`
+            UPDATE library_sessions ls
+            JOIN (
+                SELECT
+                    t.library_session_id as session_id,
+                    CAST(SUBSTRING_INDEX(
+                        GROUP_CONCAT(t.processed_by ORDER BY t.created_at DESC SEPARATOR ','),
+                        ',',
+                        1
+                    ) AS UNSIGNED) as processed_by
+                FROM transactions t
+                WHERE t.library_session_id IS NOT NULL
+                AND t.processed_by IS NOT NULL
+                GROUP BY t.library_session_id
+            ) tx ON tx.session_id = ls.session_id
+            SET ls.processed_by = tx.processed_by
+            WHERE ls.processed_by IS NULL
+        `);
+
+        const updated = Number(backfillResult?.affectedRows || 0);
+        if (updated > 0) {
+            console.log(`   ✅ Backfilled processed_by for ${updated} library session(s)`);
+        } else {
+            console.log('   ⏭️  No library_sessions processed_by rows needed backfill');
+        }
+
+        const [indexRows] = await db.query(`
+            SELECT COUNT(1) as count
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'library_sessions'
+            AND INDEX_NAME = 'idx_library_sessions_processed_by'
+        `);
+
+        if (indexRows[0].count === 0) {
+            await db.query('ALTER TABLE library_sessions ADD INDEX idx_library_sessions_processed_by (processed_by)');
+            console.log('   ✅ Added idx_library_sessions_processed_by index');
+        } else {
+            console.log('   ⏭️  idx_library_sessions_processed_by already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ backfillLibrarySessionsProcessedBy:', error.message);
     }
 }
 
