@@ -1,5 +1,13 @@
 const db = require('../config/db');
 
+const formatHourLabel = (hour24) => {
+    const h = ((Number(hour24) % 24) + 24) % 24;
+    if (h === 0) return '12MN';
+    if (h === 12) return '12NN';
+    if (h < 12) return `${h}AM`;
+    return `${h - 12}PM`;
+};
+
 // Get dashboard statistics
 exports.getDashboardStats = async (req, res) => {
     try {
@@ -121,10 +129,11 @@ exports.getSalesChart = async (req, res) => {
         `);
         
         // Fill in missing hours based on operating window (8AM-11PM)
+        // Labels use 12NN/12MN to avoid ambiguous duplicate 12PM formatting.
         const hourlyData = [];
         for (let h = 8; h <= 23; h++) {
             const found = todayData.find(d => d.hour === h);
-            const hourLabel = h > 12 ? `${h - 12}PM` : (h === 12 ? '12PM' : `${h}AM`);
+            const hourLabel = formatHourLabel(h);
             hourlyData.push({
                 hour: hourLabel,
                 sales: found ? parseFloat(found.sales) : 0
