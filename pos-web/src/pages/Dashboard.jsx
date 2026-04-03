@@ -151,65 +151,8 @@ export default function Dashboard() {
   // Format currency for tooltip
   const formatCurrency = (value) => `₱${Number(value).toLocaleString()}`;
 
-  // Calculate total for donut chart percentages
+  // Calculate total for category percentages
   const totalCategorySales = categorySales.reduce((sum, cat) => sum + cat.sales, 0);
-
-  // Generate donut chart segments
-  const generateDonutSegments = () => {
-    if (totalCategorySales === 0) return [];
-
-    let cumulativePercent = 0;
-    const segments = [];
-
-    categorySales.forEach((cat) => {
-      const percent = (cat.sales / totalCategorySales) * 100;
-      const startAngle = (cumulativePercent / 100) * 360;
-      const endAngle = ((cumulativePercent + percent) / 100) * 360;
-
-      // SVG arc calculation
-      const radius = 40;
-      const innerRadius = 25;
-      const centerX = 50;
-      const centerY = 50;
-
-      const startAngleRad = (startAngle - 90) * (Math.PI / 180);
-      const endAngleRad = (endAngle - 90) * (Math.PI / 180);
-
-      const x1 = centerX + radius * Math.cos(startAngleRad);
-      const y1 = centerY + radius * Math.sin(startAngleRad);
-      const x2 = centerX + radius * Math.cos(endAngleRad);
-      const y2 = centerY + radius * Math.sin(endAngleRad);
-
-      const x3 = centerX + innerRadius * Math.cos(endAngleRad);
-      const y3 = centerY + innerRadius * Math.sin(endAngleRad);
-      const x4 = centerX + innerRadius * Math.cos(startAngleRad);
-      const y4 = centerY + innerRadius * Math.sin(startAngleRad);
-
-      const largeArcFlag = percent > 50 ? 1 : 0;
-
-      const pathData = `
-        M ${x1} ${y1}
-        A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
-        L ${x3} ${y3}
-        A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4}
-        Z
-      `;
-
-      segments.push({
-        path: pathData,
-        color: cat.color,
-        name: cat.name,
-        percent: percent.toFixed(1),
-        sales: cat.sales
-      });
-
-      cumulativePercent += percent;
-    });
-
-    return segments;
-  };
-
-  const donutSegments = generateDonutSegments();
 
   // APK download URL from latest EAS build
   const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/9JgvhCYoMUukzsvVkEypjx.apk';
@@ -386,44 +329,20 @@ export default function Dashboard() {
         <div className="chart-card">
           <h3>Sales by Category</h3>
 
-          {/* Donut Chart */}
-          <div className="donut-chart-container">
-            <div className="donut-chart-wrapper">
-              <svg viewBox="0 0 100 100" className="donut-chart-svg">
-                {donutSegments.map((segment, index) => (
-                  <path
-                    key={index}
-                    d={segment.path}
-                    fill={segment.color}
-                    className="donut-segment"
-                  />
-                ))}
-                {/* Center text */}
-                <text x="50" y="47" textAnchor="middle" className="donut-center-value">
-                  ₱{totalCategorySales.toLocaleString()}
-                </text>
-                <text x="50" y="56" textAnchor="middle" className="donut-center-label">
-                  Total
-                </text>
-              </svg>
-            </div>
-
-            {/* Legend */}
-            <div className="donut-legend">
-              {categorySales.length === 0 && (
-                <div className="legend-empty">No active menu categories found.</div>
-              )}
-              {categorySales.map((cat, index) => (
-                <div key={index} className="legend-item">
-                  <span className="legend-dot" style={{ background: cat.color }}></span>
-                  <span className="legend-name">{cat.name}</span>
-                  <span className="legend-value">₱{cat.sales.toLocaleString()}</span>
-                  <span className="legend-percent">
-                    {totalCategorySales > 0 ? ((cat.sales / totalCategorySales) * 100).toFixed(0) : 0}%
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="category-only-list">
+            {categorySales.length === 0 && (
+              <div className="legend-empty">No active menu categories found.</div>
+            )}
+            {categorySales.map((cat, index) => (
+              <div key={index} className="legend-item">
+                <span className="legend-dot" style={{ background: cat.color }}></span>
+                <span className="legend-name">{cat.name}</span>
+                <span className="legend-value">₱{cat.sales.toLocaleString()}</span>
+                <span className="legend-percent">
+                  {totalCategorySales > 0 ? ((cat.sales / totalCategorySales) * 100).toFixed(0) : 0}%
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
