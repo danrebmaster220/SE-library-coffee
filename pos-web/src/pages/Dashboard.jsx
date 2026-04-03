@@ -4,6 +4,19 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import api from '../api';
 import '../styles/dashboard.css';
 
+const CATEGORY_COLOR_PALETTE = ['#6F4E37', '#2E8B57', '#E67E22', '#C0392B', '#8E44AD', '#2980B9', '#16A085', '#D35400'];
+
+const getCategoryColor = (name, index) => {
+  if (index < CATEGORY_COLOR_PALETTE.length) return CATEGORY_COLOR_PALETTE[index];
+  const label = String(name || 'Category');
+  let hash = 0;
+  for (let i = 0; i < label.length; i += 1) {
+    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 56%, 44%)`;
+};
+
 export default function Dashboard() {
   const getInitialCompactChart = () => {
     if (typeof window === 'undefined') return false;
@@ -37,12 +50,7 @@ export default function Dashboard() {
     yearly: []
   });
 
-  const [categorySales, setCategorySales] = useState([
-    { name: 'Coffee', sales: 0, color: '#8B5A2B' },
-    { name: 'Non-Coffee', sales: 0, color: '#D4A574' },
-    { name: 'Food', sales: 0, color: '#F5DEB3' },
-    { name: 'Library', sales: 0, color: '#DEB887' }
-  ]);
+  const [categorySales, setCategorySales] = useState([]);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -82,23 +90,17 @@ export default function Dashboard() {
           yearly: salesChartRes.data.yearly || []
         });
 
-        // Set category sales with distinct colors for better visibility
-        const categoryColors = {
-          'Coffee': '#6F4E37',      // Coffee brown
-          'Non-Coffee': '#2E8B57',  // Sea green (teal)
-          'Food': '#E67E22',        // Carrot orange
-          'Library': '#3498DB'      // Bright blue
-        };
+        // Real menu categories from backend (dynamic list).
+        const categories = (categoryRes.data || []).map((cat, index) => {
+          const name = cat.category_name || cat.category || cat.name || `Category ${index + 1}`;
+          return {
+            name,
+            sales: parseFloat(cat.total_sales) || 0,
+            color: getCategoryColor(name, index)
+          };
+        });
 
-        const categories = (categoryRes.data || []).map(cat => ({
-          name: cat.category,
-          sales: parseFloat(cat.total_sales) || 0,
-          color: categoryColors[cat.category] || '#999'
-        }));
-
-        if (categories.length > 0) {
-          setCategorySales(categories);
-        }
+        setCategorySales(categories);
 
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -408,6 +410,9 @@ export default function Dashboard() {
 
             {/* Legend */}
             <div className="donut-legend">
+              {categorySales.length === 0 && (
+                <div className="legend-empty">No active menu categories found.</div>
+              )}
               {categorySales.map((cat, index) => (
                 <div key={index} className="legend-item">
                   <span className="legend-dot" style={{ background: cat.color }}></span>

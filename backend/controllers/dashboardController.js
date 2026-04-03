@@ -243,6 +243,7 @@ exports.getCategorySales = async (req, res) => {
     try {
         const [categorySales] = await db.query(`
             SELECT 
+                c.category_id,
                 c.name as category_name,
                 COALESCE(
                     SUM(
@@ -268,38 +269,15 @@ exports.getCategorySales = async (req, res) => {
             ) vl ON vl.transaction_id = t.transaction_id
             WHERE c.status = 'active'
             GROUP BY c.category_id, c.name
-            ORDER BY total_sales DESC
+            ORDER BY total_sales DESC, c.name ASC
         `);
 
-        // Also get library sales for today
-        const [librarySales] = await db.query(`
-            SELECT COALESCE(SUM(amount_paid), 0) as total_sales
-            FROM library_sessions
-            WHERE DATE(start_time) = CURDATE()
-            AND status NOT IN ('voided', 'refunded')
-        `);
-
-        // Combine with predefined categories structure
-        const result = [
-            { 
-                category: 'Coffee', 
-                total_sales: categorySales.find(c => c.category_name?.toLowerCase().includes('coffee'))?.total_sales || 0,
-            },
-            { 
-                category: 'Non-Coffee', 
-                total_sales: categorySales.find(c => c.category_name?.toLowerCase().includes('non'))?.total_sales || 0,
-            },
-            { 
-                category: 'Food', 
-                total_sales: categorySales
-                    .filter(c => c.category_name && !c.category_name.toLowerCase().includes('coffee') && !c.category_name.toLowerCase().includes('non'))
-                    .reduce((sum, c) => sum + parseFloat(c.total_sales || 0), 0),
-            },
-            { 
-                category: 'Library', 
-                total_sales: parseFloat(librarySales[0]?.total_sales || 0),
-            }
-        ];
+        const result = (categorySales || []).map((row) => ({
+            category_id: row.category_id,
+            category_name: row.category_name,
+            category: row.category_name,
+            total_sales: parseFloat(row.total_sales || 0)
+        }));
 
         res.json(result);
     } catch (error) {
