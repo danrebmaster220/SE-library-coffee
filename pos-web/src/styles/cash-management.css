@@ -108,7 +108,9 @@
 }
 
 .filter-group input[type="date"] {
-  padding: 6px 10px;
+  padding: 8px 12px;
+  min-height: 42px;
+  box-sizing: border-box;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 13px;
@@ -117,7 +119,9 @@
 
 .filter-group .filter-select-cashier {
   min-width: 170px;
-  padding: 6px 28px 6px 10px;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 8px 28px 8px 10px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 13px;
@@ -137,7 +141,12 @@
 /* .btn-filter styles live in toolbar-filters.css (shared with .btn-apply-filter) */
 
 .btn-clear-filter {
-  padding: 6px 14px;
+  padding: 10px 16px;
+  min-height: 42px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: #888;
   border: 1px solid #ddd;

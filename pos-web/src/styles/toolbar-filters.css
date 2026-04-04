@@ -5,22 +5,26 @@
   --toolbar-search-input-width: 220px;
 }
 
+/* Sizing matches .btn-primary-action (Add Item); colors stay distinct brown */
 .btn-apply-filter {
-  padding: 6px 14px;
+  padding: 12px 24px;
   background: #5d4037;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  width: 100%;
+  line-height: 1.25;
+  white-space: nowrap;
+  width: auto;
   max-width: 100%;
+  flex: 0 0 auto;
+  min-height: 42px;
 }
 
 .btn-apply-filter:hover {
@@ -105,18 +109,25 @@
     gap: 10px;
   }
 
-  .toolbar-filters-actions > .filter-select-wrap,
-  .toolbar-filters-actions > .btn-apply-filter {
+  /* Dropdowns stay fixed width; Apply Filter is content-sized (like Add Item) */
+  .toolbar-filters-actions > .filter-select-wrap {
     flex: 0 0 var(--toolbar-filter-control-width);
     width: var(--toolbar-filter-control-width);
     min-width: 0;
     max-width: min(100%, var(--toolbar-filter-control-width));
   }
 
+  .toolbar-filters-actions > .btn-apply-filter {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
   .filter-bar .btn-apply-filter {
-    width: var(--toolbar-filter-control-width);
-    flex: 0 0 var(--toolbar-filter-control-width);
-    max-width: min(100%, var(--toolbar-filter-control-width));
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
   }
 
   .toolbar-section .toolbar-left > .search-box .search-input {
