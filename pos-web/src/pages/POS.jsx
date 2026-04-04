@@ -603,27 +603,13 @@ export default function POS() {
     });
   };
 
-  // Handle quantity decrease with proper auth flow
+  // Handle quantity decrease — same line-item modal as kiosk (reason + admin when kiosk)
   const handleDecreaseQuantity = (item) => {
-    if (pendingOrderId) {
-      // Kiosk order - require admin auth for any decrease
-      setRemovingItem({ itemId: item.id, action: 'decrease', name: item.name, size: item.size, quantity: item.quantity });
-      setItemRemovalCredentials({ username: '', password: '' });
-      setItemRemovalReasonType('');
-      setItemRemovalOtherReason('');
-      setShowItemRemovalModal(true);
-    } else {
-      // POS direct order
-      if (item.quantity > 1) {
-        // Quantity > 1: Decrease directly without confirmation
-        updateQuantity(item.id, -1);
-        showToast(`Decreased quantity of ${item.name}`, 'success');
-      } else {
-        // Quantity = 1: Show confirmation (will remove item)
-        setConfirmAction({ action: 'decrease', itemId: item.id, name: item.name, size: item.size, quantity: item.quantity });
-        setShowConfirmModal(true);
-      }
-    }
+    setRemovingItem({ itemId: item.id, action: 'decrease', name: item.name, size: item.size, quantity: item.quantity });
+    setItemRemovalCredentials({ username: '', password: '' });
+    setItemRemovalReasonType('');
+    setItemRemovalOtherReason('');
+    setShowItemRemovalModal(true);
   };
 
   // Handle quantity increase
@@ -637,44 +623,54 @@ export default function POS() {
     }
   };
 
-  // Process item removal after admin auth (for kiosk orders)
+  const closeItemRemovalModal = () => {
+    setShowItemRemovalModal(false);
+    setRemovingItem(null);
+    setItemRemovalCredentials({ username: '', password: '' });
+    setItemRemovalReasonType('');
+    setItemRemovalOtherReason('');
+  };
+
+  // Process line-item adjustment: reason required; kiosk orders also require admin verification
   const processItemRemovalWithAuth = async () => {
-    if (!itemRemovalCredentials.username || !itemRemovalCredentials.password) {
-      showToast('Please enter admin credentials', 'warning');
-      return;
-    }
     const finalReason = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
     if (!finalReason.trim()) {
       showToast('Please select a reason', 'warning');
       return;
     }
 
+    const applyRemoval = () => {
+      if (removingItem.action === 'remove') {
+        removeFromCart(removingItem.itemId);
+        showToast(`Removed ${removingItem.name} from order`, 'success');
+      } else if (removingItem.action === 'decrease') {
+        updateQuantity(removingItem.itemId, -1);
+        showToast(`Decreased ${removingItem.name} quantity`, 'success');
+      } else if (removingItem.action === 'remove-library') {
+        setPendingLibraryBooking(null);
+        showToast('Removed Study Area Booking from order', 'success');
+      }
+      closeItemRemovalModal();
+    };
+
+    if (!pendingOrderId) {
+      applyRemoval();
+      return;
+    }
+
+    if (!itemRemovalCredentials.username || !itemRemovalCredentials.password) {
+      showToast('Please enter admin credentials', 'warning');
+      return;
+    }
+
     try {
-      // Verify admin credentials
       const response = await api.post('/auth/verify-admin', {
         username: itemRemovalCredentials.username,
         password: itemRemovalCredentials.password
       });
 
       if (response.data.valid) {
-        // Perform the action
-        if (removingItem.action === 'remove') {
-          removeFromCart(removingItem.itemId);
-          showToast(`Removed ${removingItem.name} from order`, 'success');
-        } else if (removingItem.action === 'decrease') {
-          updateQuantity(removingItem.itemId, -1);
-          showToast(`Decreased ${removingItem.name} quantity`, 'success');
-        } else if (removingItem.action === 'remove-library') {
-          setPendingLibraryBooking(null);
-          showToast('Removed Study Area Booking from order', 'success');
-        }
-        
-        // Close modal and reset
-        setShowItemRemovalModal(false);
-        setRemovingItem(null);
-        setItemRemovalCredentials({ username: '', password: '' });
-        setItemRemovalReasonType('');
-        setItemRemovalOtherReason('');
+        applyRemoval();
       } else {
         showToast('Invalid admin credentials', 'error');
       }
@@ -683,12 +679,8 @@ export default function POS() {
     }
   };
 
-  // Process item removal after confirmation (for POS direct orders)
   const confirmItemRemoval = () => {
-    if (confirmAction.action === 'decrease') {
-      updateQuantity(confirmAction.itemId, -1);
-      showToast(`Decreased quantity of ${confirmAction.name}`, 'success');
-    } else if (confirmAction.action === 'clear') {
+    if (confirmAction?.action === 'clear') {
       resetOrder();
       showToast('Cart cleared', 'success');
     }
@@ -1984,25 +1976,13 @@ export default function POS() {
       {/* Toast Notification */}
       <Toast toast={toast} onClose={() => setToast({ show: false, message: '', type: 'info' })} />
 
-      {/* Item Removal Authorization Modal (for Kiosk orders) */}
+      {/* Line item adjustment (reason; admin auth for kiosk-loaded orders) */}
       {showItemRemovalModal && removingItem && (
-        <div className="modal-overlay" onClick={() => {
-          setShowItemRemovalModal(false);
-          setRemovingItem(null);
-          setItemRemovalCredentials({ username: '', password: '' });
-          setItemRemovalReasonType('');
-          setItemRemovalOtherReason('');
-        }}>
+        <div className="modal-overlay" onClick={closeItemRemovalModal}>
           <div className="modal item-removal-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Modify Kiosk Order</h3>
-              <button onClick={() => {
-                setShowItemRemovalModal(false);
-                setRemovingItem(null);
-                setItemRemovalCredentials({ username: '', password: '' });
-                setItemRemovalReasonType('');
-                setItemRemovalOtherReason('');
-              }} className="modal-close">×</button>
+              <h3>{pendingOrderId ? 'Modify Kiosk Order' : 'Line item adjustment'}</h3>
+              <button onClick={closeItemRemovalModal} className="modal-close">×</button>
             </div>
             <div className="modal-body">
               <p className="removal-question">
@@ -2042,6 +2022,7 @@ export default function POS() {
                 )}
               </div>
 
+              {pendingOrderId && (
               <div style={{ width: '90%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
                 <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization Required</h4>
                 
@@ -2063,16 +2044,11 @@ export default function POS() {
                   />
                 </div>
               </div>
+              )}
             </div>
             <div className="modal-footer">
               <button 
-                onClick={() => {
-                  setShowItemRemovalModal(false);
-                  setRemovingItem(null);
-                  setItemRemovalCredentials({ username: '', password: '' });
-                  setItemRemovalReasonType('');
-                  setItemRemovalOtherReason('');
-                }} 
+                onClick={closeItemRemovalModal} 
                 className="btn-cancel"
               >
                 Cancel
@@ -2080,7 +2056,16 @@ export default function POS() {
               <button 
                 onClick={processItemRemovalWithAuth}
                 className="btn-confirm-modify"
-                disabled={!itemRemovalCredentials.username || !itemRemovalCredentials.password}
+                disabled={
+                  (() => {
+                    const fr = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
+                    if (!String(fr || '').trim()) return true;
+                    if (pendingOrderId) {
+                      return !itemRemovalCredentials.username || !itemRemovalCredentials.password;
+                    }
+                    return false;
+                  })()
+                }
               >
                 Confirm {removingItem.action === 'remove-library' || removingItem.action === 'remove' ? 'Remove' : 'Decrease'}
               </button>
@@ -2089,43 +2074,25 @@ export default function POS() {
         </div>
       )}
 
-      {/* Simple Confirmation Modal (for POS direct orders) */}
-      {showConfirmModal && confirmAction && (
+      {/* Clear-cart confirmation (if wired to setConfirmAction with action clear) */}
+      {showConfirmModal && confirmAction?.action === 'clear' && (
         <div className="modal-overlay" onClick={() => {
           setShowConfirmModal(false);
           setConfirmAction(null);
         }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>
-                {confirmAction.action === 'clear' 
-                  ? 'Clear Cart' 
-                  : `Confirm ${confirmAction.action === 'remove' ? 'Remove' : 'Decrease'}`
-                }
-              </h3>
+              <h3>Clear Cart</h3>
               <button onClick={() => {
                 setShowConfirmModal(false);
                 setConfirmAction(null);
               }} className="modal-close">×</button>
             </div>
             <div className="modal-body">
-              {confirmAction.action === 'clear' ? (
-                <>
-                  <p>Are you sure you want to clear all items from the cart?</p>
-                  <div className="confirm-item-preview">
-                    <span className="item-name">{confirmAction.itemCount} item(s) will be removed</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p>Are you sure you want to {confirmAction.action === 'remove' ? 'remove' : 'decrease quantity of'}:</p>
-                  <div className="confirm-item-preview">
-                    <span className="item-name">{confirmAction.name}</span>
-                    {confirmAction.size && <span className="item-size">({confirmAction.size})</span>}
-                    <span className="item-qty">× {confirmAction.quantity}</span>
-                  </div>
-                </>
-              )}
+              <p>Are you sure you want to clear all items from the cart?</p>
+              <div className="confirm-item-preview">
+                <span className="item-name">{confirmAction.itemCount} item(s) will be removed</span>
+              </div>
             </div>
             <div className="modal-footer">
               <button 
@@ -2139,9 +2106,9 @@ export default function POS() {
               </button>
               <button 
                 onClick={confirmItemRemoval}
-                className={confirmAction.action === 'clear' ? 'btn-void-confirm' : 'btn-confirm'}
+                className="btn-void-confirm"
               >
-                {confirmAction.action === 'clear' ? 'Clear All' : 'Confirm'}
+                Clear All
               </button>
             </div>
           </div>

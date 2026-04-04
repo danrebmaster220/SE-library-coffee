@@ -32,9 +32,19 @@
   transform: translateY(0);
 }
 
-.filter-select-wrap:focus-within::after {
+.filter-select-wrap--open::after {
   transform: rotate(180deg);
   margin-top: 1px;
+}
+
+/* Phone / narrow toolbars: wrapper must stretch so <select> matches Apply button width */
+@media (max-width: 767px) {
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+    display: flex;
+  }
 }
 
 /* Strip native / theme arrows so only our chevron shows */

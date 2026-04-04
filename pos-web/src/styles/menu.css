@@ -728,6 +728,13 @@ input.search-input::placeholder {
     min-width: unset;
   }
 
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+    display: flex;
+  }
+
   .toolbar-right {
     flex-direction: column;
     width: 100%;

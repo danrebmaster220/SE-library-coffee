@@ -819,6 +819,43 @@
   height: 14px;
 }
 
+/* Narrow screens: show all tabs — row of three, Audit Trail full width below */
+@media (max-width: 767px) {
+  .report-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    overflow-x: visible;
+    -webkit-overflow-scrolling: auto;
+    scrollbar-width: thin;
+    min-height: 44px;
+    height: auto;
+  }
+
+  .report-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .report-tab {
+    flex-shrink: 1;
+    white-space: normal;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .report-tab:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+    display: flex;
+  }
+}
+
 /* Toolbar - Stack on mobile */
 .toolbar-section {
   flex-direction: column;
@@ -1025,6 +1062,8 @@
   }
   
   .report-tabs {
+    display: inline-flex;
+    flex-wrap: nowrap;
     overflow-x: visible;
     height: 52px;
   }
@@ -1054,6 +1093,13 @@
 
   .toolbar-left > * {
     flex-shrink: 0;
+  }
+
+  /* Keep native date picker control close to the value on wide inputs */
+  .toolbar-left .date-range-group .date-input {
+    width: auto;
+    max-width: 200px;
+    flex: 0 1 auto;
   }
   
   .toolbar-right {
