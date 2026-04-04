@@ -29,29 +29,57 @@ export default function Config() {
   });
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadPrinters = async () => {
       try {
-        const [configRes, printersRes, profileRes] = await Promise.all([
+        const [configRes, printersRes] = await Promise.all([
           api.get('/printer/config'),
-          api.get('/printer/list'),
-          api.get('/users/me/profile')
+          api.get('/printer/list')
         ]);
         setPrinterConfig(configRes.data);
         setPrinters(printersRes.data.printers || []);
+      } catch (err) {
+        console.error('Error loading printer config:', err);
+      }
+    };
+    loadPrinters();
+  }, []);
+
+  useEffect(() => {
+    const readStoredUser = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const loadProfile = async () => {
+      const stored = readStoredUser();
+      try {
+        const profileRes = await api.get('/users/me/profile');
         const d = profileRes.data;
         setProfileData({
           firstName: d.first_name || '',
           middleName: d.middle_name || '',
           lastName: d.last_name || '',
-          username: d.username || '',
-          role: d.role_name || '',
-          profileImage: d.profile_image || null
+          username: d.username || stored?.username || '',
+          role: d.role_name || d.role || stored?.role || '',
+          profileImage: d.profile_image ?? stored?.profileImage ?? null
         });
       } catch (err) {
-        console.error('Error loading config:', err);
+        console.error('Error loading profile:', err);
+        if (stored) {
+          setProfileData((prev) => ({
+            ...prev,
+            username: stored.username || prev.username,
+            role: stored.role || prev.role,
+            profileImage: stored.profileImage ?? prev.profileImage
+          }));
+        }
       }
     };
-    loadData();
+    loadProfile();
   }, []);
 
   const refreshPrinters = async () => {

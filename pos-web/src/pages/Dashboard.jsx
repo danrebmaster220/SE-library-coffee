@@ -23,7 +23,10 @@ export default function Dashboard() {
     return window.innerWidth < 900;
   };
 
-  const [salesPeriod, setSalesPeriod] = useState('weekly');
+  /** Sales Overview chart (left) — independent from category breakdown period. */
+  const [overviewPeriod, setOverviewPeriod] = useState('weekly');
+  /** Sales by Category list (right) — its own filter; does not change the chart. */
+  const [categoryPeriod, setCategoryPeriod] = useState('weekly');
   const [loading, setLoading] = useState(true);
   const [isCompactChart, setIsCompactChart] = useState(getInitialCompactChart);
 
@@ -110,7 +113,7 @@ export default function Dashboard() {
     const loadCategory = async () => {
       try {
         const categoryRes = await api.get(
-          `/dashboard/category-sales?period=${encodeURIComponent(salesPeriod)}`
+          `/dashboard/category-sales?period=${encodeURIComponent(categoryPeriod)}`
         );
         setCategorySales(mapCategoryRows(categoryRes.data));
       } catch (err) {
@@ -120,7 +123,7 @@ export default function Dashboard() {
     loadCategory();
     const interval = setInterval(loadCategory, 30000);
     return () => clearInterval(interval);
-  }, [salesPeriod]);
+  }, [categoryPeriod]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -133,7 +136,7 @@ export default function Dashboard() {
 
   // Get current chart data based on selected period
   const getChartData = () => {
-    switch (salesPeriod) {
+    switch (overviewPeriod) {
       case 'today':
         return { data: chartData.today, labelKey: 'hour' };
       case 'monthly':
@@ -148,7 +151,7 @@ export default function Dashboard() {
   const { data: currentChartData, labelKey } = getChartData();
 
   const formatXAxisTick = (value, index) => {
-    if (salesPeriod === 'today' && isCompactChart) {
+    if (overviewPeriod === 'today' && isCompactChart) {
       return index % 2 === 0 || index === currentChartData.length - 1 ? value : '';
     }
     return value;
@@ -245,26 +248,30 @@ export default function Dashboard() {
             <h3>Sales Overview</h3>
             <div className="period-tabs">
               <button
-                className={`period-btn ${salesPeriod === 'today' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('today')}
+                type="button"
+                className={`period-btn ${overviewPeriod === 'today' ? 'active' : ''}`}
+                onClick={() => setOverviewPeriod('today')}
               >
                 Today
               </button>
               <button
-                className={`period-btn ${salesPeriod === 'weekly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('weekly')}
+                type="button"
+                className={`period-btn ${overviewPeriod === 'weekly' ? 'active' : ''}`}
+                onClick={() => setOverviewPeriod('weekly')}
               >
                 Weekly
               </button>
               <button
-                className={`period-btn ${salesPeriod === 'monthly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('monthly')}
+                type="button"
+                className={`period-btn ${overviewPeriod === 'monthly' ? 'active' : ''}`}
+                onClick={() => setOverviewPeriod('monthly')}
               >
                 Monthly
               </button>
               <button
-                className={`period-btn ${salesPeriod === 'yearly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('yearly')}
+                type="button"
+                className={`period-btn ${overviewPeriod === 'yearly' ? 'active' : ''}`}
+                onClick={() => setOverviewPeriod('yearly')}
               >
                 Yearly
               </button>
@@ -338,29 +345,29 @@ export default function Dashboard() {
             <div className="period-tabs">
               <button
                 type="button"
-                className={`period-btn ${salesPeriod === 'today' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('today')}
+                className={`period-btn ${categoryPeriod === 'today' ? 'active' : ''}`}
+                onClick={() => setCategoryPeriod('today')}
               >
                 Today
               </button>
               <button
                 type="button"
-                className={`period-btn ${salesPeriod === 'weekly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('weekly')}
+                className={`period-btn ${categoryPeriod === 'weekly' ? 'active' : ''}`}
+                onClick={() => setCategoryPeriod('weekly')}
               >
                 Weekly
               </button>
               <button
                 type="button"
-                className={`period-btn ${salesPeriod === 'monthly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('monthly')}
+                className={`period-btn ${categoryPeriod === 'monthly' ? 'active' : ''}`}
+                onClick={() => setCategoryPeriod('monthly')}
               >
                 Monthly
               </button>
               <button
                 type="button"
-                className={`period-btn ${salesPeriod === 'yearly' ? 'active' : ''}`}
-                onClick={() => setSalesPeriod('yearly')}
+                className={`period-btn ${categoryPeriod === 'yearly' ? 'active' : ''}`}
+                onClick={() => setCategoryPeriod('yearly')}
               >
                 Yearly
               </button>

@@ -1,5 +1,6 @@
 -- Split display name + optional profile photo (same storage style as items.image — LONGTEXT data URL).
--- Run once against your database (MySQL / TiDB).
+-- NOTE: The backend runs the same steps automatically on startup via backend/config/migrations.js
+-- (Migration 15: addUsersProfileColumns). Use this file only for manual DBA runs or if you disable auto-migrations.
 
 ALTER TABLE users
   ADD COLUMN first_name VARCHAR(100) NULL AFTER full_name,

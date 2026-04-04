@@ -52,6 +52,9 @@ async function runMigrations() {
         // Migration 14: Create item-level variant pricing table
         await createItemVariantPricingTable();
 
+        // Migration 15: Users — split name + optional profile image (TiDB-safe: one ADD per column, no AFTER)
+        await addUsersProfileColumns();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -577,6 +580,102 @@ async function createItemVariantPricingTable() {
         console.log('   ✅ Created item_variant_prices table');
     } catch (error) {
         console.error('   ⚠️ createItemVariantPricingTable:', error.message);
+    }
+}
+
+/**
+ * Adds first_name, middle_name, last_name, profile_image to users.
+ * Matches app expectations in userController / auth; idempotent for TiDB Cloud.
+ * Uses INFORMATION_SCHEMA + DATABASE() like other migrations (same connection as the API).
+ */
+async function addUsersProfileColumns() {
+    try {
+        const columnExists = async (columnName) => {
+            const [rows] = await db.query(
+                `
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'users'
+                AND COLUMN_NAME = ?
+                `,
+                [columnName]
+            );
+            return rows.length > 0;
+        };
+
+        if (!(await columnExists('first_name'))) {
+            await db.query('ALTER TABLE users ADD COLUMN first_name VARCHAR(100) NULL');
+            console.log('   ✅ Added users.first_name');
+        } else {
+            console.log('   ⏭️  users.first_name already exists');
+        }
+
+        if (!(await columnExists('middle_name'))) {
+            await db.query('ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) NULL');
+            console.log('   ✅ Added users.middle_name');
+        } else {
+            console.log('   ⏭️  users.middle_name already exists');
+        }
+
+        if (!(await columnExists('last_name'))) {
+            await db.query('ALTER TABLE users ADD COLUMN last_name VARCHAR(100) NULL');
+            console.log('   ✅ Added users.last_name');
+        } else {
+            console.log('   ⏭️  users.last_name already exists');
+        }
+
+        if (!(await columnExists('profile_image'))) {
+            await db.query('ALTER TABLE users ADD COLUMN profile_image LONGTEXT NULL');
+            console.log('   ✅ Added users.profile_image');
+        } else {
+            console.log('   ⏭️  users.profile_image already exists');
+        }
+
+        const [backfillResult] = await db.query(`
+            UPDATE users SET
+              first_name = TRIM(SUBSTRING_INDEX(full_name, ' ', 1)),
+              last_name = TRIM(
+                CASE
+                  WHEN full_name LIKE '% %' THEN SUBSTRING(full_name, LENGTH(SUBSTRING_INDEX(full_name, ' ', 1)) + 2)
+                  ELSE ''
+                END
+              )
+            WHERE (first_name IS NULL OR TRIM(COALESCE(first_name, '')) = '')
+              AND full_name IS NOT NULL AND TRIM(full_name) <> ''
+        `);
+
+        const backfilled = Number(backfillResult?.affectedRows || 0);
+        if (backfilled > 0) {
+            console.log(`   ✅ Backfilled users first/last name from full_name (${backfilled} row(s))`);
+        } else {
+            console.log('   ⏭️  No users rows needed name backfill');
+        }
+
+        const [syncResult] = await db.query(`
+            UPDATE users SET
+              full_name = TRIM(CONCAT_WS(
+                ' ',
+                NULLIF(TRIM(first_name), ''),
+                NULLIF(TRIM(middle_name), ''),
+                NULLIF(TRIM(last_name), '')
+              ))
+            WHERE TRIM(CONCAT_WS(
+                ' ',
+                COALESCE(first_name, ''),
+                COALESCE(middle_name, ''),
+                COALESCE(last_name, '')
+            )) <> ''
+        `);
+
+        const synced = Number(syncResult?.affectedRows || 0);
+        if (synced > 0) {
+            console.log(`   ✅ Synced users.full_name from name parts (${synced} row(s))`);
+        } else {
+            console.log('   ⏭️  No users full_name sync needed');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addUsersProfileColumns:', error.message);
     }
 }
 
