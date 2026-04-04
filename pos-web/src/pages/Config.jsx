@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api';
+import FilterSelectWrap from '../components/FilterSelectWrap';
 import { printCustomerReceipt } from '../services/webPrinter';
 import '../styles/settings.css';
 import '../styles/menu.css';
@@ -276,17 +277,20 @@ export default function Config() {
 
           <div className="settings-form-group">
             <label>Select Printer</label>
-            <select 
-              value={printerConfig.printerName}
-              onChange={(e) => handlePrinterChange(e.target.value)}
-            >
-              <option value="">-- Select Printer --</option>
-              {printers.map((printer, idx) => (
-                <option key={idx} value={printer.Name}>
-                  {printer.Name} {printer.PortName ? `(${printer.PortName})` : ''}
-                </option>
-              ))}
-            </select>
+            <FilterSelectWrap fullWidth>
+              <select 
+                className="filter-select"
+                value={printerConfig.printerName}
+                onChange={(e) => handlePrinterChange(e.target.value)}
+              >
+                <option value="">-- Select Printer --</option>
+                {printers.map((printer, idx) => (
+                  <option key={idx} value={printer.Name}>
+                    {printer.Name} {printer.PortName ? `(${printer.PortName})` : ''}
+                  </option>
+                ))}
+              </select>
+            </FilterSelectWrap>
           </div>
 
           <div className="settings-actions">

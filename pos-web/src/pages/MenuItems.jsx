@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../api";
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
 export default function MenuItems() {
@@ -485,27 +486,31 @@ export default function MenuItems() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="filter-select"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.category_id} value={cat.category_id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="sold_out">Sold Out</option>
-          </select>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.category_id} value={cat.category_id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </FilterSelectWrap>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="available">Available</option>
+              <option value="sold_out">Sold Out</option>
+            </select>
+          </FilterSelectWrap>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>
@@ -635,19 +640,21 @@ export default function MenuItems() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Category</label>
-                  <select
-                    className="form-select"
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.category_id} value={cat.category_id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.category_id} value={cat.category_id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FilterSelectWrap>
                 </div>
               </div>
               <div className="form-row">
@@ -665,15 +672,17 @@ export default function MenuItems() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Station</label>
-                  <select
-                    className="form-select"
-                    value={formData.station}
-                    onChange={(e) => setFormData({ ...formData, station: e.target.value })}
-                    required
-                  >
-                    <option value="barista">Barista</option>
-                    <option value="kitchen">Kitchen</option>
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={formData.station}
+                      onChange={(e) => setFormData({ ...formData, station: e.target.value })}
+                      required
+                    >
+                      <option value="barista">Barista</option>
+                      <option value="kitchen">Kitchen</option>
+                    </select>
+                  </FilterSelectWrap>
                 </div>
               </div>
               <div className="form-group">
@@ -734,14 +743,16 @@ export default function MenuItems() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Status</label>
-                  <select
-                    className="form-select"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  >
-                    <option value="available">Available</option>
-                    <option value="sold_out">Sold Out</option>
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                      <option value="available">Available</option>
+                      <option value="sold_out">Sold Out</option>
+                    </select>
+                  </FilterSelectWrap>
                 </div>
               </div>
 

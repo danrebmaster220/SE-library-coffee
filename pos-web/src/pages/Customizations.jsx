@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
 export default function Customizations() {
@@ -322,15 +323,17 @@ export default function Customizations() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </FilterSelectWrap>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddGroupModal}>
@@ -517,28 +520,32 @@ export default function Customizations() {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Selection Type</label>
-                  <select
-                    className="form-select"
-                    value={groupFormData.selection_type}
-                    onChange={(e) => setGroupFormData({ ...groupFormData, selection_type: e.target.value })}
-                  >
-                    <option value="single">Single Select</option>
-                    <option value="multiple">Multiple Select</option>
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={groupFormData.selection_type}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, selection_type: e.target.value })}
+                    >
+                      <option value="single">Single Select</option>
+                      <option value="multiple">Multiple Select</option>
+                    </select>
+                  </FilterSelectWrap>
                   <small className="form-helper">
                     Single: customer picks one option only. Multiple: customer can pick several options.
                   </small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Input Type</label>
-                  <select
-                    className="form-select"
-                    value={groupFormData.input_type}
-                    onChange={(e) => setGroupFormData({ ...groupFormData, input_type: e.target.value })}
-                  >
-                    <option value="choice">Choice Selection</option>
-                    <option value="quantity">Quantity Input</option>
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={groupFormData.input_type}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, input_type: e.target.value })}
+                    >
+                      <option value="choice">Choice Selection</option>
+                      <option value="quantity">Quantity Input</option>
+                    </select>
+                  </FilterSelectWrap>
                   <small className="form-helper">
                     Choice: buttons/radios. Quantity: +/- stepper.
                   </small>
@@ -574,14 +581,16 @@ export default function Customizations() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Status</label>
-                  <select
-                    className="form-select"
-                    value={groupFormData.status}
-                    onChange={(e) => setGroupFormData({ ...groupFormData, status: e.target.value })}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                  <FilterSelectWrap fullWidth>
+                    <select
+                      className="form-select"
+                      value={groupFormData.status}
+                      onChange={(e) => setGroupFormData({ ...groupFormData, status: e.target.value })}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </FilterSelectWrap>
                 </div>
               </div>
               <div className="form-group">
@@ -673,14 +682,16 @@ export default function Customizations() {
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={optionFormData.status}
-                  onChange={(e) => setOptionFormData({ ...optionFormData, status: e.target.value })}
-                >
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select
+                    className="form-select"
+                    value={optionFormData.status}
+                    onChange={(e) => setOptionFormData({ ...optionFormData, status: e.target.value })}
+                  >
+                    <option value="available">Available</option>
+                    <option value="unavailable">Unavailable</option>
+                  </select>
+                </FilterSelectWrap>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeOptionModal}>Cancel</button>

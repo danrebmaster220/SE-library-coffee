@@ -3,6 +3,7 @@ import api from '../api';
 import socketService from '../services/socketService';
 import { printLibraryCheckinReceipt, printLibraryExtensionReceipt } from '../services/webPrinter';
 import Toast from '../components/Toast';
+import FilterSelectWrap from '../components/FilterSelectWrap';
 import '../styles/library.css';
 
 export default function LibraryTransactions() {
@@ -489,10 +490,12 @@ export default function LibraryTransactions() {
               onChange={(e) => setHistorySearch(e.target.value)}
               className="history-search-input"
             />
-            <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="filter-select">
-              <option value="all">All Sessions</option>
-              <option value="completed">Completed</option>
-            </select>
+            <FilterSelectWrap>
+              <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="filter-select">
+                <option value="all">All Sessions</option>
+                <option value="completed">Completed</option>
+              </select>
+            </FilterSelectWrap>
           </div>
         )}
       </div>
@@ -1077,18 +1080,21 @@ function VoidSessionModal(props) {
           
           <div style={{ width: '80%', margin: '0 auto', marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for voiding: *</label>
-            <select 
-              value={voidReasonType}
-              onChange={(e) => setVoidReasonType(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', backgroundColor: '#fff', fontSize: '14px', marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '0' }}
-            >
-              <option value="" disabled>Select a reason...</option>
-              <option value="Duplicate entry">Duplicate entry</option>
-              <option value="Customer complaint">Customer complaint</option>
-              <option value="System error">System error</option>
-              <option value="Test transaction">Test transaction</option>
-              <option value="Other - Please specify">Other - Please specify</option>
-            </select>
+            <FilterSelectWrap fullWidth>
+              <select 
+                value={voidReasonType}
+                onChange={(e) => setVoidReasonType(e.target.value)}
+                className="filter-select"
+                style={{ marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '0' }}
+              >
+                <option value="" disabled>Select a reason...</option>
+                <option value="Duplicate entry">Duplicate entry</option>
+                <option value="Customer complaint">Customer complaint</option>
+                <option value="System error">System error</option>
+                <option value="Test transaction">Test transaction</option>
+                <option value="Other - Please specify">Other - Please specify</option>
+              </select>
+            </FilterSelectWrap>
             
             {voidReasonType === 'Other - Please specify' && (
               <input 

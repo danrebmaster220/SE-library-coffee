@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import FilterSelectWrap from './FilterSelectWrap';
 import '../styles/pos.css'; // Utilizing existing CSS
 
 export default function ReturnRequestModal({ 
@@ -242,17 +243,20 @@ export default function ReturnRequestModal({
                   
                   <div style={{ width: '100%', maxWidth: '400px', marginBottom: '20px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for {refundMethod === 'cash' ? 'Refund' : 'Replacement'} <span style={{color:'red'}}>*</span></label>
-                    <select 
-                      value={reasonType}
-                      onChange={(e) => setReasonType(e.target.value)}
-                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0', boxSizing: 'border-box' }}
-                    >
-                      <option value="" disabled>Select a reason...</option>
-                      <option value="Wrong item prepared">Wrong item prepared</option>
-                      <option value="Defective product">Defective product</option>
-                      <option value="Customer dissatisfied">Customer dissatisfied</option>
-                      <option value="Other - Please specify">Other - Please specify</option>
-                    </select>
+                    <FilterSelectWrap fullWidth>
+                      <select 
+                        value={reasonType}
+                        onChange={(e) => setReasonType(e.target.value)}
+                        className="filter-select"
+                        style={{ marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0', boxSizing: 'border-box' }}
+                      >
+                        <option value="" disabled>Select a reason...</option>
+                        <option value="Wrong item prepared">Wrong item prepared</option>
+                        <option value="Defective product">Defective product</option>
+                        <option value="Customer dissatisfied">Customer dissatisfied</option>
+                        <option value="Other - Please specify">Other - Please specify</option>
+                      </select>
+                    </FilterSelectWrap>
                     
                     {reasonType === 'Other - Please specify' && (
                       <input 

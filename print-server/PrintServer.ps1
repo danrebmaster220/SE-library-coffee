@@ -163,6 +163,7 @@ function Build-Receipt($data) {
     Add-Str $b "$(Str-LR 'Date:' $dateStr)`n"
     Add-Str $b "$(Str-LR 'Txn #:' $txnId)`n"
     if ($data.beeper_number) { Add-Str $b "$(Str-LR 'Order #:' ([string]$data.beeper_number))`n" }
+    # cashier_name: same display as app (first/middle/last from API JSON; not layout-specific)
     if ($data.cashier_name)  { Add-Str $b "$(Str-LR 'Cashier:' $data.cashier_name)`n" }
     Add-Str $b "$SEP`n"
 

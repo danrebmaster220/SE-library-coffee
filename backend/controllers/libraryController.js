@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { resolveDisplayName } = require('../utils/userName');
 const { printLibraryCheckinReceipt, printLibraryExtensionReceipt } = require('../services/printerService');
 
 // Pricing configuration
@@ -205,9 +206,12 @@ exports.checkin = async (req, res) => {
         // Get cashier name from user token
         let cashierName = null;
         if (req.user?.user_id) {
-            const [userInfo] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [req.user.user_id]);
+            const [userInfo] = await db.query(
+                'SELECT first_name, middle_name, last_name, full_name FROM users WHERE user_id = ?',
+                [req.user.user_id]
+            );
             if (userInfo.length > 0) {
-                cashierName = userInfo[0].full_name;
+                cashierName = resolveDisplayName(userInfo[0]) || null;
             }
         }
 
@@ -304,9 +308,12 @@ exports.extend = async (req, res) => {
         // Get cashier name from user token
         let cashierName = null;
         if (req.user?.user_id) {
-            const [userInfo] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [req.user.user_id]);
+            const [userInfo] = await db.query(
+                'SELECT first_name, middle_name, last_name, full_name FROM users WHERE user_id = ?',
+                [req.user.user_id]
+            );
             if (userInfo.length > 0) {
-                cashierName = userInfo[0].full_name;
+                cashierName = resolveDisplayName(userInfo[0]) || null;
             }
         }
 

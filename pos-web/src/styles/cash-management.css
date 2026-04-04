@@ -198,6 +198,11 @@
   background: #fafafa;
 }
 
+.shifts-table th:last-child,
+.shifts-table td:last-child {
+  text-align: center;
+}
+
 /* Cashier Cell */
 .cashier-cell {
   display: flex;

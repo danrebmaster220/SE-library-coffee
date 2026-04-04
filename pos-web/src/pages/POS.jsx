@@ -4,6 +4,7 @@ import socketService from '../services/socketService';
 import { printOrderReceipt } from '../services/webPrinter';
 import VoidTransactionModal from '../components/VoidTransactionModal';
 import Toast from '../components/Toast';
+import FilterSelectWrap from '../components/FilterSelectWrap';
 import '../styles/pos.css';
 
 const isSizeGroupName = (name) => String(name || '').toLowerCase().includes('size');
@@ -1569,17 +1570,19 @@ export default function POS() {
           {/* Discount Selection */}
           <div className="discount-selection">
             <label>Discount:</label>
-            <select value={selectedDiscount?.discount_id || ''} onChange={(e) => {
-              const disc = discounts.find(d => d.discount_id === parseInt(e.target.value));
-              setSelectedDiscount(disc || null);
-            }}>
-              <option value="">No Discount</option>
-            {discounts.map(d => (
-              <option key={d.discount_id} value={d.discount_id}>
-                {d.name} ({d.percentage}%)
-              </option>
-            ))}
-          </select>
+            <FilterSelectWrap fullWidth className="pos-filter-select-wrap">
+              <select value={selectedDiscount?.discount_id || ''} onChange={(e) => {
+                const disc = discounts.find(d => d.discount_id === parseInt(e.target.value));
+                setSelectedDiscount(disc || null);
+              }}>
+                <option value="">No Discount</option>
+              {discounts.map(d => (
+                <option key={d.discount_id} value={d.discount_id}>
+                  {d.name} ({d.percentage}%)
+                </option>
+              ))}
+              </select>
+            </FilterSelectWrap>
         </div>
 
         {/* Totals */}
@@ -1796,18 +1799,21 @@ export default function POS() {
               
               <div style={{ width: '80%', margin: '0 auto' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for voiding: *</label>
-                <select 
-                  value={voidReasonType}
-                  onChange={(e) => setVoidReasonType(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '20px' }}
-                >
-                  <option value="" disabled>Select a reason...</option>
-                  <option value="Wrong order punched">Wrong order punched</option>
-                  <option value="Customer changed mind">Customer changed mind</option>
-                  <option value="Payment failed">Payment failed</option>
-                  <option value="Test transaction">Test transaction</option>
-                  <option value="Other - Please specify">Other - Please specify</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select 
+                    value={voidReasonType}
+                    onChange={(e) => setVoidReasonType(e.target.value)}
+                    className="filter-select"
+                    style={{ marginBottom: voidReasonType === 'Other - Please specify' ? '10px' : '20px' }}
+                  >
+                    <option value="" disabled>Select a reason...</option>
+                    <option value="Wrong order punched">Wrong order punched</option>
+                    <option value="Customer changed mind">Customer changed mind</option>
+                    <option value="Payment failed">Payment failed</option>
+                    <option value="Test transaction">Test transaction</option>
+                    <option value="Other - Please specify">Other - Please specify</option>
+                  </select>
+                </FilterSelectWrap>
                 
                 {voidReasonType === 'Other - Please specify' && (
                   <input 
@@ -2010,17 +2016,20 @@ export default function POS() {
               
               <div style={{ width: '90%', margin: '0 auto' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for modification: *</label>
-                <select 
-                  value={itemRemovalReasonType}
-                  onChange={(e) => setItemRemovalReasonType(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: itemRemovalReasonType === 'Other - Please specify' ? '10px' : '20px' }}
-                >
-                  <option value="" disabled>Select a reason...</option>
-                  <option value="Customer request">Customer request</option>
-                  <option value="Item unavailable">Item unavailable</option>
-                  <option value="Wrong item prepared">Wrong item prepared</option>
-                  <option value="Other - Please specify">Other - Please specify</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select 
+                    value={itemRemovalReasonType}
+                    onChange={(e) => setItemRemovalReasonType(e.target.value)}
+                    className="filter-select"
+                    style={{ marginBottom: itemRemovalReasonType === 'Other - Please specify' ? '10px' : '20px' }}
+                  >
+                    <option value="" disabled>Select a reason...</option>
+                    <option value="Customer request">Customer request</option>
+                    <option value="Item unavailable">Item unavailable</option>
+                    <option value="Wrong item prepared">Wrong item prepared</option>
+                    <option value="Other - Please specify">Other - Please specify</option>
+                  </select>
+                </FilterSelectWrap>
                 
                 {itemRemovalReasonType === 'Other - Please specify' && (
                   <input 

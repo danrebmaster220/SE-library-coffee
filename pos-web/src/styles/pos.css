@@ -990,12 +990,39 @@
   margin-bottom: 4px;
 }
 
+.discount-selection .filter-select-wrap,
 .discount-selection select {
   width: 100%;
-  padding: 6px 8px;
+}
+
+.discount-selection .filter-select-wrap > select {
+  width: 100%;
+  padding: 6px 28px 6px 8px;
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 12px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none !important;
+}
+
+.pos-filter-select-wrap::after {
+  border-top-color: #6b4423;
+  right: 10px;
+}
+
+/* Modal reason dropdowns (FilterSelectWrap + .filter-select) */
+.modal-body .filter-select-wrap .filter-select,
+.void-modal .filter-select-wrap .filter-select {
+  width: 100%;
+  padding: 10px 36px 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  color: #333;
+  box-sizing: border-box;
 }
 
 /* Cart Totals */

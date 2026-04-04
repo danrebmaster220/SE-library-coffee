@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
 export default function ManageMenu() {
@@ -129,27 +130,31 @@ export default function ManageMenu() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="filter-select"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.category_id} value={cat.category_id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="sold_out">Sold Out</option>
-          </select>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.category_id} value={cat.category_id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </FilterSelectWrap>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="available">Available</option>
+              <option value="sold_out">Sold Out</option>
+            </select>
+          </FilterSelectWrap>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={() => navigate("/menu/categories")}>

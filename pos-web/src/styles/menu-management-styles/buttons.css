@@ -163,11 +163,11 @@
   height: 28px;
 }
 
-/* Action Buttons Container */
+/* Action Buttons Container — center so "Actions" header lines up with Edit/Delete */
 .action-buttons {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .btn-action {

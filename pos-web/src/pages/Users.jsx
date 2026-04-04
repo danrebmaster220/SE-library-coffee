@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../api";
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 import "../styles/menu.css";
 
@@ -273,27 +274,31 @@ export default function Users() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="filter-select"
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
-            <option value="">All Roles</option>
-            {roles.map((role) => (
-              <option key={role.role_id} value={role.role_id}>
-                {role.role_name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+            >
+              <option value="">All Roles</option>
+              {roles.map((role) => (
+                <option key={role.role_id} value={role.role_id}>
+                  {role.role_name}
+                </option>
+              ))}
+            </select>
+          </FilterSelectWrap>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </FilterSelectWrap>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>
@@ -320,6 +325,7 @@ export default function Users() {
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>Image</th>
                     <th>Name</th>
                     <th>Username</th>
                     <th>Role</th>
@@ -331,6 +337,15 @@ export default function Users() {
                   {paginatedUsers.map((user) => (
                     <tr key={user.user_id}>
                       <td>#{user.user_id}</td>
+                      <td>
+                        <div className="item-image-cell">
+                          {user.profile_image ? (
+                            <img src={user.profile_image} alt="" className="table-image" />
+                          ) : (
+                            <div className="no-image-placeholder">—</div>
+                          )}
+                        </div>
+                      </td>
                     <td>
                       <span className="item-name-text">{user.display_name || user.full_name}</span>
                     </td>
@@ -506,19 +521,21 @@ export default function Users() {
               </div>
               <div className="form-group">
                 <label className="form-label">Role</label>
-                <select
-                  className="form-select"
-                  value={formData.role_id}
-                  onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
-                  required
-                >
-                  <option value="">Select Role</option>
-                  {roles.map((role) => (
-                    <option key={role.role_id} value={role.role_id}>
-                      {role.role_name}
-                    </option>
-                  ))}
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select
+                    className="form-select"
+                    value={formData.role_id}
+                    onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Role</option>
+                    {roles.map((role) => (
+                      <option key={role.role_id} value={role.role_id}>
+                        {role.role_name}
+                      </option>
+                    ))}
+                  </select>
+                </FilterSelectWrap>
                 {roles.find(r => r.role_id?.toString() === formData.role_id)?.role_name?.toLowerCase().includes('admin') && (
                   <p style={{ 
                     margin: '8px 0 0', 
@@ -536,14 +553,16 @@ export default function Users() {
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </FilterSelectWrap>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeModal}>

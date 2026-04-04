@@ -62,6 +62,16 @@ function formatDateTime(dateStr) {
   });
 }
 
+/** Safe text for HTML receipt templates (names from DB / API). */
+function escapeHtml(str) {
+  if (str == null || str === '') return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function getSizeAbbrev(sizeName) {
   if (!sizeName) return '';
   const lower = sizeName.toLowerCase();
@@ -111,20 +121,20 @@ function buildCustomerReceiptHTML(data) {
   (data.items || []).forEach(item => {
     const customs = parseCustomizations(item.customizations);
     
-    let nameStr = `${item.quantity}x ${item.name}`;
+    let nameStr = `${item.quantity}x ${escapeHtml(item.name || '')}`;
     if (customs.size) nameStr += ` ${getSizeAbbrev(customs.size)}`;
     
     itemsHTML += `<div class="item-row">`;
     itemsHTML += `<div class="item-name">${nameStr}</div>`;
     
     if (customs.temp) {
-      itemsHTML += `<div class="item-detail">[${customs.temp}]</div>`;
+      itemsHTML += `<div class="item-detail">[${escapeHtml(customs.temp)}]</div>`;
     }
     
     customs.addons.forEach(addon => {
       const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
       const priceStr = addon.price > 0 ? ` (+${formatCurrency(addon.price)})` : '';
-      itemsHTML += `<div class="item-detail">+ ${qty}${addon.name}${priceStr}</div>`;
+      itemsHTML += `<div class="item-detail">+ ${qty}${escapeHtml(addon.name)}${priceStr}</div>`;
     });
     
     let itemTotal = item.unit_price * item.quantity;
@@ -166,7 +176,7 @@ function buildCustomerReceiptHTML(data) {
       <div class="info-row"><span>Date:</span><span>${formatDateTime(data.created_at)}</span></div>
       <div class="info-row"><span>Transaction #:</span><span>${transactionNum}</span></div>
       <div class="info-row"><span>Order #:</span><span>${data.beeper_number}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${data.cashier_name}</span></div>` : ''}
+      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">ITEMS:</div>
       ${itemsHTML}
@@ -174,7 +184,7 @@ function buildCustomerReceiptHTML(data) {
       ${bookingHTML}
       <div class="totals">
         <div class="row"><span>Subtotal:</span><span>${formatCurrency(data.subtotal)}</span></div>
-        ${data.discount_amount > 0 ? `<div class="row"><span>Discount${data.discount_name ? ` (${data.discount_name})` : ''}:</span><span>-${formatCurrency(data.discount_amount)}</span></div>` : ''}
+        ${data.discount_amount > 0 ? `<div class="row"><span>Discount${data.discount_name ? ` (${escapeHtml(data.discount_name)})` : ''}:</span><span>-${formatCurrency(data.discount_amount)}</span></div>` : ''}
         <div class="row total-final"><span>TOTAL:</span><span>${formatCurrency(data.total_amount)}</span></div>
         ${data.cash_tendered ? `<div class="row"><span>Cash:</span><span>${formatCurrency(data.cash_tendered)}</span></div>` : ''}
         ${data.cash_tendered ? `<div class="row"><span>Change:</span><span>${formatCurrency(data.change_due)}</span></div>` : ''}
@@ -202,19 +212,19 @@ function buildBaristaTicketHTML(data) {
   baristaItems.forEach(item => {
     const customs = parseCustomizations(item.customizations);
     
-    let nameStr = `${item.quantity}x ${item.name}`;
+    let nameStr = `${item.quantity}x ${escapeHtml(item.name || '')}`;
     if (customs.size) nameStr += ` ${getSizeAbbrev(customs.size)}`;
     
     itemsHTML += `<div class="item-row">`;
     itemsHTML += `<div class="item-name">${nameStr}</div>`;
     
     if (customs.temp) {
-      itemsHTML += `<div class="item-detail">&gt;&gt; ${customs.temp.toUpperCase()}</div>`;
+      itemsHTML += `<div class="item-detail">&gt;&gt; ${escapeHtml(String(customs.temp).toUpperCase())}</div>`;
     }
     
     customs.addons.forEach(addon => {
       const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
-      itemsHTML += `<div class="item-detail">+ ${qty}${addon.name}</div>`;
+      itemsHTML += `<div class="item-detail">+ ${qty}${escapeHtml(addon.name)}</div>`;
     });
     itemsHTML += `</div>`;
   });
@@ -233,7 +243,7 @@ function buildBaristaTicketHTML(data) {
       <div class="ticket-header">*** BARISTA ***</div>
       <div class="order-number">ORDER #${data.beeper_number}</div>
       <div class="info-row"><span>Time:</span><span>${formatDateTime(data.created_at)}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${data.cashier_name}</span></div>` : ''}
+      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       ${itemsHTML}
       ${bookingHTML}
@@ -252,11 +262,11 @@ function buildKitchenTicketHTML(data) {
     const customs = parseCustomizations(item.customizations);
     
     itemsHTML += `<div class="item-row">`;
-    itemsHTML += `<div class="item-name">${item.quantity}x ${item.name}</div>`;
+    itemsHTML += `<div class="item-name">${item.quantity}x ${escapeHtml(item.name || '')}</div>`;
     
     customs.addons.forEach(addon => {
       const qty = addon.quantity > 1 ? `${addon.quantity}x ` : '';
-      itemsHTML += `<div class="item-detail">+ ${qty}${addon.name}</div>`;
+      itemsHTML += `<div class="item-detail">+ ${qty}${escapeHtml(addon.name)}</div>`;
     });
     itemsHTML += `</div>`;
   });
@@ -266,7 +276,7 @@ function buildKitchenTicketHTML(data) {
       <div class="ticket-header">*** KITCHEN ***</div>
       <div class="order-number">ORDER #${data.beeper_number}</div>
       <div class="info-row"><span>Time:</span><span>${formatDateTime(data.created_at)}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${data.cashier_name}</span></div>` : ''}
+      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       ${itemsHTML}
       <div class="separator">${SEP}</div>
@@ -293,8 +303,8 @@ function buildLibraryCheckinReceiptHTML(session) {
       <div class="info-row"><span>Table:</span><span>${session.table_number}</span></div>
       <div class="info-row"><span>Seat:</span><span>${session.seat_number}</span></div>
       <div class="separator">${SEP}</div>
-      <div class="info-row"><span>Customer:</span><span>${session.customer_name}</span></div>
-      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${session.cashier_name}</span></div>` : ''}
+      <div class="info-row"><span>Customer:</span><span>${escapeHtml(session.customer_name)}</span></div>
+      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(session.cashier_name)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">SESSION DETAILS:</div>
       <div class="info-row"><span>Start Time:</span><span>${formatDateTime()}</span></div>
@@ -330,8 +340,8 @@ function buildLibraryExtensionReceiptHTML(session) {
       ${session.session_id ? `<div class="info-row"><span>Session #:</span><span>LIB-${String(session.session_id).padStart(6, '0')}</span></div>` : ''}
       <div class="info-row"><span>Table:</span><span>${session.table_number}</span></div>
       <div class="info-row"><span>Seat:</span><span>${session.seat_number}</span></div>
-      <div class="info-row"><span>Customer:</span><span>${session.customer_name}</span></div>
-      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${session.cashier_name}</span></div>` : ''}
+      <div class="info-row"><span>Customer:</span><span>${escapeHtml(session.customer_name)}</span></div>
+      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(session.cashier_name)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">EXTENSION:</div>
       <div class="info-row"><span>Added Time:</span><span>+${session.added_minutes} minutes</span></div>
@@ -789,7 +799,7 @@ function buildRefundReceiptHTML(data) {
       <div class="info-row"><span>Original Order:</span><span>${transactionNum}</span></div>
       <div class="info-row"><span>Order #:</span><span>${data.beeper_number || '-'}</span></div>
       <div class="info-row"><span>Original Date:</span><span>${formatDateTime(data.created_at)}</span></div>
-      ${data.refunded_by ? `<div class="info-row"><span>Authorized By:</span><span>${data.refunded_by}</span></div>` : ''}
+      ${data.refunded_by ? `<div class="info-row"><span>Authorized By:</span><span>${escapeHtml(data.refunded_by)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">REFUNDED ITEMS:</div>
       ${itemsHTML}
@@ -800,7 +810,7 @@ function buildRefundReceiptHTML(data) {
         <div class="row total-final"><span>REFUND TOTAL:</span><span>${formatCurrency(data.total_amount)}</span></div>
       </div>
       <div class="separator">${SEP}</div>
-      ${data.refund_reason ? `<div style="font-size:11px;"><strong>Reason:</strong> ${data.refund_reason}</div><div class="separator">${SEP}</div>` : ''}
+      ${data.refund_reason ? `<div style="font-size:11px;"><strong>Reason:</strong> ${escapeHtml(data.refund_reason)}</div><div class="separator">${SEP}</div>` : ''}
       <div class="footer">
         <p>This is a refund confirmation.</p>
         <p>Please keep this for your records.</p>

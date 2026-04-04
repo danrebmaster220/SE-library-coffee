@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/pos.css'; // Assuming it shares POS styling
 import api from '../api';
+import FilterSelectWrap from './FilterSelectWrap';
 
 export default function VoidTransactionModal({ 
   isOpen, 
@@ -183,18 +184,21 @@ export default function VoidTransactionModal({
               
               <div style={{ width: '80%', marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for Voiding <span style={{color:'red'}}>*</span></label>
-                <select 
-                  value={reasonType}
-                  onChange={(e) => setReasonType(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: '#fff', fontSize: '14px', marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0' }}
-                >
-                  <option value="" disabled>Select a reason...</option>
-                  <option value="Wrong item punched">Wrong item punched</option>
-                  <option value="Customer changed mind">Customer changed mind</option>
-                  <option value="Item unavailable">Item unavailable</option>
-                  <option value="Test transaction">Test transaction</option>
-                  <option value="Other - Please specify">Other - Please specify</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select 
+                    value={reasonType}
+                    onChange={(e) => setReasonType(e.target.value)}
+                    className="filter-select"
+                    style={{ marginBottom: reasonType === 'Other - Please specify' ? '10px' : '0' }}
+                  >
+                    <option value="" disabled>Select a reason...</option>
+                    <option value="Wrong item punched">Wrong item punched</option>
+                    <option value="Customer changed mind">Customer changed mind</option>
+                    <option value="Item unavailable">Item unavailable</option>
+                    <option value="Test transaction">Test transaction</option>
+                    <option value="Other - Please specify">Other - Please specify</option>
+                  </select>
+                </FilterSelectWrap>
                 
                 {reasonType === 'Other - Please specify' && (
                   <input 

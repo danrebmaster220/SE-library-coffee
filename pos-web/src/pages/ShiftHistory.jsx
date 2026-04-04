@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api";
 import socketService from '../services/socketService';
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/cash-management.css";
 
 export default function ShiftHistory() {
@@ -151,14 +152,16 @@ export default function ShiftHistory() {
         </div>
         <div className="filter-group">
           <label>Staff:</label>
-          <select className="filter-select-cashier" value={cashierFilter} onChange={(e) => setCashierFilter(e.target.value)}>
-            <option value="">All Staff</option>
-            {cashierOptions.map((staff) => (
-              <option key={staff.user_id} value={staff.user_id}>
-                {staff.full_name || staff.username || `User #${staff.user_id}`}
-              </option>
-            ))}
-          </select>
+          <FilterSelectWrap>
+            <select className="filter-select-cashier" value={cashierFilter} onChange={(e) => setCashierFilter(e.target.value)}>
+              <option value="">All Staff</option>
+              {cashierOptions.map((staff) => (
+                <option key={staff.user_id} value={staff.user_id}>
+                  {staff.full_name || staff.username || `User #${staff.user_id}`}
+                </option>
+              ))}
+            </select>
+          </FilterSelectWrap>
         </div>
         <button className="btn-filter" onClick={() => fetchHistory(true)}>Apply Filter</button>
         {(startDate || endDate || cashierFilter) && (

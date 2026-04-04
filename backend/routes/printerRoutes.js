@@ -3,6 +3,19 @@ const router = express.Router();
 const printerService = require('../services/printerService');
 const db = require('../config/db');
 const { verifyToken, isAdmin } = require('../middleware/auth');
+const { resolveDisplayName } = require('../utils/userName');
+
+/** Same display logic as auth/UI: prefer first/middle/last, else legacy full_name. */
+function cashierNameFromUserJoin(row) {
+    if (!row) return null;
+    const name = resolveDisplayName({
+        first_name: row.cashier_first_name,
+        middle_name: row.cashier_middle_name,
+        last_name: row.cashier_last_name,
+        full_name: row.cashier_full_name
+    });
+    return name || null;
+}
 
 // Get available printers
 router.get('/list', verifyToken, isAdmin, async (req, res) => {
@@ -32,7 +45,10 @@ router.post('/receipt/:transactionId', verifyToken, async (req, res) => {
         // Get transaction details with cashier name
         const [transactions] = await db.query(`
             SELECT t.*, d.name as discount_name, d.percentage as discount_percentage,
-                   u.full_name as cashier_name
+                   u.first_name as cashier_first_name,
+                   u.middle_name as cashier_middle_name,
+                   u.last_name as cashier_last_name,
+                   u.full_name as cashier_full_name
             FROM transactions t
             LEFT JOIN discounts d ON t.discount_id = d.discount_id
             LEFT JOIN users u ON t.processed_by = u.user_id
@@ -44,6 +60,7 @@ router.post('/receipt/:transactionId', verifyToken, async (req, res) => {
         }
         
         const transaction = transactions[0];
+        const cashierName = cashierNameFromUserJoin(transaction);
         
         // Get transaction items with customizations
         const [items] = await db.query(`
@@ -74,7 +91,7 @@ router.post('/receipt/:transactionId', verifyToken, async (req, res) => {
             final_amount: transaction.total_amount,
             cash_tendered: transaction.cash_tendered,
             change_due: transaction.change_due,
-            cashier_name: transaction.cashier_name,
+            cashier_name: cashierName,
             library_booking: transaction.library_booking,
             items: items.map(item => ({
                 name: item.item_name,
@@ -103,7 +120,10 @@ router.get('/receipt-data/:transactionId', verifyToken, async (req, res) => {
         // Get transaction details with cashier name
         const [transactions] = await db.query(`
             SELECT t.*, d.name as discount_name, d.percentage as discount_percentage,
-                   u.full_name as cashier_name
+                   u.first_name as cashier_first_name,
+                   u.middle_name as cashier_middle_name,
+                   u.last_name as cashier_last_name,
+                   u.full_name as cashier_full_name
             FROM transactions t
             LEFT JOIN discounts d ON t.discount_id = d.discount_id
             LEFT JOIN users u ON t.processed_by = u.user_id
@@ -115,6 +135,7 @@ router.get('/receipt-data/:transactionId', verifyToken, async (req, res) => {
         }
         
         const transaction = transactions[0];
+        const cashierName = cashierNameFromUserJoin(transaction);
         
         // Get transaction items with customizations
         const [items] = await db.query(`
@@ -155,7 +176,7 @@ router.get('/receipt-data/:transactionId', verifyToken, async (req, res) => {
             total_amount: parseFloat(transaction.total_amount),
             cash_tendered: parseFloat(transaction.cash_tendered || 0),
             change_due: parseFloat(transaction.change_due || 0),
-            cashier_name: transaction.cashier_name,
+            cashier_name: cashierName,
             created_at: transaction.created_at,
             library_booking: libraryBooking,
             items: items.map(item => ({
@@ -187,7 +208,10 @@ router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
         // Get transaction details with cashier name
         const [transactions] = await db.query(`
             SELECT t.*, d.name as discount_name,
-                   u.full_name as cashier_name
+                   u.first_name as cashier_first_name,
+                   u.middle_name as cashier_middle_name,
+                   u.last_name as cashier_last_name,
+                   u.full_name as cashier_full_name
             FROM transactions t
             LEFT JOIN discounts d ON t.discount_id = d.discount_id
             LEFT JOIN users u ON t.processed_by = u.user_id
@@ -199,6 +223,7 @@ router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
         }
         
         const transaction = transactions[0];
+        const cashierName = cashierNameFromUserJoin(transaction);
         
         // Get transaction items with customizations
         const [items] = await db.query(`
@@ -228,7 +253,7 @@ router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
             final_amount: transaction.total_amount,
             cash_tendered: transaction.cash_tendered,
             change_due: transaction.change_due,
-            cashier_name: transaction.cashier_name,
+            cashier_name: cashierName,
             library_booking: transaction.library_booking,
             items: items.map(item => ({
                 name: item.item_name,

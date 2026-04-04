@@ -88,6 +88,16 @@
   border-bottom: none;
 }
 
+/* Actions column: header + button row share the same horizontal alignment */
+.data-table th:last-child,
+.data-table td:last-child {
+  text-align: center;
+}
+
+.data-table td:last-child .action-buttons {
+  justify-content: center;
+}
+
 /* Item Image Cell */
 .item-image-cell {
   width: 55px;

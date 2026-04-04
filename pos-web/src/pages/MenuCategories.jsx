@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
 export default function MenuCategories() {
@@ -155,15 +156,17 @@ export default function MenuCategories() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="filter-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <FilterSelectWrap>
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </FilterSelectWrap>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>
@@ -287,14 +290,16 @@ export default function MenuCategories() {
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                <FilterSelectWrap fullWidth>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </FilterSelectWrap>
               </div>
               <div className="form-group checkbox-group" style={{ marginTop: '10px' }}>
                 <label className="checkbox-label">

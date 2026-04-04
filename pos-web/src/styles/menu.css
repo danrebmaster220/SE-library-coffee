@@ -223,6 +223,15 @@ input.search-input::placeholder {
   border-bottom: none;
 }
 
+.data-table th:last-child,
+.data-table td:last-child {
+  text-align: center;
+}
+
+.data-table td:last-child .action-buttons {
+  justify-content: center;
+}
+
 /* Item Image Cell */
 .item-image-cell {
   width: 60px;
@@ -313,6 +322,7 @@ input.search-input::placeholder {
 .action-buttons {
   display: flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .btn-action {

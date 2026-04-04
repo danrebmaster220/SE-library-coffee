@@ -737,6 +737,10 @@
 }
 
 /* Actions cell in tables */
+.transactions-table th:last-child {
+  text-align: center;
+}
+
 .transactions-table td:last-child,
 .transactions-table .actions-cell {
   white-space: nowrap;
@@ -745,6 +749,7 @@
 .actions-cell {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
