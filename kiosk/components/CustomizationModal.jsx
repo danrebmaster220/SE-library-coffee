@@ -31,7 +31,48 @@ const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   }) || null;
 };
 
-const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
+const findOptionForMenuBranch = (options, slug) => {
+  if (!options || !slug) return null;
+  const s = String(slug).toLowerCase();
+  if (s === "iced") {
+    return options.find((o) => /iced|cold/i.test(String(o.name || ""))) || null;
+  }
+  if (s === "hot") {
+    return options.find((o) => {
+      const n = String(o.name || "").toLowerCase();
+      return n.includes("hot") && !n.includes("chocolate");
+    }) || null;
+  }
+  if (s === "medium") {
+    return options.find((o) => /medium|med/i.test(String(o.name || ""))) || null;
+  }
+  if (s === "large") {
+    return options.find((o) => /large/i.test(String(o.name || ""))) || null;
+  }
+  return null;
+};
+
+const applyBranchPrefill = (groups, initialSelections, menuBranch) => {
+  if (!menuBranch || !groups) return initialSelections;
+  const next = { ...initialSelections };
+  const tempG = groups.find((g) => isTempGroupName(g.name));
+  const sizeG = groups.find((g) => isSizeGroupName(g.name));
+  if (menuBranch.temp && tempG?.options) {
+    const opt = findOptionForMenuBranch(tempG.options, menuBranch.temp);
+    if (opt) {
+      next[tempG.group_id] = { type: "single", option: opt, quantity: 1 };
+    }
+  }
+  if (menuBranch.size && sizeG?.options) {
+    const opt = findOptionForMenuBranch(sizeG.options, menuBranch.size);
+    if (opt) {
+      next[sizeG.group_id] = { type: "single", option: opt, quantity: 1 };
+    }
+  }
+  return next;
+};
+
+const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }) => {
   const [loading, setLoading] = useState(true);
   const [customizationGroups, setCustomizationGroups] = useState([]);
   const [selections, setSelections] = useState({});
@@ -84,7 +125,8 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
             };
           }
         });
-        setSelections(initialSelections);
+        const withBranch = applyBranchPrefill(data.groups, initialSelections, menuBranch);
+        setSelections(withBranch);
         
         // Set first addon tab - include all groups except Size and Temperature
         const addonTabGroups = data.groups.filter(g => 
@@ -109,13 +151,13 @@ const CustomizationModal = ({ visible, onClose, item, onAdd }) => {
     } finally {
       setLoading(false);
     }
-  }, [item]);
+  }, [item, menuBranch]);
 
   useEffect(() => {
     if (visible && item) {
       fetchItemCustomizations();
     }
-  }, [visible, item, fetchItemCustomizations]);
+  }, [visible, item, menuBranch, fetchItemCustomizations]);
 
   const handleSingleSelect = (group, option) => {
     setSelections(prev => ({

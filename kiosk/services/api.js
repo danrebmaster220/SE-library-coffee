@@ -53,14 +53,20 @@ export const getCategories = async () => {
 // MENU ITEMS API
 // ==========================================
 
-export const getMenuItems = async (categoryId = null) => {
+/**
+ * @param {string|null} categoryId
+ * @param {{ temp?: 'iced'|'hot', size?: 'medium'|'large' }} branch — for card pricing (variant matrix)
+ */
+export const getMenuItems = async (categoryId = null, branch = {}) => {
   try {
-    const endpoint = categoryId 
-      ? `/menu/items?category_id=${categoryId}` 
-      : '/menu/items';
+    const params = new URLSearchParams();
+    if (categoryId) params.set('category_id', String(categoryId));
+    if (branch.temp) params.set('temp', branch.temp);
+    if (branch.size) params.set('size', branch.size);
+    const qs = params.toString();
+    const endpoint = qs ? `/menu/items?${qs}` : '/menu/items';
     const data = await fetchAPI(endpoint);
     const items = data.items || data || [];
-    // Filter only available items
     return items.filter(item => item.status === 'available');
   } catch (error) {
     console.error('Error fetching menu items:', error);

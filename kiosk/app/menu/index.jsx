@@ -70,6 +70,10 @@ export default function MenuPage() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  /** Iced / Hot branch (only for categories with allow_iced / allow_hot) */
+  const [branchMode, setBranchMode] = useState('all'); // 'all' | 'iced' | 'hot'
+  const [icedSize, setIcedSize] = useState(null); // null | 'medium' | 'large'
+
   // Handle category scroll to show/hide arrows
   const handleCategoryScroll = useCallback((event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -211,44 +215,65 @@ export default function MenuPage() {
     }
   }, []);
 
-  const fetchItemsForCategory = useCallback(async (categoryName) => {
+  const fetchItemsForCategory = useCallback(async () => {
+    if (!selectedCategory) return;
     try {
       setLoadingItems(true);
-      
-      if (categoryName === 'All') {
-        const items = await getMenuItems();
+      const branchQuery = {};
+      if (selectedCategory !== 'All') {
+        const cat = categories.find((c) => c.name === selectedCategory);
+        const hasBranch =
+          cat &&
+          (Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1);
+        if (hasBranch) {
+          if (branchMode === 'iced') {
+            if (icedSize === 'medium' || icedSize === 'large') {
+              branchQuery.temp = 'iced';
+              branchQuery.size = icedSize;
+            } else {
+              branchQuery.temp = 'iced';
+            }
+          } else if (branchMode === 'hot') {
+            branchQuery.temp = 'hot';
+          }
+        }
+      }
+
+      if (selectedCategory === 'All') {
+        const items = await getMenuItems(null, {});
         setMenuItems(items);
       } else {
-        const category = categories.find(
-          cat => cat.name === categoryName
-        );
-        
+        const category = categories.find((cat) => cat.name === selectedCategory);
         if (category) {
-          const items = await getMenuItems(category.category_id);
+          const items = await getMenuItems(category.category_id, branchQuery);
           setMenuItems(items);
         } else {
           setMenuItems([]);
         }
       }
     } catch (error) {
-      console.error("Error fetching items:", error);
+      console.error('Error fetching items:', error);
       setMenuItems([]);
     } finally {
       setLoadingItems(false);
     }
-  }, [categories]);
+  }, [selectedCategory, categories, branchMode, icedSize]);
 
   // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // Fetch items when category changes
   useEffect(() => {
-    if (selectedCategory) {
-      fetchItemsForCategory(selectedCategory);
+    setBranchMode('all');
+    setIcedSize(null);
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      fetchItemsForCategory();
     }
-  }, [selectedCategory, fetchItemsForCategory]);
+  }, [selectedCategory, categories, branchMode, icedSize, fetchItemsForCategory]);
 
   // Add item or increase quantity
   const handleAddToOrder = useCallback((item) => {
@@ -310,14 +335,42 @@ export default function MenuPage() {
     );
   }, []);
 
-  // Filter items based on search query
+  const menuBranchForModal = useMemo(() => {
+    if (selectedCategory === 'All') return null;
+    const cat = categories.find((c) => c.name === selectedCategory);
+    if (!cat) return null;
+    const hasBranch =
+      Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1;
+    if (!hasBranch) return null;
+    if (branchMode === 'all') return null;
+    if (branchMode === 'hot') return { temp: 'hot' };
+    if (branchMode === 'iced') {
+      if (icedSize === 'medium' || icedSize === 'large') {
+        return { temp: 'iced', size: icedSize };
+      }
+      return { temp: 'iced' };
+    }
+    return null;
+  }, [selectedCategory, categories, branchMode, icedSize]);
+
+  const itemsForGrid = useMemo(() => {
+    return menuItems.map((it) => ({ ...it, _menuBranch: menuBranchForModal }));
+  }, [menuItems, menuBranchForModal]);
+
   const filteredMenuItems = useMemo(() => {
-    if (!searchQuery.trim()) return menuItems;
+    if (!searchQuery.trim()) return itemsForGrid;
     const query = searchQuery.toLowerCase();
-    return menuItems.filter(item => 
-      (item.name || item.item_name)?.toLowerCase().includes(query)
+    return itemsForGrid.filter((item) =>
+      (item.name || item.item_name || '').toLowerCase().includes(query)
     );
-  }, [menuItems, searchQuery]);
+  }, [itemsForGrid, searchQuery]);
+
+  const currentCategoryObj = categories.find((c) => c.name === selectedCategory);
+  const showBranchBar =
+    selectedCategory !== 'All' &&
+    currentCategoryObj &&
+    (Number(currentCategoryObj.allow_iced ?? 1) === 1 ||
+      Number(currentCategoryObj.allow_hot ?? 1) === 1);
 
   // Memoized cart calculations - must be before any conditional returns
   const totalCartItems = useMemo(() => {
@@ -397,6 +450,58 @@ export default function MenuPage() {
             </View>
           )}
         </View>
+
+        {showBranchBar && (
+          <View style={styles.branchSection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScroll}>
+              <TouchableOpacity
+                style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
+                onPress={() => { setBranchMode('all'); setIcedSize(null); }}
+              >
+                <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
+              </TouchableOpacity>
+              {Number(currentCategoryObj.allow_iced ?? 1) === 1 && (
+                <TouchableOpacity
+                  style={[styles.branchChip, branchMode === 'iced' && styles.branchChipActive]}
+                  onPress={() => setBranchMode('iced')}
+                >
+                  <Text style={[styles.branchChipText, branchMode === 'iced' && styles.branchChipTextActive]}>Iced</Text>
+                </TouchableOpacity>
+              )}
+              {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
+                <TouchableOpacity
+                  style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
+                  onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
+                >
+                  <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+            {branchMode === 'iced' && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScrollSecond}>
+                <Text style={styles.branchSubLabel}>Size:</Text>
+                <TouchableOpacity
+                  style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
+                  onPress={() => setIcedSize(null)}
+                >
+                  <Text style={styles.branchChipText}>Any</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
+                  onPress={() => setIcedSize('medium')}
+                >
+                  <Text style={[styles.branchChipText, icedSize === 'medium' && styles.branchChipTextActive]}>Medium</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.branchChipSmall, icedSize === 'large' && styles.branchChipActive]}
+                  onPress={() => setIcedSize('large')}
+                >
+                  <Text style={[styles.branchChipText, icedSize === 'large' && styles.branchChipTextActive]}>Large</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        )}
 
         {/* Search Bar for Phone */}
         <View style={styles.phoneSearchContainer}>
@@ -506,6 +611,57 @@ export default function MenuPage() {
         </View>
 
         <View style={styles.tabletMainContent}>
+          {showBranchBar && (
+            <View style={styles.branchSectionTablet}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScroll}>
+                <TouchableOpacity
+                  style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
+                  onPress={() => { setBranchMode('all'); setIcedSize(null); }}
+                >
+                  <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
+                </TouchableOpacity>
+                {Number(currentCategoryObj.allow_iced ?? 1) === 1 && (
+                  <TouchableOpacity
+                    style={[styles.branchChip, branchMode === 'iced' && styles.branchChipActive]}
+                    onPress={() => setBranchMode('iced')}
+                  >
+                    <Text style={[styles.branchChipText, branchMode === 'iced' && styles.branchChipTextActive]}>Iced</Text>
+                  </TouchableOpacity>
+                )}
+                {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
+                  <TouchableOpacity
+                    style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
+                    onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
+                  >
+                    <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+              {branchMode === 'iced' && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScrollSecond}>
+                  <Text style={styles.branchSubLabel}>Size:</Text>
+                  <TouchableOpacity
+                    style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
+                    onPress={() => setIcedSize(null)}
+                  >
+                    <Text style={styles.branchChipText}>Any</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
+                    onPress={() => setIcedSize('medium')}
+                  >
+                    <Text style={[styles.branchChipText, icedSize === 'medium' && styles.branchChipTextActive]}>Medium</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.branchChipSmall, icedSize === 'large' && styles.branchChipActive]}
+                    onPress={() => setIcedSize('large')}
+                  >
+                    <Text style={[styles.branchChipText, icedSize === 'large' && styles.branchChipTextActive]}>Large</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              )}
+            </View>
+          )}
           {/* Tablet Search Bar */}
           <View style={styles.tabletSearchContainer}>
             <View style={styles.tabletSearchWrapper}>
@@ -782,5 +938,65 @@ const styles = StyleSheet.create({
   },
   clearSearchBtn: {
     padding: 4,
+  },
+  branchSection: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0d5c9',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  branchSectionTablet: {
+    marginBottom: 8,
+  },
+  branchScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  branchScrollSecond: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  branchSubLabel: {
+    fontSize: 13,
+    color: '#6b4b32',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  branchChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#f5f0eb',
+    borderWidth: 1,
+    borderColor: '#e0d5c9',
+  },
+  branchChipSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f5f0eb',
+    borderWidth: 1,
+    borderColor: '#e0d5c9',
+  },
+  branchChipSmallMuted: {
+    borderStyle: 'dashed',
+  },
+  branchChipActive: {
+    backgroundColor: '#4C2B18',
+    borderColor: '#4C2B18',
+  },
+  branchChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b4b32',
+  },
+  branchChipTextActive: {
+    color: '#fff',
   },
 });

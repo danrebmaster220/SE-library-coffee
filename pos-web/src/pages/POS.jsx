@@ -29,7 +29,11 @@ export default function POS() {
   const [shiftChecking, setShiftChecking] = useState(true);
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  /** 'all' = entire menu; otherwise category_id number */
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [menuBranchMode, setMenuBranchMode] = useState('all');
+  const [menuIcedSize, setMenuIcedSize] = useState(null);
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [orderType, setOrderType] = useState(null);
   const [orders, setOrders] = useState({ pending: [], preparing: [], ready: [] });
@@ -92,20 +96,39 @@ export default function POS() {
   // Define fetch functions BEFORE useEffect that uses them
   const fetchMenuData = useCallback(async () => {
     try {
-      const [itemsRes, catsRes] = await Promise.all([
-        api.get('/menu/items'),
-        api.get('/menu/categories')
-      ]);
-      setMenuItems(itemsRes.data);
-      // Filter to only show active categories in POS
+      const catsRes = await api.get('/menu/categories');
       const activeCategories = catsRes.data.filter(cat => cat.status === 'active');
-      setCategories(activeCategories);
-      // Auto-select first active category using category_id from database
-      if (activeCategories.length > 0) setSelectedCategory(activeCategories[0].category_id);
+      setCategories([{ category_id: 'all', name: 'All', status: 'active', allow_hot: 1, allow_iced: 1 }, ...activeCategories]);
     } catch (err) {
-      console.error('Failed to fetch menu:', err);
+      console.error('Failed to fetch menu categories:', err);
     }
   }, []);
+
+  const fetchMenuItems = useCallback(async () => {
+    try {
+      const params = {};
+      if (selectedCategory !== 'all') {
+        params.category_id = selectedCategory;
+        const cat = categories.find(c => c.category_id === selectedCategory);
+        const hasBranch = cat && (Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1);
+        if (hasBranch) {
+          if (menuBranchMode === 'iced') {
+            params.temp = 'iced';
+            if (menuIcedSize === 'medium' || menuIcedSize === 'large') {
+              params.size = menuIcedSize;
+            }
+          } else if (menuBranchMode === 'hot') {
+            params.temp = 'hot';
+          }
+        }
+      }
+      const itemsRes = await api.get('/menu/items', { params });
+      const data = itemsRes.data;
+      setMenuItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch menu items:', err);
+    }
+  }, [selectedCategory, categories, menuBranchMode, menuIcedSize]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -180,6 +203,15 @@ export default function POS() {
     };
   }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts]);
 
+  useEffect(() => {
+    fetchMenuItems();
+  }, [fetchMenuItems]);
+
+  useEffect(() => {
+    setMenuBranchMode('all');
+    setMenuIcedSize(null);
+  }, [selectedCategory]);
+
   // Force correct height for cashier mode on resize
   useEffect(() => {
     const el = posContainerRef.current;
@@ -218,7 +250,11 @@ export default function POS() {
       showToast('Please select Dine In or Take Out first!', 'warning');
       return;
     }
-    
+    if (item.menu_price_kind === 'unavailable') {
+      showToast('This item is not available for the selected temperature/size.', 'warning');
+      return;
+    }
+
     // For barista items, check what customizations are linked to this item
     if (item.station === 'barista') {
       const baristaData = await fetchBaristaDefaults(item.item_id);
@@ -686,12 +722,46 @@ export default function POS() {
   const calculateTotal = useCallback(() => total, [total]);
   const calculateChange = useCallback(() => change, [change]);
 
-  // Memoized filtered menu items by category
+  const posMenuBranchForModal = useMemo(() => {
+    if (selectedCategory === 'all') return null;
+    const cat = categories.find((c) => c.category_id === selectedCategory);
+    if (!cat) return null;
+    const hasBranch = Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1;
+    if (!hasBranch) return null;
+    if (menuBranchMode === 'all') return null;
+    if (menuBranchMode === 'hot') return { temp: 'hot' };
+    if (menuBranchMode === 'iced') {
+      if (menuIcedSize === 'medium' || menuIcedSize === 'large') {
+        return { temp: 'iced', size: menuIcedSize };
+      }
+      return { temp: 'iced' };
+    }
+    return null;
+  }, [selectedCategory, categories, menuBranchMode, menuIcedSize]);
+
+  const formatMenuItemCardPrice = (item) => {
+    const k = item.menu_price_kind;
+    const p = item.menu_price;
+    if (k === 'unavailable') return '—';
+    if (k === 'from') return item.menu_price_label || `From ₱${Number(p).toFixed(2)}`;
+    const n = p != null && !Number.isNaN(Number(p)) ? Number(p) : parseFloat(item.price || 0);
+    return `₱${n.toFixed(2)}`;
+  };
+
+  const currentPosCategory = categories.find((c) => c.category_id === selectedCategory);
+  const showPosBranchBar =
+    selectedCategory !== 'all' &&
+    currentPosCategory &&
+    (Number(currentPosCategory.allow_iced ?? 1) === 1 || Number(currentPosCategory.allow_hot ?? 1) === 1);
+
   const filteredMenuItems = useMemo(() => {
-    return menuItems.filter(item => 
-      item.category_id === selectedCategory && item.status === 'available'
-    );
-  }, [menuItems, selectedCategory]);
+    let list = menuItems.filter((item) => item.status === 'available');
+    if (menuSearchQuery.trim()) {
+      const q = menuSearchQuery.trim().toLowerCase();
+      list = list.filter((item) => (item.name || '').toLowerCase().includes(q));
+    }
+    return list.map((item) => ({ ...item, _menuBranch: posMenuBranchForModal }));
+  }, [menuItems, menuSearchQuery, posMenuBranchForModal]);
 
   // Memoized available beepers
   const availableBeepers = useMemo(() => {
@@ -1187,6 +1257,78 @@ export default function POS() {
               ))
             )}
           </div>
+          {showPosBranchBar && (
+            <div className="pos-branch-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+              <button
+                type="button"
+                className={`category-tab ${menuBranchMode === 'all' ? 'active' : ''}`}
+                onClick={() => { setMenuBranchMode('all'); setMenuIcedSize(null); }}
+              >
+                All
+              </button>
+              {Number(currentPosCategory.allow_iced ?? 1) === 1 && (
+                <button
+                  type="button"
+                  className={`category-tab ${menuBranchMode === 'iced' ? 'active' : ''}`}
+                  onClick={() => setMenuBranchMode('iced')}
+                >
+                  Iced
+                </button>
+              )}
+              {Number(currentPosCategory.allow_hot ?? 1) === 1 && (
+                <button
+                  type="button"
+                  className={`category-tab ${menuBranchMode === 'hot' ? 'active' : ''}`}
+                  onClick={() => { setMenuBranchMode('hot'); setMenuIcedSize(null); }}
+                >
+                  Hot
+                </button>
+              )}
+            </div>
+          )}
+          {showPosBranchBar && menuBranchMode === 'iced' && (
+            <div className="pos-iced-size-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#5d4037' }}>Size:</span>
+              <button
+                type="button"
+                className={`category-tab ${menuIcedSize === null ? 'active' : ''}`}
+                onClick={() => setMenuIcedSize(null)}
+              >
+                Any
+              </button>
+              <button
+                type="button"
+                className={`category-tab ${menuIcedSize === 'medium' ? 'active' : ''}`}
+                onClick={() => setMenuIcedSize('medium')}
+              >
+                Medium
+              </button>
+              <button
+                type="button"
+                className={`category-tab ${menuIcedSize === 'large' ? 'active' : ''}`}
+                onClick={() => setMenuIcedSize('large')}
+              >
+                Large
+              </button>
+            </div>
+          )}
+          <div style={{ marginTop: '12px' }}>
+            <input
+              type="search"
+              className="pos-menu-search-input"
+              placeholder="Search menu..."
+              value={menuSearchQuery}
+              onChange={(e) => setMenuSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid #e0d5c9',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
         </div>
         
         <div className="menu-section">
@@ -1198,12 +1340,12 @@ export default function POS() {
               filteredMenuItems.map(item => (
                 <div
                   key={item.item_id}
-                  className={`menu-item ${item.status !== 'available' ? 'unavailable' : ''}`}
-                  onClick={() => item.status === 'available' && handleAddItem(item)}
+                  className={`menu-item ${item.status !== 'available' ? 'unavailable' : ''} ${item.menu_price_kind === 'unavailable' ? 'unavailable' : ''}`}
+                  onClick={() => item.status === 'available' && item.menu_price_kind !== 'unavailable' && handleAddItem(item)}
                 >
                   {item.image && <img src={item.image} alt={item.name} className="item-image" />}
                   <div className="item-name">{item.name}</div>
-                  <div className="item-price">₱{parseFloat(item.price).toFixed(2)}</div>
+                  <div className="item-price">{formatMenuItemCardPrice(item)}</div>
                   {item.status !== 'available' && <div className="unavailable-badge">Unavailable</div>}
                 </div>
               ))

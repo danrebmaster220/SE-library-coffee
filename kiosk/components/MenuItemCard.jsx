@@ -15,8 +15,20 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
 
   // Support both backend & local fields
   const name = item.name || item.item_name || "Unnamed Item";
-  const price = item.price || item.item_price || 0;
   const imageUri = item.image || item.image_url || null;
+
+  const kind = item.menu_price_kind;
+  const base = Number(item.price || item.item_price || 0);
+  const priceNum = resolved != null && !Number.isNaN(Number(resolved)) ? Number(resolved) : base;
+
+  let priceLine = `₱${priceNum.toFixed(2)}`;
+  if (kind === "from") {
+    priceLine = item.menu_price_label || `From ₱${priceNum.toFixed(2)}`;
+  } else if (kind === "unavailable") {
+    priceLine = "—";
+  } else if (kind === "exact" || kind === "base" || kind == null) {
+    priceLine = `₱${priceNum.toFixed(2)}`;
+  }
 
   // Dynamic card width for phone
   const phoneCardWidth = (width - 48) / 2; // 2 columns with gaps
@@ -55,12 +67,13 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
           {name}
         </Text>
         <Text style={[styles.price, isPhone && styles.pricePhone]}>
-          ₱{Number(price).toFixed(2)}
+          {priceLine}
         </Text>
 
         <TouchableOpacity
-          style={[styles.button, isPhone && styles.buttonPhone]}
+          style={[styles.button, isPhone && styles.buttonPhone, kind === "unavailable" && styles.buttonDisabled]}
           onPress={handleOpenModal}
+          disabled={kind === "unavailable"}
         >
           <Text style={[styles.buttonText, isPhone && styles.buttonTextPhone]}>Order</Text>
         </TouchableOpacity>
@@ -70,6 +83,7 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
           item={item}
           onClose={handleCloseModal}
           onAdd={handleAddItem}
+          menuBranch={item._menuBranch || null}
         />
       </View>
     </View>
@@ -170,5 +184,8 @@ const styles = StyleSheet.create({
   },
   buttonTextPhone: {
     fontSize: 13,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
   },
 });
