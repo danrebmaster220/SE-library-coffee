@@ -70,16 +70,18 @@
     max-width: 22rem;
   }
 
-  /* Reports: selects fill their cell so the chevron stays on the control (not the far edge of an empty wrapper) */
+  /* Toolbar filter row: fixed width so label + chevron stay together (no stretched select) */
   .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) {
-    max-width: none;
+    width: var(--toolbar-filter-control-width, 170px) !important;
+    max-width: min(100%, var(--toolbar-filter-control-width, 170px)) !important;
+    flex: 0 0 auto;
   }
 
   .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) .filter-select,
   .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) > select {
     width: 100% !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: 100% !important;
   }
 }
 

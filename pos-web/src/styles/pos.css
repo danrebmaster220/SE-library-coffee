@@ -1,7 +1,8 @@
 /* POS Terminal Styles */
 .pos-container {
   display: grid;
-  grid-template-columns: 250px 1fr 320px;
+  /* minmax(0,1fr) lets the center column shrink so inner panels do not force horizontal overflow */
+  grid-template-columns: 250px minmax(0, 1fr) 320px;
   gap: 12px;
   height: 100vh;
   height: 100dvh;
@@ -10,6 +11,7 @@
   box-sizing: border-box;
   overflow: hidden;
   width: 100%;
+  max-width: 100vw;
 }
 
 /* Cashier mode: topbar takes 60px, so subtract it */
@@ -21,7 +23,7 @@
   min-height: 0 !important;
   margin-left: 0 !important;
   width: 100% !important;
-  grid-template-columns: 250px 1fr 320px !important;
+  grid-template-columns: 250px minmax(0, 1fr) 320px !important;
   grid-template-rows: 1fr !important;
 }
 
@@ -334,6 +336,7 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0; /* Critical for flex/grid children to shrink properly */
+  min-width: 0; /* Prevent grid/flex from forcing horizontal overflow when the middle column shrinks */
 }
 
 .menu-section {
@@ -348,6 +351,9 @@
 .menu-section:last-child {
   flex: 1;
   overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .section-label {
@@ -370,10 +376,12 @@
   display: flex;
   gap: 10px;
   padding: 10px 12px 14px;
-  overflow-x: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   background: #fafafa;
   flex-wrap: wrap;
   justify-content: flex-start;
+  min-width: 0;
 }
 
 .category-tab {
@@ -387,8 +395,9 @@
   white-space: nowrap;
   transition: all 0.2s;
   color: #5d4037;
-  flex: 1 1 auto;
-  min-width: fit-content;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   text-align: center;
 }
 
@@ -415,6 +424,9 @@
   justify-content: center;
   gap: 8px 14px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .pos-filter-inline-group {
@@ -564,11 +576,16 @@
 .menu-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  /* min() keeps tracks from forcing overflow when the panel is narrower than N × min track */
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
   gap: 10px;
   padding: 12px;
   overflow-y: auto;
+  overflow-x: hidden;
   align-content: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .menu-item {
@@ -582,6 +599,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .menu-item:hover {
@@ -598,9 +618,11 @@
 .item-image {
   width: 60px;
   height: 60px;
+  max-width: 100%;
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .item-name {
@@ -609,6 +631,9 @@
   color: #333;
   margin-bottom: 4px;
   line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .item-price {
@@ -2720,22 +2745,26 @@
 .category-tabs {
   padding: 8px;
   gap: 6px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  flex-wrap: nowrap;
+  overflow-x: hidden;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .category-tab {
   padding: 6px 12px;
   font-size: 11px;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .menu-grid {
   padding: 8px;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 .menu-item {
@@ -2931,7 +2960,7 @@
 @media (min-width: 768px) {
   .pos-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto 1fr;
     height: 100vh;
     height: 100dvh;
@@ -2972,9 +3001,11 @@
   }
   
   .menu-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     padding: 12px;
+    overflow-x: hidden;
+    min-width: 0;
   }
   
   .menu-item-image {
@@ -3030,7 +3061,7 @@
 /* === 1024px: Tablet Landscape / Small Desktop === */
 @media (min-width: 1024px) {
   .pos-container {
-    grid-template-columns: 250px 1fr 320px;
+    grid-template-columns: 250px minmax(0, 1fr) 320px;
     grid-template-rows: 1fr;
     height: 100vh;
     height: 100dvh;
@@ -3064,7 +3095,9 @@
   }
   
   .menu-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: hidden;
+    min-width: 0;
   }
   
   .menu-item-image {
@@ -3083,12 +3116,14 @@
 /* === 1280px+: Desktop === */
 @media (min-width: 1280px) {
   .pos-container {
-    grid-template-columns: 280px 1fr 360px;
+    grid-template-columns: 280px minmax(0, 1fr) 360px;
   }
   
   .menu-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
+    overflow-x: hidden;
+    min-width: 0;
   }
   
   .menu-item-image {
@@ -3103,13 +3138,15 @@
 /* === 1440px+: Large Desktop === */
 @media (min-width: 1440px) {
   .pos-container {
-    grid-template-columns: 300px 1fr 400px;
+    grid-template-columns: 300px minmax(0, 1fr) 400px;
     gap: 16px;
     padding: 16px;
   }
   
   .menu-grid {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow-x: hidden;
+    min-width: 0;
   }
   
   .menu-item {

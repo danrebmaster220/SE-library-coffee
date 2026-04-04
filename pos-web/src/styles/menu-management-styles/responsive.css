@@ -516,6 +516,19 @@ input.search-input {
     gap: 12px;
   }
 
+  /* Undo mobile full-bleed filter wraps; toolbar-filters.css sets fixed widths inside .toolbar-filters-actions */
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
+    width: auto;
+    max-width: min(100%, 22rem);
+    align-self: center;
+  }
+
+  .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) {
+    width: var(--toolbar-filter-control-width, 170px);
+    max-width: min(100%, var(--toolbar-filter-control-width, 170px));
+    flex: 0 0 auto;
+  }
+
   .toolbar-right {
     width: auto;
   }

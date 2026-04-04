@@ -1,4 +1,4 @@
-/* Shared toolbar filters: fixed control width (Staff / Shift History), Apply Filter button, responsive row/stack */
+/* Shared toolbar filters: fixed control width; phone = stacked full width; tablet/desktop = one row */
 
 :root {
   --toolbar-filter-control-width: 170px;
@@ -52,7 +52,8 @@
   box-sizing: border-box;
 }
 
-@media (max-width: 1023px) {
+/* Phone: stack search + filter group full width */
+@media (max-width: 767px) {
   .toolbar-section .toolbar-left {
     flex-wrap: wrap;
     align-items: stretch;
@@ -86,7 +87,8 @@
   }
 }
 
-@media (min-width: 1024px) {
+/* Tablet + desktop: filters + Apply Filter in one row, uniform fixed width */
+@media (min-width: 768px) {
   .toolbar-section .toolbar-left {
     flex-wrap: wrap;
     align-items: flex-end;
@@ -96,6 +98,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: stretch;
+    align-content: flex-start;
     width: auto;
     max-width: 100%;
     flex: 0 1 auto;
@@ -104,15 +107,16 @@
 
   .toolbar-filters-actions > .filter-select-wrap,
   .toolbar-filters-actions > .btn-apply-filter {
-    flex: 0 0 auto;
+    flex: 0 0 var(--toolbar-filter-control-width);
     width: var(--toolbar-filter-control-width);
     min-width: 0;
-    max-width: 100%;
+    max-width: min(100%, var(--toolbar-filter-control-width));
   }
 
   .filter-bar .btn-apply-filter {
     width: var(--toolbar-filter-control-width);
-    flex: 0 0 auto;
+    flex: 0 0 var(--toolbar-filter-control-width);
+    max-width: min(100%, var(--toolbar-filter-control-width));
   }
 
   .toolbar-section .toolbar-left > .search-box .search-input {
