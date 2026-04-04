@@ -755,69 +755,69 @@ export default function Reports() {
             />
           </div>
 
-          {/* Conditional Filters based on active tab */}
-          <FilterSelectWrap>
-            <select
-              className="filter-select filter-select--cashier"
-              value={cashierFilter}
-              onChange={(e) => setCashierFilter(e.target.value)}
-            >
-              <option value="">All Staff</option>
-              {cashierOptions.map((staff) => (
-                <option key={staff.user_id} value={staff.user_id}>
-                  {staff.full_name || staff.username || `User #${staff.user_id}`}
-                </option>
-              ))}
-            </select>
-          </FilterSelectWrap>
+          <div className="toolbar-filters-actions">
+            {/* Conditional Filters based on active tab */}
+            <FilterSelectWrap>
+              <select
+                className="filter-select filter-select--cashier"
+                value={cashierFilter}
+                onChange={(e) => setCashierFilter(e.target.value)}
+              >
+                <option value="">All Staff</option>
+                {cashierOptions.map((staff) => (
+                  <option key={staff.user_id} value={staff.user_id}>
+                    {staff.full_name || staff.username || `User #${staff.user_id}`}
+                  </option>
+                ))}
+              </select>
+            </FilterSelectWrap>
 
-          {activeTab === 'orders' && (
-            <>
+            {activeTab === 'orders' && (
+              <>
+                <FilterSelectWrap>
+                  <select
+                    className="filter-select"
+                    value={orderTypeFilter}
+                    onChange={(e) => setOrderTypeFilter(e.target.value)}
+                  >
+                    <option value="">All Types</option>
+                    <option value="dine-in">Dine In</option>
+                    <option value="takeout">Take Out</option>
+                  </select>
+                </FilterSelectWrap>
+                <FilterSelectWrap>
+                  <select
+                    className="filter-select"
+                    value={orderStatusFilter}
+                    onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  >
+                    <option value="">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="ready">Ready</option>
+                    <option value="voided">Voided</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </FilterSelectWrap>
+              </>
+            )}
+
+            {activeTab === 'library' && (
               <FilterSelectWrap>
                 <select
                   className="filter-select"
-                  value={orderTypeFilter}
-                  onChange={(e) => setOrderTypeFilter(e.target.value)}
-                >
-                  <option value="">All Types</option>
-                  <option value="dine-in">Dine In</option>
-                  <option value="takeout">Take Out</option>
-                </select>
-              </FilterSelectWrap>
-              <FilterSelectWrap>
-                <select
-                  className="filter-select"
-                  value={orderStatusFilter}
-                  onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  value={sessionStatusFilter}
+                  onChange={(e) => setSessionStatusFilter(e.target.value)}
                 >
                   <option value="">All Status</option>
                   <option value="completed">Completed</option>
-                  <option value="preparing">Preparing</option>
-                  <option value="ready">Ready</option>
+                  <option value="active">Active</option>
                   <option value="voided">Voided</option>
-                  <option value="refunded">Refunded</option>
                 </select>
               </FilterSelectWrap>
-            </>
-          )}
+            )}
 
-          {activeTab === 'library' && (
-            <FilterSelectWrap>
-              <select
-                className="filter-select"
-                value={sessionStatusFilter}
-                onChange={(e) => setSessionStatusFilter(e.target.value)}
-              >
-                <option value="">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="active">Active</option>
-                <option value="voided">Voided</option>
-              </select>
-            </FilterSelectWrap>
-          )}
-
-          {activeTab === 'audit' && (
-            <>
+            {activeTab === 'audit' && (
               <FilterSelectWrap>
                 <select
                   className="filter-select"
@@ -830,12 +830,12 @@ export default function Reports() {
                   <option value="shift_force_closed">Shift Force Closed</option>
                 </select>
               </FilterSelectWrap>
-            </>
-          )}
+            )}
 
-          <button className="btn-apply" onClick={handleApplyFilters}>
-            Apply
-          </button>
+            <button type="button" className="btn-apply" onClick={handleApplyFilters}>
+              Apply
+            </button>
+          </div>
         </div>
       </div>
 

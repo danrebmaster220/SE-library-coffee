@@ -190,6 +190,44 @@
   background: var(--coffee-medium, #8b5a3c);
 }
 
+/* Staff / filters / Apply: one group — full-width stack on phone; equal-width row on large screens */
+.toolbar-filters-actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.toolbar-filters-actions .filter-select-wrap {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.toolbar-filters-actions .filter-select-wrap .filter-select,
+.toolbar-filters-actions .filter-select-wrap > select {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  box-sizing: border-box;
+}
+
+.toolbar-filters-actions .btn-apply {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1023px) {
+  .toolbar-filters-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 .btn-export {
   display: flex;
   align-items: center;
@@ -847,13 +885,6 @@
   .report-tab:nth-child(4) {
     grid-column: 1 / -1;
   }
-
-  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
-    width: 100%;
-    max-width: 100%;
-    align-self: stretch;
-    display: flex;
-  }
 }
 
 /* Toolbar - Stack on mobile */
@@ -866,6 +897,11 @@
 .toolbar-left {
   flex-direction: column;
   width: 100%;
+}
+
+.toolbar-left > .toolbar-filters-actions {
+  flex: 1 1 100%;
+  max-width: 100%;
 }
 
 .toolbar-right {
@@ -1095,6 +1131,11 @@
     flex-shrink: 0;
   }
 
+  .toolbar-left > .toolbar-filters-actions {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
   /* Keep native date picker control close to the value on wide inputs */
   .toolbar-left .date-range-group .date-input {
     width: auto;
@@ -1193,6 +1234,42 @@
     column-gap: 8px;
   }
 
+  /* Equal-width Staff / Types / Status / Apply in one row */
+  .toolbar-filters-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .toolbar-filters-actions > .filter-select-wrap,
+  .toolbar-filters-actions > .btn-apply {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  .toolbar-filters-actions > .filter-select-wrap {
+    display: flex;
+  }
+
+  .toolbar-filters-actions .filter-select-wrap .filter-select,
+  .toolbar-filters-actions .filter-select-wrap > select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .toolbar-filters-actions .btn-apply {
+    width: auto;
+    min-height: 42px;
+  }
+
   .search-input {
     width: 200px;
   }
@@ -1207,6 +1284,11 @@
 
   .filter-select--cashier {
     min-width: 168px;
+  }
+
+  .toolbar-filters-actions .filter-select,
+  .toolbar-filters-actions .filter-select--cashier {
+    min-width: 0 !important;
   }
 
   .btn-apply {

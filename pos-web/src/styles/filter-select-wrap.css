@@ -69,6 +69,18 @@
     min-width: 9.5rem;
     max-width: 22rem;
   }
+
+  /* Reports: selects fill their cell so the chevron stays on the control (not the far edge of an empty wrapper) */
+  .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) {
+    max-width: none;
+  }
+
+  .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) .filter-select,
+  .toolbar-left .toolbar-filters-actions .filter-select-wrap:not(.filter-select-wrap--full) > select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
 }
 
 /* Strip native / theme arrows so only our chevron shows */
