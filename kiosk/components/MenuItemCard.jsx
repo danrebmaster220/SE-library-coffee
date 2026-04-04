@@ -1,11 +1,11 @@
 // components/MenuItemCard.jsx
 import React, { useState, useCallback, memo } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import CustomizationModal from "./CustomizationModal";
 import { useResponsive } from "../hooks/useResponsive";
 
-const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
+const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp, fillWebCellWidth = false }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { width } = useWindowDimensions();
   const { isPhone: isPhoneHook } = useResponsive();
@@ -19,7 +19,9 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
 
   const kind = item.menu_price_kind;
   const base = Number(item.price || item.item_price || 0);
-  const priceNum = resolved != null && !Number.isNaN(Number(resolved)) ? Number(resolved) : base;
+  const resolved = item.menu_price;
+  const priceNum =
+    resolved != null && !Number.isNaN(Number(resolved)) ? Number(resolved) : base;
 
   let priceLine = `₱${priceNum.toFixed(2)}`;
   if (kind === "from") {
@@ -30,8 +32,8 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
     priceLine = `₱${priceNum.toFixed(2)}`;
   }
 
-  // Dynamic card width for phone
-  const phoneCardWidth = (width - 48) / 2; // 2 columns with gaps
+  // Dynamic card width for phone native (web uses CSS grid in MenuContent; fixed width breaks layout)
+  const phoneCardWidth = Platform.OS === "web" ? null : (width - 48) / 2;
 
   // Memoized handlers
   const handleOpenModal = useCallback(() => setModalVisible(true), []);
@@ -42,10 +44,25 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp }) => {
   }, [onAddToOrder]);
 
   return (
-    <View style={[
-      styles.card, 
-      isPhone && { ...styles.cardPhone, width: phoneCardWidth }
-    ]}>
+    <View
+      style={[
+        styles.card,
+        isPhone && {
+          ...styles.cardPhone,
+          ...(phoneCardWidth != null ? { width: phoneCardWidth } : {}),
+        },
+        /* Web grid: parent cell has width but no height — flex:1 collapses to 0 on RN-web (tablet). */
+        fillWebCellWidth &&
+          Platform.OS === "web" && {
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            flexShrink: 1,
+            flex: 0,
+            alignSelf: "stretch",
+          },
+      ]}
+    >
       {imageUri ? (
         <Image 
           source={{ uri: imageUri }} 

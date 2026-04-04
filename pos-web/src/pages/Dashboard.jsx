@@ -52,19 +52,26 @@ export default function Dashboard() {
 
   const [categorySales, setCategorySales] = useState([]);
 
+  const mapCategoryRows = (rows) =>
+    (rows || []).map((cat, index) => {
+      const name = cat.category_name || cat.category || cat.name || `Category ${index + 1}`;
+      return {
+        name,
+        sales: parseFloat(cat.total_sales) || 0,
+        color: getCategoryColor(name, index)
+      };
+    });
+
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
 
-        // Fetch all dashboard data in parallel
-        const [statsRes, salesChartRes, categoryRes] = await Promise.all([
+        const [statsRes, salesChartRes] = await Promise.all([
           api.get('/dashboard/stats'),
-          api.get('/dashboard/sales-chart'),
-          api.get('/dashboard/category-sales')
+          api.get('/dashboard/sales-chart')
         ]);
 
-        // Set stats
         setStats({
           todaySales: statsRes.data.todaySales || 0,
           totalOrders: statsRes.data.totalOrders || 0,
@@ -75,33 +82,18 @@ export default function Dashboard() {
           avgOrderValue: statsRes.data.avgOrderValue || 0
         });
 
-        // Set library status
         setLibraryStatus({
           available: statsRes.data.librarySeats?.available || 0,
           occupied: statsRes.data.librarySeats?.occupied || 0,
           total: statsRes.data.librarySeats?.total || 0
         });
 
-        // Set chart data
         setChartData({
           today: salesChartRes.data.today || [],
           weekly: salesChartRes.data.weekly || [],
           monthly: salesChartRes.data.monthly || [],
           yearly: salesChartRes.data.yearly || []
         });
-
-        // Real menu categories from backend (dynamic list).
-        const categories = (categoryRes.data || []).map((cat, index) => {
-          const name = cat.category_name || cat.category || cat.name || `Category ${index + 1}`;
-          return {
-            name,
-            sales: parseFloat(cat.total_sales) || 0,
-            color: getCategoryColor(name, index)
-          };
-        });
-
-        setCategorySales(categories);
-
       } catch (err) {
         console.error('Error loading dashboard:', err);
       } finally {
@@ -110,11 +102,25 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-
-    // Refresh every 30 seconds
     const interval = setInterval(loadDashboardData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const categoryRes = await api.get(
+          `/dashboard/category-sales?period=${encodeURIComponent(salesPeriod)}`
+        );
+        setCategorySales(mapCategoryRows(categoryRes.data));
+      } catch (err) {
+        console.error('Error loading category sales:', err);
+      }
+    };
+    loadCategory();
+    const interval = setInterval(loadCategory, 30000);
+    return () => clearInterval(interval);
+  }, [salesPeriod]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -327,7 +333,39 @@ export default function Dashboard() {
         </div>
 
         <div className="chart-card">
-          <h3>Sales by Category</h3>
+          <div className="chart-header">
+            <h3>Sales by Category</h3>
+            <div className="period-tabs">
+              <button
+                type="button"
+                className={`period-btn ${salesPeriod === 'today' ? 'active' : ''}`}
+                onClick={() => setSalesPeriod('today')}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                className={`period-btn ${salesPeriod === 'weekly' ? 'active' : ''}`}
+                onClick={() => setSalesPeriod('weekly')}
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                className={`period-btn ${salesPeriod === 'monthly' ? 'active' : ''}`}
+                onClick={() => setSalesPeriod('monthly')}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={`period-btn ${salesPeriod === 'yearly' ? 'active' : ''}`}
+                onClick={() => setSalesPeriod('yearly')}
+              >
+                Yearly
+              </button>
+            </div>
+          </div>
 
           <div className="category-only-list">
             {categorySales.length === 0 && (

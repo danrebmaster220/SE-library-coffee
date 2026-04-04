@@ -59,15 +59,47 @@ function getInitialUser() {
   const storedUser = localStorage.getItem('user');
   if (storedUser) {
     const userData = JSON.parse(storedUser);
-    return { fullName: userData.fullName || 'Cashier', role: userData.role || 'cashier' };
+    return {
+      fullName: userData.fullName || 'Cashier',
+      role: userData.role || 'cashier',
+      profileImage: userData.profileImage || null
+    };
   }
-  return { fullName: 'Cashier', role: 'cashier' };
+  return { fullName: 'Cashier', role: 'cashier', profileImage: null };
 }
 
 export default function CashierTopBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user] = useState(getInitialUser);
+  const [user, setUser] = useState(getInitialUser);
+
+  useEffect(() => {
+    const sync = async () => {
+      try {
+        const res = await api.get('/users/me/profile');
+        const d = res.data;
+        const display = d.display_name || d.full_name || '';
+        setUser({
+          fullName: display,
+          role: d.role_name || 'cashier',
+          profileImage: d.profile_image || null
+        });
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          u.fullName = display;
+          u.profileImage = d.profile_image || null;
+          localStorage.setItem('user', JSON.stringify(u));
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    sync();
+    const onUserUpdated = () => setUser(getInitialUser());
+    window.addEventListener('userUpdated', onUserUpdated);
+    return () => window.removeEventListener('userUpdated', onUserUpdated);
+  }, []);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   
@@ -296,7 +328,13 @@ export default function CashierTopBar() {
             className="user-menu-btn"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
-            <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
+            <div className="user-avatar">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt="" />
+              ) : (
+                user.fullName.charAt(0).toUpperCase()
+              )}
+            </div>
             <div className="user-info">
               <span className="user-name">{user.fullName}</span>
               <span className="user-role">Cashier</span>

@@ -159,9 +159,12 @@ const toTinyBool = (value, fallback = 1) => {
 
 // CATEGORIES
 
+const MENU_CACHE_CONTROL = 'public, max-age=60, s-maxage=60, stale-while-revalidate=120';
+
 // Get All Categories
 exports.getCategories = async (req, res) => {
     try {
+        res.set('Cache-Control', MENU_CACHE_CONTROL);
         const [rows] = await db.query('SELECT * FROM categories ORDER BY category_id ASC');
         res.json(rows);
     } catch (error) {
@@ -256,6 +259,7 @@ exports.getItems = async (req, res) => {
     const { category_id, temp, size } = req.query;
 
     try {
+        res.set('Cache-Control', MENU_CACHE_CONTROL);
         let query = `
             SELECT i.*, c.name as category_name 
             FROM items i 

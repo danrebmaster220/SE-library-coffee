@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { resolveDisplayName } = require('../utils/userName');
 
 // JWT Secret Key (In production, store this in .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'secret-key';
@@ -59,7 +60,8 @@ exports.login = async (req, res) => {
             user: {
                 id: user.user_id,
                 username: user.username,
-                fullName: user.full_name,
+                fullName: resolveDisplayName(user),
+                profileImage: user.profile_image || null,
                 role: user.role_name
             }
         });
@@ -185,7 +187,8 @@ exports.verify = async (req, res) => {
             user: {
                 id: user.user_id,
                 username: user.username,
-                fullName: user.full_name,
+                fullName: resolveDisplayName(user),
+                profileImage: user.profile_image || null,
                 role: user.role_name
             }
         });

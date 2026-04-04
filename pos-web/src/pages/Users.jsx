@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../api";
 import "../styles/menu-management-styles/index.css";
+import "../styles/menu.css";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -16,8 +17,12 @@ export default function Users() {
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
-    full_name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    profile_image: null,
     username: "",
     password: "",
     role_id: "",
@@ -62,13 +67,30 @@ export default function Users() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, profile_image: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (!formData.first_name.trim() || !formData.last_name.trim()) {
+      alert("First name and last name are required");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload = {
-        full_name: formData.full_name,
+        first_name: formData.first_name.trim(),
+        middle_name: formData.middle_name.trim() || "",
+        last_name: formData.last_name.trim(),
+        profile_image: formData.profile_image,
         username: formData.username,
         role_id: parseInt(formData.role_id),
         status: formData.status
@@ -126,24 +148,32 @@ export default function Users() {
   const openEditModal = (user) => {
     setEditingUser(user);
     setFormData({
-      full_name: user.full_name,
+      first_name: user.first_name || "",
+      middle_name: user.middle_name || "",
+      last_name: user.last_name || "",
+      profile_image: user.profile_image || null,
       username: user.username,
       password: "",
       role_id: user.role_id?.toString() || "",
       status: user.status || "active"
     });
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setShowModal(true);
   };
 
   const openAddModal = () => {
     setEditingUser(null);
     setFormData({
-      full_name: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
+      profile_image: null,
       username: "",
       password: "",
       role_id: "",
       status: "active"
     });
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setShowModal(true);
   };
 
@@ -151,12 +181,16 @@ export default function Users() {
     setShowModal(false);
     setEditingUser(null);
     setFormData({
-      full_name: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
+      profile_image: null,
       username: "",
       password: "",
       role_id: "",
       status: "active"
     });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const getRoleName = (user) => {
@@ -179,7 +213,9 @@ export default function Users() {
   const filteredUsers = users
     .filter((user) => {
       const searchLower = searchTerm.toLowerCase();
+      const display = user.display_name || user.full_name || "";
       const matchesSearch =
+        display.toLowerCase().includes(searchLower) ||
         user.full_name?.toLowerCase().includes(searchLower) ||
         user.username?.toLowerCase().includes(searchLower);
       const matchesRole = !filterRole || user.role_id?.toString() === filterRole;
@@ -296,7 +332,7 @@ export default function Users() {
                     <tr key={user.user_id}>
                       <td>#{user.user_id}</td>
                     <td>
-                      <span className="item-name-text">{user.full_name}</span>
+                      <span className="item-name-text">{user.display_name || user.full_name}</span>
                     </td>
                     <td>
                       <span className="username-text">@{user.username}</span>
@@ -366,16 +402,83 @@ export default function Users() {
               <button className="modal-close" onClick={closeModal} style={{ color: '#666' }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">First name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    placeholder="First name"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Middle name (optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.middle_name}
+                    onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+                    placeholder="Middle name"
+                  />
+                </div>
+              </div>
               <div className="form-group">
-                <label className="form-label">Full Name</label>
+                <label className="form-label">Last name</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="e.g., Juan Dela Cruz"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  placeholder="Last name"
                   required
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Profile photo (optional)</label>
+                <div className="image-upload-box">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="file-input-hidden"
+                    id="staff-profile-image"
+                  />
+                  {formData.profile_image ? (
+                    <div className="image-preview-box">
+                      <img src={formData.profile_image} alt="" />
+                      <button
+                        type="button"
+                        className="change-image-btn"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Change Image
+                      </button>
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={() => {
+                          setFormData((p) => ({ ...p, profile_image: null }));
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <label htmlFor="staff-profile-image" className="upload-placeholder">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <span>Choose Image</span>
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Username</label>
@@ -472,7 +575,7 @@ export default function Users() {
                 </svg>
               </div>
               <p className="delete-message">
-                Are you sure you want to delete user <strong>"{deleteTarget.full_name}"</strong>?
+                Are you sure you want to delete user <strong>"{deleteTarget.display_name || deleteTarget.full_name}"</strong>?
               </p>
               <p className="delete-warning">This action cannot be undone.</p>
             </div>

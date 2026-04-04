@@ -1,16 +1,18 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { 
-  StyleSheet, 
-  View, 
-  ActivityIndicator, 
-  Text, 
-  ScrollView, 
+import {
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Text,
+  ScrollView,
   TouchableOpacity,
   Modal,
   TextInput,
   Alert,
   BackHandler,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ShoppingCart, X, ChevronLeft, ChevronRight, Search } from "lucide-react-native";
@@ -32,8 +34,17 @@ const BOOKING_STORAGE_KEY = '@kiosk_library_booking';
 export default function MenuPage() {
   const router = useRouter();
   const { customerName = "Guest", orderType = "Dine-In", libraryBooking } = useLocalSearchParams();
-  const { isPhone } = useResponsive();
+  const { isPhone, isTablet } = useResponsive();
+  const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  const phoneMenuWebStyle = useMemo(() => {
+    if (Platform.OS !== "web") return undefined;
+    return {
+      flex: 1,
+      minHeight: Math.max(320, windowHeight - 272),
+    };
+  }, [windowHeight]);
 
   // Parse and store library booking in state (so it can be removed)
   const [currentLibraryBooking, setCurrentLibraryBooking] = useState(() => {
@@ -215,10 +226,14 @@ export default function MenuPage() {
     }
   }, []);
 
-  const fetchItemsForCategory = useCallback(async () => {
+  const fetchItemsForCategory = useCallback(async (opts = {}) => {
+    const silent = opts.silent === true;
     if (!selectedCategory) return;
     try {
-      setLoadingItems(true);
+      if (!silent) {
+        setLoadingItems(true);
+        setMenuItems([]);
+      }
       const branchQuery = {};
       if (selectedCategory !== 'All') {
         const cat = categories.find((c) => c.name === selectedCategory);
@@ -255,24 +270,28 @@ export default function MenuPage() {
       console.error('Error fetching items:', error);
       setMenuItems([]);
     } finally {
-      setLoadingItems(false);
+      if (!silent) setLoadingItems(false);
     }
   }, [selectedCategory, categories, branchMode, icedSize]);
+
+  const selectCategory = useCallback((name) => {
+    setSelectedCategory(name);
+    setBranchMode('all');
+    setIcedSize(null);
+  }, []);
 
   // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  useEffect(() => {
-    setBranchMode('all');
-    setIcedSize(null);
-  }, [selectedCategory]);
+  const prevCategoryFetchRef = useRef(null);
 
   useEffect(() => {
-    if (selectedCategory && categories.length > 0) {
-      fetchItemsForCategory();
-    }
+    if (!selectedCategory || categories.length === 0) return;
+    const categoryChanged = prevCategoryFetchRef.current !== selectedCategory;
+    prevCategoryFetchRef.current = selectedCategory;
+    fetchItemsForCategory({ silent: !categoryChanged });
   }, [selectedCategory, categories, branchMode, icedSize, fetchItemsForCategory]);
 
   // Add item or increase quantity
@@ -372,6 +391,113 @@ export default function MenuPage() {
     (Number(currentCategoryObj.allow_iced ?? 1) === 1 ||
       Number(currentCategoryObj.allow_hot ?? 1) === 1);
 
+  const kioskBranchFilters = useMemo(() => {
+    if (!showBranchBar || !currentCategoryObj) return null;
+
+    const tempButtons = (
+      <>
+        <TouchableOpacity
+          style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
+          onPress={() => { setBranchMode('all'); setIcedSize(null); }}
+        >
+          <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
+        </TouchableOpacity>
+        {Number(currentCategoryObj.allow_iced ?? 1) === 1 && (
+          <TouchableOpacity
+            style={[styles.branchChip, branchMode === 'iced' && styles.branchChipActive]}
+            onPress={() => setBranchMode('iced')}
+          >
+            <Text style={[styles.branchChipText, branchMode === 'iced' && styles.branchChipTextActive]}>Iced</Text>
+          </TouchableOpacity>
+        )}
+        {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
+          <TouchableOpacity
+            style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
+            onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
+          >
+            <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
+          </TouchableOpacity>
+        )}
+      </>
+    );
+
+    const sizeButtons = (
+      <>
+        <TouchableOpacity
+          style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
+          onPress={() => setIcedSize(null)}
+        >
+          <Text style={styles.branchChipText}>Any</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
+          onPress={() => setIcedSize('medium')}
+        >
+          <Text style={[styles.branchChipText, icedSize === 'medium' && styles.branchChipTextActive]}>Medium</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.branchChipSmall, icedSize === 'large' && styles.branchChipActive]}
+          onPress={() => setIcedSize('large')}
+        >
+          <Text style={[styles.branchChipText, icedSize === 'large' && styles.branchChipTextActive]}>Large</Text>
+        </TouchableOpacity>
+      </>
+    );
+
+    /* Tablet / wide: one strip like POS — Temp cluster | Size cluster (when Iced) */
+    if (isTablet) {
+      return (
+        <View style={styles.branchBelowTitle}>
+          <View style={styles.branchFiltersTabletStrip}>
+            <View style={styles.branchFilterCluster}>
+              <Text style={styles.branchSubLabel}>Temp:</Text>
+              <View style={styles.branchChipsRowTablet}>{tempButtons}</View>
+            </View>
+            {branchMode === 'iced' && (
+              <>
+                <View style={styles.branchFilterSepVertical} />
+                <View style={styles.branchFilterCluster}>
+                  <Text style={styles.branchSubLabel}>Size:</Text>
+                  <View style={styles.branchChipsRowTablet}>{sizeButtons}</View>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    /* Phone: two stacked rows, both labeled (matches Size: pattern) */
+    return (
+      <View style={styles.branchBelowTitle}>
+        <View style={styles.branchFilterRowPhone}>
+          <Text style={styles.branchSubLabel}>Temp:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.branchScrollFlex}
+            contentContainerStyle={styles.branchScroll}
+          >
+            {tempButtons}
+          </ScrollView>
+        </View>
+        {branchMode === 'iced' && (
+          <View style={styles.branchFilterRowPhoneSecond}>
+            <Text style={styles.branchSubLabel}>Size:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.branchScrollFlex}
+              contentContainerStyle={styles.branchScroll}
+            >
+              {sizeButtons}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  }, [showBranchBar, currentCategoryObj, branchMode, icedSize, isTablet]);
+
   // Memoized cart calculations - must be before any conditional returns
   const totalCartItems = useMemo(() => {
     return orders.reduce((sum, item) => sum + item.quantity, 0);
@@ -404,7 +530,10 @@ export default function MenuPage() {
   // PHONE LAYOUT: Stack vertically with bottom cart button
   if (isPhone) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <SafeAreaView
+        style={[styles.safeArea, Platform.OS === "web" && styles.safeAreaWeb]}
+        edges={["top", "bottom", "left", "right"]}
+      >
         <Header customerName={customerName} orderType={orderType} isPhone={isPhone} />
         
         {/* Horizontal Category Tabs for Phone with Scroll Indicators */}
@@ -431,7 +560,7 @@ export default function MenuPage() {
                   styles.phoneCategoryTab,
                   selectedCategory === cat.name && styles.phoneCategoryTabActive
                 ]}
-                onPress={() => setSelectedCategory(cat.name)}
+                onPress={() => selectCategory(cat.name)}
               >
                 <Text style={[
                   styles.phoneCategoryText,
@@ -451,59 +580,7 @@ export default function MenuPage() {
           )}
         </View>
 
-        {showBranchBar && (
-          <View style={styles.branchSection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScroll}>
-              <TouchableOpacity
-                style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
-                onPress={() => { setBranchMode('all'); setIcedSize(null); }}
-              >
-                <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
-              </TouchableOpacity>
-              {Number(currentCategoryObj.allow_iced ?? 1) === 1 && (
-                <TouchableOpacity
-                  style={[styles.branchChip, branchMode === 'iced' && styles.branchChipActive]}
-                  onPress={() => setBranchMode('iced')}
-                >
-                  <Text style={[styles.branchChipText, branchMode === 'iced' && styles.branchChipTextActive]}>Iced</Text>
-                </TouchableOpacity>
-              )}
-              {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
-                <TouchableOpacity
-                  style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
-                  onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
-                >
-                  <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-            {branchMode === 'iced' && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScrollSecond}>
-                <Text style={styles.branchSubLabel}>Size:</Text>
-                <TouchableOpacity
-                  style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
-                  onPress={() => setIcedSize(null)}
-                >
-                  <Text style={styles.branchChipText}>Any</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
-                  onPress={() => setIcedSize('medium')}
-                >
-                  <Text style={[styles.branchChipText, icedSize === 'medium' && styles.branchChipTextActive]}>Medium</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.branchChipSmall, icedSize === 'large' && styles.branchChipActive]}
-                  onPress={() => setIcedSize('large')}
-                >
-                  <Text style={[styles.branchChipText, icedSize === 'large' && styles.branchChipTextActive]}>Large</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* Search Bar for Phone */}
+        {/* Search Bar for Phone — before category title + filters in MenuContent */}
         <View style={styles.phoneSearchContainer}>
           <View style={styles.phoneSearchWrapper}>
             <Search color="#8b6b5d" size={18} />
@@ -523,7 +600,7 @@ export default function MenuPage() {
         </View>
 
         {/* Menu Content */}
-        <View style={styles.phoneMenuContainer}>
+        <View style={[styles.phoneMenuContainer, phoneMenuWebStyle]}>
           {loadingItems ? (
             <View style={styles.loadingItemsContainer}>
               <ActivityIndicator size="large" color="#4C2B18" />
@@ -535,6 +612,7 @@ export default function MenuPage() {
               onAddToOrder={handleAddToOrder}
               selectedCategory={selectedCategory}
               isPhone={isPhone}
+              branchFilters={kioskBranchFilters}
             />
           )}
         </View>
@@ -597,72 +675,24 @@ export default function MenuPage() {
 
   // TABLET LAYOUT: Original 3-column layout
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.safeArea, Platform.OS === "web" && styles.safeAreaWeb]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
       <Header customerName={customerName} orderType={orderType} isPhone={isPhone} />
 
       <View style={styles.container}>
         <View style={styles.tabletSidebarContainer}>
           <Sidebar
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+            onSelectCategory={selectCategory}
             categories={categories}
             style={styles.tabletSidebar}
           />
         </View>
 
         <View style={styles.tabletMainContent}>
-          {showBranchBar && (
-            <View style={styles.branchSectionTablet}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScroll}>
-                <TouchableOpacity
-                  style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
-                  onPress={() => { setBranchMode('all'); setIcedSize(null); }}
-                >
-                  <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
-                </TouchableOpacity>
-                {Number(currentCategoryObj.allow_iced ?? 1) === 1 && (
-                  <TouchableOpacity
-                    style={[styles.branchChip, branchMode === 'iced' && styles.branchChipActive]}
-                    onPress={() => setBranchMode('iced')}
-                  >
-                    <Text style={[styles.branchChipText, branchMode === 'iced' && styles.branchChipTextActive]}>Iced</Text>
-                  </TouchableOpacity>
-                )}
-                {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
-                  <TouchableOpacity
-                    style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
-                    onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
-                  >
-                    <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-              {branchMode === 'iced' && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchScrollSecond}>
-                  <Text style={styles.branchSubLabel}>Size:</Text>
-                  <TouchableOpacity
-                    style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
-                    onPress={() => setIcedSize(null)}
-                  >
-                    <Text style={styles.branchChipText}>Any</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
-                    onPress={() => setIcedSize('medium')}
-                  >
-                    <Text style={[styles.branchChipText, icedSize === 'medium' && styles.branchChipTextActive]}>Medium</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.branchChipSmall, icedSize === 'large' && styles.branchChipActive]}
-                    onPress={() => setIcedSize('large')}
-                  >
-                    <Text style={[styles.branchChipText, icedSize === 'large' && styles.branchChipTextActive]}>Large</Text>
-                  </TouchableOpacity>
-                </ScrollView>
-              )}
-            </View>
-          )}
-          {/* Tablet Search Bar */}
+          {/* Tablet Search Bar — filters sit under category title inside MenuContent */}
           <View style={styles.tabletSearchContainer}>
             <View style={styles.tabletSearchWrapper}>
               <Search color="#8b6b5d" size={18} />
@@ -692,6 +722,7 @@ export default function MenuPage() {
               onAddToOrder={handleAddToOrder}
               selectedCategory={selectedCategory}
               isPhone={isPhone}
+              branchFilters={kioskBranchFilters}
             />
           )}
         </View>
@@ -717,8 +748,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F1EBDF",
   },
+  safeAreaWeb: {
+    minHeight: "100%",
+    width: "100%",
+  },
   container: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     paddingTop: 6,
     paddingHorizontal: 6,
@@ -803,6 +839,7 @@ const styles = StyleSheet.create({
   
   phoneMenuContainer: {
     flex: 1,
+    minHeight: 0,
     padding: 8,
   },
   
@@ -933,40 +970,77 @@ const styles = StyleSheet.create({
   },
   tabletMainContent: {
     flex: 1,
+    minHeight: 0,
+    minWidth: 0,
     flexDirection: 'column',
     paddingHorizontal: 4,
   },
   clearSearchBtn: {
     padding: 4,
   },
-  branchSection: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0d5c9',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+  branchBelowTitle: {
+    marginBottom: 6,
+    paddingHorizontal: 4,
   },
-  branchSectionTablet: {
-    marginBottom: 8,
+  branchFiltersTabletStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: "#ddd2c6",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#b8a99a",
+  },
+  branchFilterCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  branchChipsRowTablet: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
+  branchFilterSepVertical: {
+    width: 1,
+    height: 28,
+    backgroundColor: "#6d4c41",
+    opacity: 0.45,
+  },
+  branchFilterRowPhone: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 2,
+  },
+  branchFilterRowPhoneSecond: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  branchScrollFlex: {
+    flex: 1,
+    minWidth: 0,
   },
   branchScroll: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 4,
-  },
-  branchScrollSecond: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-    paddingHorizontal: 4,
+    flexGrow: 1,
   },
   branchSubLabel: {
     fontSize: 13,
-    color: '#6b4b32',
-    fontWeight: '600',
-    marginRight: 4,
+    color: '#3e2723',
+    fontWeight: '700',
+    marginRight: 6,
+    minWidth: 44,
   },
   branchChip: {
     paddingHorizontal: 14,

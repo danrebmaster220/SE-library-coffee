@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { printCustomerReceipt } from '../services/webPrinter';
 import '../styles/settings.css';
+import '../styles/menu.css';
 
 export default function Config() {
   const [showPasswordPanel, setShowPasswordPanel] = useState(false);
@@ -12,10 +13,14 @@ export default function Config() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState(null);
   const [passwordMessage, setPasswordMessage] = useState(null);
+  const profileFileRef = useRef(null);
   const [profileData, setProfileData] = useState({
-    fullName: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     username: '',
-    role: ''
+    role: '',
+    profileImage: null
   });
   const [passwords, setPasswords] = useState({
     oldPassword: '',
@@ -33,10 +38,14 @@ export default function Config() {
         ]);
         setPrinterConfig(configRes.data);
         setPrinters(printersRes.data.printers || []);
+        const d = profileRes.data;
         setProfileData({
-          fullName: profileRes.data.full_name || '',
-          username: profileRes.data.username || '',
-          role: profileRes.data.role_name || ''
+          firstName: d.first_name || '',
+          middleName: d.middle_name || '',
+          lastName: d.last_name || '',
+          username: d.username || '',
+          role: d.role_name || '',
+          profileImage: d.profile_image || null
         });
       } catch (err) {
         console.error('Error loading config:', err);
@@ -113,24 +122,43 @@ export default function Config() {
     setLoading(false);
   };
 
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfileData((prev) => ({ ...prev, profileImage: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleProfileUpdate = async () => {
-    if (!profileData.fullName.trim()) {
-      setProfileMessage({ success: false, message: 'Full name is required' });
+    if (!profileData.firstName.trim() || !profileData.lastName.trim()) {
+      setProfileMessage({ success: false, message: 'First name and last name are required' });
       return;
     }
-    
+
     setProfileLoading(true);
     setProfileMessage(null);
     try {
-      await api.put('/users/me/profile', { full_name: profileData.fullName });
-      
-      // Update localStorage with new full name
+      await api.put('/users/me/profile', {
+        first_name: profileData.firstName.trim(),
+        middle_name: profileData.middleName.trim() || '',
+        last_name: profileData.lastName.trim(),
+        profile_image: profileData.profileImage
+      });
+
+      const display = [profileData.firstName, profileData.middleName, profileData.lastName]
+        .map((s) => (s && String(s).trim()) || '')
+        .filter(Boolean)
+        .join(' ');
+
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
-        userData.fullName = profileData.fullName;
+        userData.fullName = display;
+        userData.profileImage = profileData.profileImage || null;
         localStorage.setItem('user', JSON.stringify(userData));
-        // Dispatch custom event to notify Sidebar
         window.dispatchEvent(new Event('userUpdated'));
       }
       
@@ -288,14 +316,78 @@ export default function Config() {
               />
             </div>
           </div>
+          <div className="settings-form-grid" style={{ marginBottom: '12px' }}>
+            <div className="settings-form-group">
+              <label>First name</label>
+              <input
+                type="text"
+                value={profileData.firstName}
+                onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                placeholder="First name"
+              />
+            </div>
+            <div className="settings-form-group">
+              <label>Middle name (optional)</label>
+              <input
+                type="text"
+                value={profileData.middleName}
+                onChange={(e) => setProfileData({ ...profileData, middleName: e.target.value })}
+                placeholder="Middle name"
+              />
+            </div>
+          </div>
           <div className="settings-form-group">
-            <label>Full Name</label>
-            <input 
-              type="text" 
-              value={profileData.fullName}
-              onChange={(e) => setProfileData({...profileData, fullName: e.target.value})}
-              placeholder="Enter your full name"
+            <label>Last name</label>
+            <input
+              type="text"
+              value={profileData.lastName}
+              onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+              placeholder="Last name"
             />
+          </div>
+          <div className="settings-form-group">
+            <label>Profile photo (optional)</label>
+            <div className="image-upload-box">
+              <input
+                type="file"
+                ref={profileFileRef}
+                accept="image/*"
+                onChange={handleProfileImageChange}
+                className="file-input-hidden"
+                id="profile-image-upload"
+              />
+              {profileData.profileImage ? (
+                <div className="image-preview-box">
+                  <img src={profileData.profileImage} alt="Profile" />
+                  <button
+                    type="button"
+                    className="change-image-btn"
+                    onClick={() => profileFileRef.current?.click()}
+                  >
+                    Change Image
+                  </button>
+                  <button
+                    type="button"
+                    className="remove-image-btn"
+                    onClick={() => {
+                      setProfileData((p) => ({ ...p, profileImage: null }));
+                      if (profileFileRef.current) profileFileRef.current.value = '';
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <label htmlFor="profile-image-upload" className="upload-placeholder">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <span>Choose Image</span>
+                </label>
+              )}
+            </div>
           </div>
           <div className="settings-actions">
             <button 

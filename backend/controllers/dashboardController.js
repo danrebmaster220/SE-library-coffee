@@ -238,9 +238,28 @@ exports.getSalesChart = async (req, res) => {
     }
 };
 
-// Get sales by category
+/** Date window for transactions — must match Sales Overview chart periods. */
+const getCategorySalesDateClause = (periodRaw) => {
+    const p = String(periodRaw || 'weekly').toLowerCase();
+    switch (p) {
+        case 'today':
+            return 'DATE(t.created_at) = CURDATE()';
+        case 'weekly':
+            return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
+        case 'monthly':
+            return 'MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
+        case 'yearly':
+            return 'YEAR(t.created_at) = YEAR(CURDATE())';
+        default:
+            return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
+    }
+};
+
+// Get sales by category (period: today | weekly | monthly | yearly)
 exports.getCategorySales = async (req, res) => {
     try {
+        const dateClause = getCategorySalesDateClause(req.query.period);
+
         const [categorySales] = await db.query(`
             SELECT 
                 c.category_id,
@@ -259,7 +278,7 @@ exports.getCategorySales = async (req, res) => {
             LEFT JOIN items i ON c.category_id = i.category_id
             LEFT JOIN transaction_items ti ON i.item_id = ti.item_id
             LEFT JOIN transactions t ON ti.transaction_id = t.transaction_id 
-                AND DATE(t.created_at) = CURDATE()
+                AND (${dateClause})
                 AND t.status NOT IN ('voided', 'pending')
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount

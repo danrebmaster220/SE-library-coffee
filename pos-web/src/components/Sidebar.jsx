@@ -163,7 +163,7 @@ export default function Sidebar() {
       setOpenMenus(prev => ({ ...prev, ...newMenus }));
     }
   }, [location.pathname]);
-  const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager' });
+  const [user, setUser] = useState({ fullName: 'Admin', role: 'Manager', profileImage: null });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -205,29 +205,56 @@ export default function Sidebar() {
 
   // Load user data initially and listen for changes
   useEffect(() => {
-    const loadUserData = () => {
+    const applyStored = () => {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
-        setUser({ fullName: userData.fullName || 'Admin', role: userData.role || 'Manager' });
+        setUser({
+          fullName: userData.fullName || 'Admin',
+          role: userData.role || 'Manager',
+          profileImage: userData.profileImage || null
+        });
       }
     };
-    
+
+    const loadUserData = async () => {
+      applyStored();
+      try {
+        const res = await api.get('/users/me/profile');
+        const d = res.data;
+        const display = d.display_name || d.full_name || '';
+        setUser({
+          fullName: display,
+          role: d.role_name || 'Manager',
+          profileImage: d.profile_image || null
+        });
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          u.fullName = display;
+          u.profileImage = d.profile_image || null;
+          localStorage.setItem('user', JSON.stringify(u));
+        }
+      } catch {
+        /* offline or session expired */
+      }
+    };
+
     loadUserData();
-    
+
     const handleStorageChange = (e) => {
       if (e.key === 'user') {
-        loadUserData();
+        applyStored();
       }
     };
-    
+
     const handleUserUpdate = () => {
       loadUserData();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('userUpdated', handleUserUpdate);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userUpdated', handleUserUpdate);
@@ -524,7 +551,13 @@ export default function Sidebar() {
             </button>
           )}
           <div className="user-profile">
-            <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
+            <div className="user-avatar">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt="" />
+              ) : (
+                user.fullName.charAt(0).toUpperCase()
+              )}
+            </div>
             <div className="user-info">
               <span className="user-name">{user.fullName}</span>
               <span className="user-role">{user.role}</span>

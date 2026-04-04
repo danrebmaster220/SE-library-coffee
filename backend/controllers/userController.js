@@ -1,5 +1,11 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
+const { buildFullName, resolveDisplayName } = require('../utils/userName');
+
+const userSelectCols = `
+    u.user_id, u.username, u.full_name, u.first_name, u.middle_name, u.last_name,
+    u.profile_image, u.role_id, u.status, u.created_at, r.role_name
+`;
 
 
 // GET ALL USERS
@@ -9,7 +15,7 @@ exports.getUsers = async (req, res) => {
 
     try {
         let query = `
-            SELECT u.user_id, u.username, u.full_name, u.role_id, u.status, u.created_at, r.role_name
+            SELECT ${userSelectCols}
             FROM users u
             JOIN roles r ON u.role_id = r.role_id
         `;
@@ -17,14 +23,16 @@ exports.getUsers = async (req, res) => {
         const params = [];
 
         if (search) {
-            query += ' WHERE u.username LIKE ? OR u.full_name LIKE ?';
-            params.push(`%${search}%`, `%${search}%`);
+            query += ` WHERE u.username LIKE ? OR u.full_name LIKE ?
+                OR CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name) LIKE ?`;
+            const q = `%${search}%`;
+            params.push(q, q, q);
         }
 
         query += ' ORDER BY u.user_id ASC';
 
         const [users] = await db.query(query, params);
-        res.json(users);
+        res.json((users || []).map((u) => ({ ...u, display_name: resolveDisplayName(u) })));
 
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -39,7 +47,7 @@ exports.getUserById = async (req, res) => {
 
     try {
         const [users] = await db.query(`
-            SELECT u.user_id, u.username, u.full_name, u.role_id, u.status, u.created_at, r.role_name
+            SELECT ${userSelectCols}
             FROM users u
             JOIN roles r ON u.role_id = r.role_id
             WHERE u.user_id = ?
@@ -49,7 +57,8 @@ exports.getUserById = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json(users[0]);
+        const row = users[0];
+        res.json({ ...row, display_name: resolveDisplayName(row) });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -60,7 +69,22 @@ exports.getUserById = async (req, res) => {
 // CREATE USER
 
 exports.createUser = async (req, res) => {
-    const { full_name, username, password, role_id, status } = req.body;
+    const {
+        first_name,
+        middle_name,
+        last_name,
+        profile_image,
+        username,
+        password,
+        role_id,
+        status
+    } = req.body;
+
+    if (!first_name?.trim?.() || !last_name?.trim?.()) {
+        return res.status(400).json({ error: 'First name and last name are required' });
+    }
+    const full_name = buildFullName(first_name, middle_name, last_name);
+
     let connection;
 
     try {
@@ -83,10 +107,16 @@ exports.createUser = async (req, res) => {
         const [maxResult] = await connection.query('SELECT COALESCE(MAX(user_id), 0) + 1 as nextId FROM users FOR UPDATE');
         const nextId = maxResult[0].nextId;
 
+        const fn = String(first_name).trim();
+        const mn = middle_name != null && String(middle_name).trim() ? String(middle_name).trim() : null;
+        const ln = String(last_name).trim();
+        const img = profile_image != null && String(profile_image).trim() ? String(profile_image).trim() : null;
+
         // Insert user
         await connection.query(
-            'INSERT INTO users (user_id, role_id, full_name, username, password_hash, status) VALUES (?, ?, ?, ?, ?, ?)',
-            [nextId, role_id, full_name, username, password_hash, status || 'active']
+            `INSERT INTO users (user_id, role_id, full_name, first_name, middle_name, last_name, profile_image, username, password_hash, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nextId, role_id, full_name, fn, mn, ln, img, username, password_hash, status || 'active']
         );
 
         await connection.commit();
@@ -108,7 +138,15 @@ exports.createUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
     const { id } = req.params;
-    const { full_name, username, role_id, status } = req.body;
+    const {
+        first_name,
+        middle_name,
+        last_name,
+        profile_image,
+        username,
+        role_id,
+        status
+    } = req.body;
 
     try {
         // Check if username exists (exclude current user)
@@ -118,11 +156,29 @@ exports.updateUser = async (req, res) => {
             return res.status(400).json({ error: 'Username already exists' });
         }
 
-        // Update user
-        await db.query(
-            'UPDATE users SET full_name = ?, username = ?, role_id = ?, status = ? WHERE user_id = ?',
-            [full_name, username, role_id, status, id]
-        );
+        if (!first_name?.trim?.() || !last_name?.trim?.()) {
+            return res.status(400).json({ error: 'First name and last name are required' });
+        }
+        const full_name = buildFullName(first_name, middle_name, last_name);
+
+        const fn = String(first_name).trim();
+        const mn = middle_name != null && String(middle_name).trim() ? String(middle_name).trim() : null;
+        const ln = String(last_name).trim();
+        const img = profile_image !== undefined
+            ? (profile_image != null && String(profile_image).trim() ? String(profile_image).trim() : null)
+            : undefined;
+
+        if (img !== undefined) {
+            await db.query(
+                `UPDATE users SET full_name = ?, first_name = ?, middle_name = ?, last_name = ?, profile_image = ?, username = ?, role_id = ?, status = ? WHERE user_id = ?`,
+                [full_name, fn, mn, ln, img, username, role_id, status, id]
+            );
+        } else {
+            await db.query(
+                `UPDATE users SET full_name = ?, first_name = ?, middle_name = ?, last_name = ?, username = ?, role_id = ?, status = ? WHERE user_id = ?`,
+                [full_name, fn, mn, ln, username, role_id, status, id]
+            );
+        }
 
         res.json({ message: 'User updated successfully' });
 
@@ -193,7 +249,7 @@ exports.getMyProfile = async (req, res) => {
         const userId = req.user.user_id;
         
         const [users] = await db.query(`
-            SELECT u.user_id, u.username, u.full_name, u.role_id, u.status, r.role_name
+            SELECT ${userSelectCols}
             FROM users u
             JOIN roles r ON u.role_id = r.role_id
             WHERE u.user_id = ?
@@ -203,7 +259,11 @@ exports.getMyProfile = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json(users[0]);
+        const row = users[0];
+        res.json({
+            ...row,
+            display_name: resolveDisplayName(row)
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -215,13 +275,36 @@ exports.getMyProfile = async (req, res) => {
 exports.updateMyProfile = async (req, res) => {
     try {
         const userId = req.user.user_id;
-        const { full_name } = req.body;
+        const {
+            first_name,
+            middle_name,
+            last_name,
+            profile_image
+        } = req.body;
 
-        if (!full_name || full_name.trim() === '') {
-            return res.status(400).json({ error: 'Full name is required' });
+        if (!first_name?.trim?.() || !last_name?.trim?.()) {
+            return res.status(400).json({ error: 'First name and last name are required' });
         }
+        const full_name = buildFullName(first_name, middle_name, last_name);
 
-        await db.query('UPDATE users SET full_name = ? WHERE user_id = ?', [full_name.trim(), userId]);
+        const fn = String(first_name).trim();
+        const mn = middle_name != null && String(middle_name).trim() ? String(middle_name).trim() : null;
+        const ln = String(last_name).trim();
+        const img = profile_image !== undefined
+            ? (profile_image != null && String(profile_image).trim() ? String(profile_image).trim() : null)
+            : undefined;
+
+        if (img !== undefined) {
+            await db.query(
+                `UPDATE users SET full_name = ?, first_name = ?, middle_name = ?, last_name = ?, profile_image = ? WHERE user_id = ?`,
+                [full_name, fn, mn, ln, img, userId]
+            );
+        } else {
+            await db.query(
+                `UPDATE users SET full_name = ?, first_name = ?, middle_name = ?, last_name = ? WHERE user_id = ?`,
+                [full_name, fn, mn, ln, userId]
+            );
+        }
 
         res.json({ message: 'Profile updated successfully' });
     } catch (error) {

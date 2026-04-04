@@ -22,6 +22,56 @@ const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   }) || null;
 };
 
+/** Match menu-bar slug (iced/hot/medium/large) to a customization option by label — same idea as kiosk */
+const findOptionForMenuBranch = (options, slug) => {
+  if (!options || !slug) return null;
+  const s = String(slug).toLowerCase();
+  if (s === 'iced') {
+    return options.find((o) => /iced|cold/i.test(String(o.name || ''))) || null;
+  }
+  if (s === 'hot') {
+    return options.find((o) => {
+      const n = String(o.name || '').toLowerCase();
+      return n.includes('hot') && !n.includes('chocolate');
+    }) || null;
+  }
+  if (s === 'medium') {
+    return options.find((o) => /medium|med|16/i.test(String(o.name || ''))) || null;
+  }
+  if (s === 'large') {
+    return options.find((o) => /large|22/i.test(String(o.name || ''))) || null;
+  }
+  return null;
+};
+
+/**
+ * Prefill modal `selectedCustomizations` from global Temp/Size bar (posMenuBranchForModal).
+ * Keys are group_id; values are [optionId] for single-select groups.
+ */
+const buildBranchPrefillSelections = (groups, menuBranch) => {
+  if (!menuBranch || !Array.isArray(groups)) return {};
+  const out = {};
+  const tempG = groups.find((g) => isTempGroupName(g.name));
+  const sizeG = groups.find((g) => isSizeGroupName(g.name));
+  if (menuBranch.temp && tempG?.options?.length) {
+    const opt = findOptionForMenuBranch(tempG.options, menuBranch.temp);
+    if (opt) {
+      const gid = tempG.group_id || tempG.id;
+      const oid = opt.option_id ?? opt.id;
+      out[gid] = [oid];
+    }
+  }
+  if (menuBranch.size && sizeG?.options?.length) {
+    const opt = findOptionForMenuBranch(sizeG.options, menuBranch.size);
+    if (opt) {
+      const gid = sizeG.group_id || sizeG.id;
+      const oid = opt.option_id ?? opt.id;
+      out[gid] = [oid];
+    }
+  }
+  return out;
+};
+
 export default function POS() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -107,20 +157,27 @@ export default function POS() {
   const fetchMenuItems = useCallback(async () => {
     try {
       const params = {};
+      const applyBranchParams = (cat) => {
+        const hasBranch = cat && (Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1);
+        if (!hasBranch) return;
+        if (menuBranchMode === 'iced') {
+          params.temp = 'iced';
+          if (menuIcedSize === 'medium' || menuIcedSize === 'large') {
+            params.size = menuIcedSize;
+          }
+        } else if (menuBranchMode === 'hot') {
+          params.temp = 'hot';
+        }
+      };
+
       if (selectedCategory !== 'all') {
         params.category_id = selectedCategory;
         const cat = categories.find(c => c.category_id === selectedCategory);
-        const hasBranch = cat && (Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1);
-        if (hasBranch) {
-          if (menuBranchMode === 'iced') {
-            params.temp = 'iced';
-            if (menuIcedSize === 'medium' || menuIcedSize === 'large') {
-              params.size = menuIcedSize;
-            }
-          } else if (menuBranchMode === 'hot') {
-            params.temp = 'hot';
-          }
-        }
+        applyBranchParams(cat);
+      } else if (menuSearchQuery.trim() !== '') {
+        /* All + search: same temp/size API enrichment as a branched category (backend applies temp/size without category_id). */
+        const allCat = categories.find(c => c.category_id === 'all');
+        applyBranchParams(allCat);
       }
       const itemsRes = await api.get('/menu/items', { params });
       const data = itemsRes.data;
@@ -128,7 +185,7 @@ export default function POS() {
     } catch (err) {
       console.error('Failed to fetch menu items:', err);
     }
-  }, [selectedCategory, categories, menuBranchMode, menuIcedSize]);
+  }, [selectedCategory, categories, menuBranchMode, menuIcedSize, menuSearchQuery]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -212,6 +269,13 @@ export default function POS() {
     setMenuIcedSize(null);
   }, [selectedCategory]);
 
+  useEffect(() => {
+    if (selectedCategory === 'all' && !menuSearchQuery.trim()) {
+      setMenuBranchMode('all');
+      setMenuIcedSize(null);
+    }
+  }, [menuSearchQuery, selectedCategory]);
+
   // Force correct height for cashier mode on resize
   useEffect(() => {
     const el = posContainerRef.current;
@@ -285,9 +349,8 @@ export default function POS() {
       
       // If there are any customization groups, show the modal
       if (groups.length > 0) {
-        // No auto-selection - let user choose
-        const defaults = {};
-        
+        const branchForModal = item._menuBranch ?? posMenuBranchForModal;
+        const defaults = buildBranchPrefillSelections(groups, branchForModal);
         setCustomizingItem({
           ...item,
           base_price: parseFloat(baristaData.base_price ?? item.price),
@@ -295,6 +358,7 @@ export default function POS() {
         });
         setCustomizationGroups(groups);
         setSelectedCustomizations(defaults);
+        setQuantitySelections({});
         setShowCustomization(true);
         return;
       }
@@ -322,15 +386,16 @@ export default function POS() {
       const isCustomizable = res.data.is_customizable;
       
       if (isCustomizable && groups.length > 0) {
+        const branchForModal = item._menuBranch ?? posMenuBranchForModal;
+        const defaults = buildBranchPrefillSelections(groups, branchForModal);
         setCustomizingItem({
           ...item,
           base_price: parseFloat(res.data.base_price ?? item.price),
           variant_pricing: res.data.variant_pricing || []
         });
         setCustomizationGroups(groups);
-        // No auto-selection - let user choose
-        const defaults = {};
         setSelectedCustomizations(defaults);
+        setQuantitySelections({});
         setShowCustomization(true);
         return;
       }
@@ -723,11 +788,11 @@ export default function POS() {
   const calculateChange = useCallback(() => change, [change]);
 
   const posMenuBranchForModal = useMemo(() => {
-    if (selectedCategory === 'all') return null;
     const cat = categories.find((c) => c.category_id === selectedCategory);
     if (!cat) return null;
     const hasBranch = Number(cat.allow_iced ?? 1) === 1 || Number(cat.allow_hot ?? 1) === 1;
     if (!hasBranch) return null;
+    if (selectedCategory === 'all' && !menuSearchQuery.trim()) return null;
     if (menuBranchMode === 'all') return null;
     if (menuBranchMode === 'hot') return { temp: 'hot' };
     if (menuBranchMode === 'iced') {
@@ -737,7 +802,7 @@ export default function POS() {
       return { temp: 'iced' };
     }
     return null;
-  }, [selectedCategory, categories, menuBranchMode, menuIcedSize]);
+  }, [selectedCategory, categories, menuBranchMode, menuIcedSize, menuSearchQuery]);
 
   const formatMenuItemCardPrice = (item) => {
     const k = item.menu_price_kind;
@@ -750,9 +815,9 @@ export default function POS() {
 
   const currentPosCategory = categories.find((c) => c.category_id === selectedCategory);
   const showPosBranchBar =
-    selectedCategory !== 'all' &&
     currentPosCategory &&
-    (Number(currentPosCategory.allow_iced ?? 1) === 1 || Number(currentPosCategory.allow_hot ?? 1) === 1);
+    (Number(currentPosCategory.allow_iced ?? 1) === 1 || Number(currentPosCategory.allow_hot ?? 1) === 1) &&
+    (selectedCategory !== 'all' || menuSearchQuery.trim() !== '');
 
   const filteredMenuItems = useMemo(() => {
     let list = menuItems.filter((item) => item.status === 'available');
@@ -1241,6 +1306,17 @@ export default function POS() {
       {/* Center Panel - Menu */}
       <div className="pos-menu-panel">
         <div className="menu-section">
+          <div className="pos-menu-search-wrap pos-menu-search-wrap--top">
+            <input
+              type="search"
+              className="pos-menu-search-input"
+              placeholder="Search menu..."
+              value={menuSearchQuery}
+              onChange={(e) => setMenuSearchQuery(e.target.value)}
+              autoComplete="off"
+              aria-label="Search menu items"
+            />
+          </div>
           <h3 className="section-label">Categories</h3>
           <div className="category-tabs">
             {categories.length === 0 ? (
@@ -1258,77 +1334,70 @@ export default function POS() {
             )}
           </div>
           {showPosBranchBar && (
-            <div className="pos-branch-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-              <button
-                type="button"
-                className={`category-tab ${menuBranchMode === 'all' ? 'active' : ''}`}
-                onClick={() => { setMenuBranchMode('all'); setMenuIcedSize(null); }}
-              >
-                All
-              </button>
-              {Number(currentPosCategory.allow_iced ?? 1) === 1 && (
-                <button
-                  type="button"
-                  className={`category-tab ${menuBranchMode === 'iced' ? 'active' : ''}`}
-                  onClick={() => setMenuBranchMode('iced')}
-                >
-                  Iced
-                </button>
-              )}
-              {Number(currentPosCategory.allow_hot ?? 1) === 1 && (
-                <button
-                  type="button"
-                  className={`category-tab ${menuBranchMode === 'hot' ? 'active' : ''}`}
-                  onClick={() => { setMenuBranchMode('hot'); setMenuIcedSize(null); }}
-                >
-                  Hot
-                </button>
+            <div className="pos-menu-filters-compact" aria-label="Temperature and size filters">
+              <div className="pos-filter-inline-group">
+                <span className="pos-filter-inline-label">Temp</span>
+                <div className="pos-branch-chips pos-branch-chips--inline">
+                  <button
+                    type="button"
+                    className={`pos-branch-chip pos-branch-chip--temp ${menuBranchMode === 'all' ? 'active' : ''}`}
+                    onClick={() => { setMenuBranchMode('all'); setMenuIcedSize(null); }}
+                  >
+                    All
+                  </button>
+                  {Number(currentPosCategory.allow_iced ?? 1) === 1 && (
+                    <button
+                      type="button"
+                      className={`pos-branch-chip pos-branch-chip--temp ${menuBranchMode === 'iced' ? 'active' : ''}`}
+                      onClick={() => setMenuBranchMode('iced')}
+                    >
+                      Iced
+                    </button>
+                  )}
+                  {Number(currentPosCategory.allow_hot ?? 1) === 1 && (
+                    <button
+                      type="button"
+                      className={`pos-branch-chip pos-branch-chip--temp ${menuBranchMode === 'hot' ? 'active' : ''}`}
+                      onClick={() => { setMenuBranchMode('hot'); setMenuIcedSize(null); }}
+                    >
+                      Hot
+                    </button>
+                  )}
+                </div>
+              </div>
+              {menuBranchMode === 'iced' && (
+                <>
+                  <div className="pos-filter-inline-sep" aria-hidden="true" />
+                  <div className="pos-filter-inline-group">
+                    <span className="pos-filter-inline-label">Size</span>
+                    <div className="pos-branch-chips pos-branch-chips--inline">
+                      <button
+                        type="button"
+                        className={`pos-branch-chip pos-branch-chip--size ${menuIcedSize === null ? 'active' : ''}`}
+                        onClick={() => setMenuIcedSize(null)}
+                      >
+                        Any
+                      </button>
+                      <button
+                        type="button"
+                        className={`pos-branch-chip pos-branch-chip--size ${menuIcedSize === 'medium' ? 'active' : ''}`}
+                        onClick={() => setMenuIcedSize('medium')}
+                      >
+                        Medium
+                      </button>
+                      <button
+                        type="button"
+                        className={`pos-branch-chip pos-branch-chip--size ${menuIcedSize === 'large' ? 'active' : ''}`}
+                        onClick={() => setMenuIcedSize('large')}
+                      >
+                        Large
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
-          {showPosBranchBar && menuBranchMode === 'iced' && (
-            <div className="pos-iced-size-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#5d4037' }}>Size:</span>
-              <button
-                type="button"
-                className={`category-tab ${menuIcedSize === null ? 'active' : ''}`}
-                onClick={() => setMenuIcedSize(null)}
-              >
-                Any
-              </button>
-              <button
-                type="button"
-                className={`category-tab ${menuIcedSize === 'medium' ? 'active' : ''}`}
-                onClick={() => setMenuIcedSize('medium')}
-              >
-                Medium
-              </button>
-              <button
-                type="button"
-                className={`category-tab ${menuIcedSize === 'large' ? 'active' : ''}`}
-                onClick={() => setMenuIcedSize('large')}
-              >
-                Large
-              </button>
-            </div>
-          )}
-          <div style={{ marginTop: '12px' }}>
-            <input
-              type="search"
-              className="pos-menu-search-input"
-              placeholder="Search menu..."
-              value={menuSearchQuery}
-              onChange={(e) => setMenuSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #e0d5c9',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
         </div>
         
         <div className="menu-section">
