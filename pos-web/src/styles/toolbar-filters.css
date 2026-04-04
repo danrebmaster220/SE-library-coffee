@@ -1,0 +1,122 @@
+/* Shared toolbar filters: fixed control width (Staff / Shift History), Apply Filter button, responsive row/stack */
+
+:root {
+  --toolbar-filter-control-width: 170px;
+  --toolbar-search-input-width: 220px;
+}
+
+.btn-apply-filter {
+  padding: 6px 14px;
+  background: #5d4037;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.btn-apply-filter:hover {
+  background: #4e342e;
+}
+
+.toolbar-filters-actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.toolbar-filters-actions .filter-select-wrap {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.toolbar-filters-actions .filter-select-wrap .filter-select,
+.toolbar-filters-actions .filter-select-wrap > select {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1023px) {
+  .toolbar-section .toolbar-left {
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .toolbar-section .toolbar-left > .toolbar-filters-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .toolbar-section .toolbar-left > .search-box {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .toolbar-section .toolbar-left > .search-box .search-input {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .toolbar-filters-actions > .btn-apply-filter {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .filter-bar .btn-apply-filter {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .toolbar-section .toolbar-left {
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .toolbar-filters-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: auto;
+    max-width: 100%;
+    flex: 0 1 auto;
+    gap: 10px;
+  }
+
+  .toolbar-filters-actions > .filter-select-wrap,
+  .toolbar-filters-actions > .btn-apply-filter {
+    flex: 0 0 auto;
+    width: var(--toolbar-filter-control-width);
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .filter-bar .btn-apply-filter {
+    width: var(--toolbar-filter-control-width);
+    flex: 0 0 auto;
+  }
+
+  .toolbar-section .toolbar-left > .search-box .search-input {
+    width: var(--toolbar-search-input-width);
+    max-width: 100%;
+  }
+}

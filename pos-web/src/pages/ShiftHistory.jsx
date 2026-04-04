@@ -163,7 +163,7 @@ export default function ShiftHistory() {
             </select>
           </FilterSelectWrap>
         </div>
-        <button className="btn-filter" onClick={() => fetchHistory(true)}>Apply Filter</button>
+        <button type="button" className="btn-apply-filter" onClick={() => fetchHistory(true)}>Apply Filter</button>
         {(startDate || endDate || cashierFilter) && (
           <button
             className="btn-clear-filter"

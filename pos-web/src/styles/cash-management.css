@@ -134,20 +134,7 @@
   box-shadow: 0 0 0 2px rgba(141, 110, 99, 0.12);
 }
 
-.btn-filter {
-  padding: 6px 14px;
-  background: #5D4037;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.btn-filter:hover {
-  background: #4E342E;
-}
+/* .btn-filter styles live in toolbar-filters.css (shared with .btn-apply-filter) */
 
 .btn-clear-filter {
   padding: 6px 14px;
@@ -492,7 +479,7 @@
     min-width: 0;
   }
 
-  .btn-filter,
+  .filter-bar .btn-apply-filter,
   .btn-clear-filter {
     width: 100%;
   }

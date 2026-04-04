@@ -832,8 +832,8 @@ export default function Reports() {
               </FilterSelectWrap>
             )}
 
-            <button type="button" className="btn-apply" onClick={handleApplyFilters}>
-              Apply
+            <button type="button" className="btn-apply-filter" onClick={handleApplyFilters}>
+              Apply Filter
             </button>
           </div>
         </div>

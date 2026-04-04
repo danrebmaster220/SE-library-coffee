@@ -11,9 +11,12 @@ export default function MenuItems() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingCategory, setPendingCategory] = useState("");
+  const [pendingStatus, setPendingStatus] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedCategory, setAppliedCategory] = useState("");
+  const [appliedStatus, setAppliedStatus] = useState("");
   const [itemPage, setItemPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
@@ -392,15 +395,22 @@ export default function MenuItems() {
   };
 
   const filteredItems = items.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !filterCategory || item.category_id === parseInt(filterCategory);
-    const matchesStatus = !filterStatus || item.status === filterStatus;
+    const matchesSearch = item.name.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesCategory = !appliedCategory || item.category_id === parseInt(appliedCategory);
+    const matchesStatus = !appliedStatus || item.status === appliedStatus;
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
   useEffect(() => {
     setItemPage(1);
-  }, [searchTerm, filterCategory, filterStatus, items]);
+  }, [appliedSearch, appliedCategory, appliedStatus, items]);
+
+  const applyFilters = () => {
+    setAppliedSearch(pendingSearch);
+    setAppliedCategory(pendingCategory);
+    setAppliedStatus(pendingStatus);
+    setItemPage(1);
+  };
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
   const startIndex = (itemPage - 1) * rowsPerPage;
@@ -482,35 +492,40 @@ export default function MenuItems() {
               type="text"
               className="search-input"
               placeholder="Search items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={pendingSearch}
+              onChange={(e) => setPendingSearch(e.target.value)}
             />
           </div>
-          <FilterSelectWrap>
-            <select
-              className="filter-select"
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat.category_id} value={cat.category_id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </FilterSelectWrap>
-          <FilterSelectWrap>
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="available">Available</option>
-              <option value="sold_out">Sold Out</option>
-            </select>
-          </FilterSelectWrap>
+          <div className="toolbar-filters-actions">
+            <FilterSelectWrap>
+              <select
+                className="filter-select"
+                value={pendingCategory}
+                onChange={(e) => setPendingCategory(e.target.value)}
+              >
+                <option value="">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.category_id} value={cat.category_id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </FilterSelectWrap>
+            <FilterSelectWrap>
+              <select
+                className="filter-select"
+                value={pendingStatus}
+                onChange={(e) => setPendingStatus(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="available">Available</option>
+                <option value="sold_out">Sold Out</option>
+              </select>
+            </FilterSelectWrap>
+            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
+              Apply Filter
+            </button>
+          </div>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>

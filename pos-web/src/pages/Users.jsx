@@ -11,9 +11,12 @@ export default function Users() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterRole, setFilterRole] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingRole, setPendingRole] = useState("");
+  const [pendingStatus, setPendingStatus] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedRole, setAppliedRole] = useState("");
+  const [appliedStatus, setAppliedStatus] = useState("");
   const [userPage, setUserPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
@@ -213,20 +216,27 @@ export default function Users() {
   // Filter users based on search, role, and status
   const filteredUsers = users
     .filter((user) => {
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = appliedSearch.toLowerCase();
       const display = user.display_name || user.full_name || "";
       const matchesSearch =
         display.toLowerCase().includes(searchLower) ||
         user.full_name?.toLowerCase().includes(searchLower) ||
         user.username?.toLowerCase().includes(searchLower);
-      const matchesRole = !filterRole || user.role_id?.toString() === filterRole;
-      const matchesStatus = !filterStatus || user.status === filterStatus;
+      const matchesRole = !appliedRole || user.role_id?.toString() === appliedRole;
+      const matchesStatus = !appliedStatus || user.status === appliedStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
 
   useEffect(() => {
     setUserPage(1);
-  }, [searchTerm, filterRole, filterStatus, users]);
+  }, [appliedSearch, appliedRole, appliedStatus, users]);
+
+  const applyFilters = () => {
+    setAppliedSearch(pendingSearch);
+    setAppliedRole(pendingRole);
+    setAppliedStatus(pendingStatus);
+    setUserPage(1);
+  };
 
   const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
   const startIndex = (userPage - 1) * rowsPerPage;
@@ -270,35 +280,40 @@ export default function Users() {
               type="text"
               className="search-input"
               placeholder="Search by name or username..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={pendingSearch}
+              onChange={(e) => setPendingSearch(e.target.value)}
             />
           </div>
-          <FilterSelectWrap>
-            <select
-              className="filter-select"
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-            >
-              <option value="">All Roles</option>
-              {roles.map((role) => (
-                <option key={role.role_id} value={role.role_id}>
-                  {role.role_name}
-                </option>
-              ))}
-            </select>
-          </FilterSelectWrap>
-          <FilterSelectWrap>
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </FilterSelectWrap>
+          <div className="toolbar-filters-actions">
+            <FilterSelectWrap>
+              <select
+                className="filter-select"
+                value={pendingRole}
+                onChange={(e) => setPendingRole(e.target.value)}
+              >
+                <option value="">All Roles</option>
+                {roles.map((role) => (
+                  <option key={role.role_id} value={role.role_id}>
+                    {role.role_name}
+                  </option>
+                ))}
+              </select>
+            </FilterSelectWrap>
+            <FilterSelectWrap>
+              <select
+                className="filter-select"
+                value={pendingStatus}
+                onChange={(e) => setPendingStatus(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </FilterSelectWrap>
+            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
+              Apply Filter
+            </button>
+          </div>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>

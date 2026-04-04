@@ -10,8 +10,10 @@ export default function MenuCategories() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingStatus, setPendingStatus] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedStatus, setAppliedStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,14 +103,20 @@ export default function MenuCategories() {
   };
 
   const filteredCategories = categories.filter((cat) => {
-    const matchesSearch = cat.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !filterStatus || cat.status === filterStatus;
+    const matchesSearch = cat.name.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesStatus = !appliedStatus || cat.status === appliedStatus;
     return matchesSearch && matchesStatus;
   });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus, categories]);
+  }, [appliedSearch, appliedStatus, categories]);
+
+  const applyFilters = () => {
+    setAppliedSearch(pendingSearch);
+    setAppliedStatus(pendingStatus);
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.ceil(filteredCategories.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -152,21 +160,26 @@ export default function MenuCategories() {
               type="text"
               className="search-input"
               placeholder="Search categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={pendingSearch}
+              onChange={(e) => setPendingSearch(e.target.value)}
             />
           </div>
-          <FilterSelectWrap>
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </FilterSelectWrap>
+          <div className="toolbar-filters-actions">
+            <FilterSelectWrap>
+              <select
+                className="filter-select"
+                value={pendingStatus}
+                onChange={(e) => setPendingStatus(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </FilterSelectWrap>
+            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
+              Apply Filter
+            </button>
+          </div>
         </div>
         <div className="toolbar-right">
           <button className="btn-primary-action" onClick={openAddModal}>
