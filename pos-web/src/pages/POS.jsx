@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
 import { printOrderReceipt } from '../services/webPrinter';
 import VoidTransactionModal from '../components/VoidTransactionModal';
 import Toast from '../components/Toast';
 import FilterSelectWrap from '../components/FilterSelectWrap';
+import { loadPosDraft, savePosDraft, clearPosDraft } from '../utils/posDraftStorage';
 import '../styles/pos.css';
 
 const isSizeGroupName = (name) => String(name || '').toLowerCase().includes('size');
@@ -85,7 +86,10 @@ export default function POS() {
   const [menuBranchMode, setMenuBranchMode] = useState('all');
   const [menuIcedSize, setMenuIcedSize] = useState(null);
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    const d = loadPosDraft();
+    return d?.cart?.length ? d.cart : [];
+  });
   const [orderType, setOrderType] = useState(null);
   const [orders, setOrders] = useState({ pending: [], preparing: [], ready: [] });
   const [beepers, setBeepers] = useState([]);
@@ -134,6 +138,7 @@ export default function POS() {
   
   // Ref for pos-container to force correct height in cashier mode
   const posContainerRef = useRef(null);
+  const draftToastShownRef = useRef(false);
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
@@ -264,6 +269,44 @@ export default function POS() {
   useEffect(() => {
     fetchMenuItems();
   }, [fetchMenuItems]);
+
+  /** Restore other draft fields (cart comes from lazy useState) */
+  useLayoutEffect(() => {
+    const draft = loadPosDraft();
+    if (!draft?.cart?.length) return;
+    if (draft.orderType != null) setOrderType(draft.orderType);
+    if (draft.selectedBeeper != null) setSelectedBeeper(draft.selectedBeeper);
+    if (draft.selectedDiscount != null) setSelectedDiscount(draft.selectedDiscount);
+    if (draft.pendingLibraryBooking != null) setPendingLibraryBooking(draft.pendingLibraryBooking);
+    if (!draftToastShownRef.current) {
+      draftToastShownRef.current = true;
+      showToast('Restored in-progress order from this browser session', 'info');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (pendingOrderId) {
+      clearPosDraft();
+      return;
+    }
+    const hasDraft =
+      cart.length > 0 ||
+      orderType != null ||
+      selectedBeeper != null ||
+      selectedDiscount != null ||
+      pendingLibraryBooking != null;
+    if (!hasDraft) {
+      clearPosDraft();
+      return;
+    }
+    savePosDraft({
+      cart,
+      orderType,
+      selectedBeeper,
+      selectedDiscount,
+      pendingLibraryBooking
+    });
+  }, [cart, orderType, selectedBeeper, selectedDiscount, pendingLibraryBooking, pendingOrderId]);
 
   useEffect(() => {
     setMenuBranchMode('all');
@@ -954,6 +997,7 @@ export default function POS() {
   };
 
   const resetOrder = () => {
+    clearPosDraft();
     setCart([]);
     setOrderType(null);
     setSelectedBeeper(null);

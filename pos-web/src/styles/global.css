@@ -63,6 +63,25 @@ body {
   display: none;
 }
 
+/* Fullscreen POS (admin): when the fixed sidebar drawer is open, indent content so it does not cover the sidebar header */
+@media (max-width: 1024px) and (min-width: 769px) {
+  html[data-mobile-sidebar='open'] .app-layout.fullscreen .pos-container {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    max-width: calc(100vw - var(--sidebar-width));
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-mobile-sidebar='open'] .app-layout.fullscreen .pos-container {
+    margin-left: 280px;
+    width: calc(100% - 280px);
+    max-width: calc(100vw - 280px);
+    box-sizing: border-box;
+  }
+}
+
 /* Main Content Wrapper - Mobile First */
 .main-content-wrapper {
   flex: 1;

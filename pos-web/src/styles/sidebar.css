@@ -80,12 +80,17 @@
   background: #c3a585;
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.45);
   min-height: 80px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .logo-img {
@@ -109,27 +114,38 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   overflow: hidden;
-  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
   transition: opacity 0.2s ease, width 0.3s ease;
 }
 
 .logo-text h1 {
   font-family: 'Poppins', sans-serif;
-  font-size: 20px;
+  font-size: clamp(13px, 2.8vw, 20px);
   font-weight: 700;
   color: #3e2723;
-  letter-spacing: 2px;
+  letter-spacing: clamp(0.5px, 0.2vw, 2px);
   margin: 0;
   text-align: center;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .logo-text p {
-  font-size: 10px;
+  font-size: clamp(9px, 1.8vw, 10px);
   color: #6f6258;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   margin: 0;
   text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 /* Navigation */

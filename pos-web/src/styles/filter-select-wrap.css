@@ -47,6 +47,30 @@
   }
 }
 
+/* Large screens: hug label + chevron (not full toolbar width) */
+@media (min-width: 768px) {
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) {
+    display: inline-flex;
+    width: auto;
+    max-width: min(100%, 22rem);
+    vertical-align: middle;
+  }
+
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) .filter-select,
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) .filter-select-cashier,
+  .toolbar-left .filter-select-wrap:not(.filter-select-wrap--full) > select {
+    width: auto !important;
+    min-width: 9.5rem;
+    max-width: 22rem;
+  }
+
+  .toolbar-left > .filter-select {
+    width: auto !important;
+    min-width: 9.5rem;
+    max-width: 22rem;
+  }
+}
+
 /* Strip native / theme arrows so only our chevron shows */
 .filter-select-wrap .filter-select,
 .filter-select-wrap .filter-select-cashier,

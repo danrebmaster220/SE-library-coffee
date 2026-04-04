@@ -196,6 +196,16 @@ export default function Sidebar() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  /** When the slide-out sidebar is open (tablet/phone), offset fullscreen POS so it does not sit under the logo/header. */
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!isMobile) {
+      document.documentElement.removeAttribute('data-mobile-sidebar');
+      return;
+    }
+    document.documentElement.setAttribute('data-mobile-sidebar', mobileOpen ? 'open' : 'closed');
+  }, [isMobile, mobileOpen]);
+
   // Persist desktop collapsed state
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', desktopCollapsed.toString());
