@@ -372,16 +372,18 @@
   font-size: 13px;
 }
 
+/* Chips grow across each row (flex-grow) — do not use flex: 0 here; that leaves dead space on the right */
 .category-tabs {
   display: flex;
   gap: 10px;
   padding: 10px 12px 14px;
-  overflow-x: hidden;
+  overflow-x: visible;
   overflow-y: visible;
   background: #fafafa;
   flex-wrap: wrap;
   justify-content: flex-start;
-  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .category-tab {
@@ -395,9 +397,8 @@
   white-space: nowrap;
   transition: all 0.2s;
   color: #5d4037;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: fit-content;
   text-align: center;
 }
 
@@ -2745,18 +2746,19 @@
 .category-tabs {
   padding: 8px;
   gap: 6px;
-  overflow-x: hidden;
+  overflow-x: visible;
   flex-wrap: wrap;
-  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .category-tab {
   padding: 6px 12px;
   font-size: 11px;
   white-space: nowrap;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: fit-content;
+  text-align: center;
 }
 
 .menu-grid {
