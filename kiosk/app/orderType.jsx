@@ -1,4 +1,4 @@
-﻿import { useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Coffee, ShoppingBag } from "lucide-react-native";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -50,7 +50,7 @@ export default function OrderTypeSelection() {
         }),
       ]),
     ]).start();
-  }, []);
+  }, [fadeAnim, headerSlide, cardsFade, cardsSlide]);
 
   const handleOptionPress = (option) => {
     setSelectedOption(option);
