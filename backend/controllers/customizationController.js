@@ -79,6 +79,128 @@ const getItemVariantPricing = async (itemId) => {
     }
 };
 
+const nEqVariantId = (a, b) => {
+    const x = a === undefined || a === null ? null : Number(a);
+    const y = b === undefined || b === null ? null : Number(b);
+    if (x === null && y === null) return true;
+    if (x === null || y === null) return false;
+    return x === y;
+};
+
+/**
+ * M2: Required variant cells = size × temp combos after category temperature filter (matches kiosk/POS).
+ */
+const getVariantPricingCompletenessForItem = async (itemId) => {
+    try {
+        const [items] = await db.query(
+            `SELECT is_customizable FROM items WHERE item_id = ? LIMIT 1`,
+            [itemId]
+        );
+        if (!items.length || !items[0].is_customizable) {
+            return {
+                variant_pricing_complete: true,
+                variant_pricing_missing_count: 0,
+                variant_pricing_required_count: 0
+            };
+        }
+
+        const flags = await getItemTemperatureFlags(itemId);
+        const [linkedGroups] = await db.query(
+            `
+            SELECT cg.* FROM customization_groups cg
+            INNER JOIN item_customization_groups icg ON cg.group_id = icg.group_id
+            WHERE icg.item_id = ? AND cg.status = 'active'
+            ORDER BY cg.display_order ASC
+        `,
+            [itemId]
+        );
+
+        let sizeOpts = [];
+        let tempOpts = [];
+
+        for (const group of linkedGroups) {
+            const [options] = await db.query(
+                `
+                SELECT * FROM customization_options
+                WHERE group_id = ? AND status = 'available'
+                ORDER BY display_order ASC
+            `,
+                [group.group_id]
+            );
+            group.options = options;
+            const prepared = applyTemperatureFilter(group, flags);
+            const opts = prepared.options || [];
+
+            if (isSizeGroup(prepared.name) && opts.length > 0) {
+                sizeOpts = opts;
+            } else if (isTemperatureGroup(prepared.name) && opts.length > 0) {
+                tempOpts = opts;
+            }
+        }
+
+        const combos = [];
+        if (sizeOpts.length > 0 && tempOpts.length > 0) {
+            tempOpts.forEach((t) => {
+                sizeOpts.forEach((s) => {
+                    combos.push({
+                        size_option_id: s.option_id,
+                        temp_option_id: t.option_id
+                    });
+                });
+            });
+        } else if (sizeOpts.length > 0) {
+            sizeOpts.forEach((s) =>
+                combos.push({ size_option_id: s.option_id, temp_option_id: null })
+            );
+        } else if (tempOpts.length > 0) {
+            tempOpts.forEach((t) =>
+                combos.push({ size_option_id: null, temp_option_id: t.option_id })
+            );
+        }
+
+        if (combos.length === 0) {
+            return {
+                variant_pricing_complete: true,
+                variant_pricing_missing_count: 0,
+                variant_pricing_required_count: 0
+            };
+        }
+
+        const rows = await getItemVariantPricing(itemId);
+        const rowMatchesCombo = (sizeId, tempId) =>
+            rows.find(
+                (r) =>
+                    nEqVariantId(r.size_option_id, sizeId) &&
+                    nEqVariantId(r.temp_option_id, tempId)
+            );
+
+        let missing = 0;
+        for (const c of combos) {
+            const hit = rowMatchesCombo(c.size_option_id, c.temp_option_id);
+            if (!hit) {
+                missing += 1;
+                continue;
+            }
+            const p = parseFloat(hit.price);
+            if (Number.isNaN(p)) {
+                missing += 1;
+            }
+        }
+
+        return {
+            variant_pricing_complete: missing === 0,
+            variant_pricing_missing_count: missing,
+            variant_pricing_required_count: combos.length
+        };
+    } catch (e) {
+        return {
+            variant_pricing_complete: true,
+            variant_pricing_missing_count: 0,
+            variant_pricing_required_count: 0
+        };
+    }
+};
+
 const ensureVariantPricingTable = async (queryRunner) => {
     await queryRunner.query(`
         CREATE TABLE IF NOT EXISTS item_variant_prices (
@@ -412,7 +534,34 @@ exports.saveItemVariantPrices = async (req, res) => {
 
         await connection.query('DELETE FROM item_variant_prices WHERE item_id = ?', [itemId]);
 
-        const variantList = Array.isArray(variants) ? variants : [];
+        let variantList = Array.isArray(variants) ? variants : [];
+        const flags = await getItemTemperatureFlags(itemId);
+        const tempIds = [
+            ...new Set(
+                variantList
+                    .map((r) => toNumberOrNull(r.temp_option_id))
+                    .filter((id) => id != null)
+            )
+        ];
+        let tempNameById = new Map();
+        if (tempIds.length > 0) {
+            const [tops] = await connection.query(
+                `SELECT option_id, name FROM customization_options WHERE option_id IN (?)`,
+                [tempIds]
+            );
+            tempNameById = new Map(tops.map((o) => [o.option_id, o.name]));
+        }
+
+        variantList = variantList.filter((row) => {
+            const tid = toNumberOrNull(row.temp_option_id);
+            if (tid == null) return true;
+            const name = tempNameById.get(tid);
+            if (name === undefined) return false;
+            if (isHotOption(name) && !flags.allow_hot) return false;
+            if (isIcedOption(name) && !flags.allow_iced) return false;
+            return true;
+        });
+
         const dedupe = new Set();
         const values = [];
 
@@ -448,7 +597,13 @@ exports.saveItemVariantPrices = async (req, res) => {
         }
 
         await connection.commit();
-        res.json({ message: 'Variant prices saved successfully', count: values.length });
+
+        const completeness = await getVariantPricingCompletenessForItem(itemId);
+        res.json({
+            message: 'Variant prices saved successfully',
+            count: values.length,
+            ...completeness
+        });
     } catch (error) {
         await connection.rollback();
         res.status(500).json({

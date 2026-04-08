@@ -3,6 +3,21 @@ import api from "../api";
 import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
+/** Match backend `customizationController` temperature filtering (M2). */
+const isHotOptionName = (name) => String(name || "").trim().toLowerCase().includes("hot");
+const isIcedOptionName = (name) => {
+  const l = String(name || "").trim().toLowerCase();
+  return l.includes("iced") || l.includes("cold");
+};
+
+const filterTempsByCategory = (tempOptions, flags) =>
+  (tempOptions || []).filter((opt) => {
+    const name = opt.name || "";
+    if (isHotOptionName(name) && !flags.allow_hot) return false;
+    if (isIcedOptionName(name) && !flags.allow_iced) return false;
+    return true;
+  });
+
 export default function MenuItems() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -72,33 +87,44 @@ export default function MenuItems() {
     return formData.price || "0.00";
   };
 
+  const getCategoryTempFlags = (categoryId) => {
+    const cat = categories.find((c) => Number(c.category_id) === Number(categoryId));
+    if (!cat) return { allow_hot: true, allow_iced: true };
+    return {
+      allow_hot: Number(cat.allow_hot ?? 1) === 1,
+      allow_iced: Number(cat.allow_iced ?? 1) === 1
+    };
+  };
+
   const setVariantPriceValue = (sizeOptionId, tempOptionId, priceValue) => {
     if (!(priceValue === '' || /^\d*\.?\d{0,2}$/.test(priceValue))) return;
 
-    setVariantPricing(prev => {
+    setVariantPricing((prev) => {
+      const { availableSizeOptions: szOpts, availableTempOptions: rawTemps } = getVariantDriverGroups();
+      const flags = getCategoryTempFlags(formData.category_id);
+      const temps = filterTempsByCategory(rawTemps, flags);
+
       const keySize = sizeOptionId ?? null;
       const keyTemp = tempOptionId ?? null;
       const keyOf = (s, t) => `${s ?? 'null'}:${t ?? 'null'}`;
       const rowMap = new Map(
-        (prev || []).map(row => [
+        (prev || []).map((row) => [
           keyOf(row.size_option_id ?? null, row.temp_option_id ?? null),
           { ...row }
         ])
       );
 
-      // Apply the user-edited cell first.
       rowMap.set(
         keyOf(keySize, keyTemp),
         {
           size_option_id: keySize,
           temp_option_id: keyTemp,
           price: priceValue,
-          status: 'active'
+          status: "active"
         }
       );
 
-      // Auto-hydrate missing draft combinations so one edit can make matrix save-ready.
-      const fallbackPrice = formData.price || '0.00';
+      const fallbackPrice = formData.price || "0.00";
       const ensureCombo = (s, t) => {
         const comboKey = keyOf(s, t);
         if (!rowMap.has(comboKey)) {
@@ -106,23 +132,23 @@ export default function MenuItems() {
             size_option_id: s,
             temp_option_id: t,
             price: fallbackPrice,
-            status: 'active'
+            status: "active"
           });
         }
       };
 
-      if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
-        availableTempOptions.forEach(tempOpt => {
-          availableSizeOptions.forEach(sizeOpt => {
+      if (szOpts.length > 0 && temps.length > 0) {
+        temps.forEach((tempOpt) => {
+          szOpts.forEach((sizeOpt) => {
             ensureCombo(sizeOpt.option_id, tempOpt.option_id);
           });
         });
-      } else if (availableSizeOptions.length > 0) {
-        availableSizeOptions.forEach(sizeOpt => {
+      } else if (szOpts.length > 0) {
+        szOpts.forEach((sizeOpt) => {
           ensureCombo(sizeOpt.option_id, null);
         });
-      } else if (availableTempOptions.length > 0) {
-        availableTempOptions.forEach(tempOpt => {
+      } else if (temps.length > 0) {
+        temps.forEach((tempOpt) => {
           ensureCombo(null, tempOpt.option_id);
         });
       }
@@ -132,7 +158,9 @@ export default function MenuItems() {
   };
 
   const buildVariantPayload = () => {
-    const { availableSizeOptions, availableTempOptions } = getVariantDriverGroups();
+    const { availableSizeOptions, availableTempOptions: rawTemps } = getVariantDriverGroups();
+    const flags = getCategoryTempFlags(formData.category_id);
+    const availableTempOptions = filterTempsByCategory(rawTemps, flags);
     const variants = [];
     const parsePrice = (rawValue) => {
       const n = parseFloat(rawValue);
@@ -140,13 +168,13 @@ export default function MenuItems() {
     };
 
     if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
-      availableTempOptions.forEach(tempOpt => {
-        availableSizeOptions.forEach(sizeOpt => {
+      availableTempOptions.forEach((tempOpt) => {
+        availableSizeOptions.forEach((sizeOpt) => {
           variants.push({
             size_option_id: sizeOpt.option_id,
             temp_option_id: tempOpt.option_id,
             price: parsePrice(getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)),
-            status: 'active'
+            status: "active"
           });
         });
       });
@@ -154,24 +182,24 @@ export default function MenuItems() {
     }
 
     if (availableSizeOptions.length > 0) {
-      availableSizeOptions.forEach(sizeOpt => {
+      availableSizeOptions.forEach((sizeOpt) => {
         variants.push({
           size_option_id: sizeOpt.option_id,
           temp_option_id: null,
           price: parsePrice(getVariantPriceValue(sizeOpt.option_id, null)),
-          status: 'active'
+          status: "active"
         });
       });
       return variants;
     }
 
     if (availableTempOptions.length > 0) {
-      availableTempOptions.forEach(tempOpt => {
+      availableTempOptions.forEach((tempOpt) => {
         variants.push({
           size_option_id: null,
           temp_option_id: tempOpt.option_id,
           price: parsePrice(getVariantPriceValue(null, tempOpt.option_id)),
-          status: 'active'
+          status: "active"
         });
       });
       return variants;
@@ -250,12 +278,23 @@ export default function MenuItems() {
         });
       }
 
-      // Save item-level variant matrix (revision 9/10)
+      // Save item-level variant matrix (M2 + A2: save always; warn if incomplete)
       if (itemId) {
         const variantPayload = formData.is_customizable ? buildVariantPayload() : [];
-        await api.put(`/customizations/item/${itemId}/variant-prices`, {
+        const vRes = await api.put(`/customizations/item/${itemId}/variant-prices`, {
           variants: variantPayload
         });
+        if (
+          formData.is_customizable &&
+          variantPayload.length > 0 &&
+          vRes.data?.variant_pricing_complete === false
+        ) {
+          const miss = vRes.data?.variant_pricing_missing_count ?? 0;
+          const req = vRes.data?.variant_pricing_required_count ?? 0;
+          window.alert(
+            `Item saved, but variant pricing is incomplete (${miss} of ${req} required size/temperature combinations still need valid prices). Kiosk and POS may use fallback pricing until every required cell is filled.`
+          );
+        }
       }
 
       await fetchData();
@@ -428,39 +467,55 @@ export default function MenuItems() {
     sizeGroup,
     tempGroup,
     availableSizeOptions,
-    availableTempOptions
+    availableTempOptions: rawTempOptionsForMatrix
   } = getVariantDriverGroups();
 
+  const categoryTempFlags = getCategoryTempFlags(formData.category_id);
+  const m2TempOptions = filterTempsByCategory(rawTempOptionsForMatrix, categoryTempFlags);
+
   const showVariantPricingEditor = formData.is_customizable && (
-    availableSizeOptions.length > 0 || availableTempOptions.length > 0
+    availableSizeOptions.length > 0 || rawTempOptionsForMatrix.length > 0
   );
 
   const expectedVariantCombos = (() => {
     const combos = [];
-    if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
-      availableTempOptions.forEach(tempOpt => {
-        availableSizeOptions.forEach(sizeOpt => {
+    if (availableSizeOptions.length > 0 && m2TempOptions.length > 0) {
+      m2TempOptions.forEach((tempOpt) => {
+        availableSizeOptions.forEach((sizeOpt) => {
           combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: tempOpt.option_id });
         });
       });
       return combos;
     }
     if (availableSizeOptions.length > 0) {
-      availableSizeOptions.forEach(sizeOpt => combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: null }));
+      availableSizeOptions.forEach((sizeOpt) =>
+        combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: null })
+      );
       return combos;
     }
-    if (availableTempOptions.length > 0) {
-      availableTempOptions.forEach(tempOpt => combos.push({ sizeOptionId: null, tempOptionId: tempOpt.option_id }));
+    if (m2TempOptions.length > 0) {
+      m2TempOptions.forEach((tempOpt) =>
+        combos.push({ sizeOptionId: null, tempOptionId: tempOpt.option_id })
+      );
       return combos;
     }
     return combos;
   })();
 
-  const missingVariantCount = expectedVariantCombos.filter(combo => {
+  const missingVariantCount = expectedVariantCombos.filter((combo) => {
     const value = getVariantPriceValue(combo.sizeOptionId, combo.tempOptionId);
-    return value === undefined || value === null || String(value).trim() === '';
+    return value === undefined || value === null || String(value).trim() === "";
   }).length;
-  const isVariantMatrixComplete = expectedVariantCombos.length > 0 && missingVariantCount === 0;
+  const isVariantMatrixComplete =
+    expectedVariantCombos.length > 0 && missingVariantCount === 0;
+
+  const categoryTempSummary = (() => {
+    const { allow_hot: ah, allow_iced: ai } = categoryTempFlags;
+    if (ah && ai) return "Hot and Iced";
+    if (ai && !ah) return "Iced only";
+    if (ah && !ai) return "Hot only";
+    return "No temperature (category)";
+  })();
 
   return (
     <div className="main-content">
@@ -848,9 +903,39 @@ export default function MenuItems() {
                         </div>
                         <small className="form-hint" style={{ display: 'block', marginBottom: '10px' }}>
                           Set item-specific base prices by Size/Temperature. These override global Size/Temperature option prices.
+                          Rows follow the category&apos;s temperature settings ({categoryTempSummary}).
                         </small>
+                        {formData.category_id &&
+                          rawTempOptionsForMatrix.length > m2TempOptions.length &&
+                          m2TempOptions.length > 0 && (
+                          <small
+                            style={{
+                              display: "block",
+                              marginBottom: "10px",
+                              color: "#8d5e2e",
+                              fontWeight: 600
+                            }}
+                          >
+                            Temperature options not allowed for this category are hidden ({categoryTempSummary}).
+                          </small>
+                        )}
+                        {availableSizeOptions.length > 0 &&
+                          rawTempOptionsForMatrix.length > 0 &&
+                          m2TempOptions.length === 0 && (
+                          <small
+                            style={{
+                              display: "block",
+                              marginBottom: "10px",
+                              color: "#c62828",
+                              fontWeight: 600
+                            }}
+                          >
+                            This category does not allow any of this item&apos;s temperature options. Update category Temp
+                            settings or pick another category.
+                          </small>
+                        )}
 
-                        {availableSizeOptions.length > 0 && availableTempOptions.length > 0 && (
+                        {availableSizeOptions.length > 0 && m2TempOptions.length > 0 && (
                           <div style={{ width: '100%' }}>
                             <table className="data-table" style={{ width: '100%', minWidth: 0, tableLayout: 'fixed', marginBottom: 0 }}>
                               <thead>
@@ -862,7 +947,7 @@ export default function MenuItems() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {availableTempOptions.map(tempOpt => (
+                                {m2TempOptions.map(tempOpt => (
                                   <tr key={tempOpt.option_id}>
                                     <td style={{ fontWeight: 600 }}>{tempOpt.name}</td>
                                     {availableSizeOptions.map(sizeOpt => (
@@ -884,7 +969,7 @@ export default function MenuItems() {
                           </div>
                         )}
 
-                        {availableSizeOptions.length > 0 && availableTempOptions.length === 0 && (
+                        {availableSizeOptions.length > 0 && m2TempOptions.length === 0 && rawTempOptionsForMatrix.length === 0 && (
                           <div className="groups-checkbox-list">
                             {availableSizeOptions.map(sizeOpt => (
                               <div key={sizeOpt.option_id} className="group-checkbox-item" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -905,9 +990,9 @@ export default function MenuItems() {
                           </div>
                         )}
 
-                        {availableTempOptions.length > 0 && availableSizeOptions.length === 0 && (
+                        {m2TempOptions.length > 0 && availableSizeOptions.length === 0 && (
                           <div className="groups-checkbox-list">
-                            {availableTempOptions.map(tempOpt => (
+                            {m2TempOptions.map(tempOpt => (
                               <div key={tempOpt.option_id} className="group-checkbox-item" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span className="group-checkbox-label" style={{ marginBottom: 0 }}>
                                   <strong>{tempOpt.name}</strong>
