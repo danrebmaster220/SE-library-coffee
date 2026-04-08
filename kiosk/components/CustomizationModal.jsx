@@ -24,6 +24,14 @@ const isSizeAllowedForTemp = (sizeName, tempName) => {
   if (isHotOptionName(tempName) && isLargeSizeOptionName(sizeName)) return false;
   return true;
 };
+const pickPreferredSizeForTemp = (sizeOptions, tempOption) => {
+  const options = Array.isArray(sizeOptions) ? sizeOptions : [];
+  const tempName = tempOption?.name || null;
+  const valid = options.filter((o) => isSizeAllowedForTemp(o.name, tempName));
+  if (valid.length === 0) return null;
+  const medium = valid.find((o) => /medium|med|16/i.test(String(o.name || "")));
+  return medium || valid[0];
+};
 
 const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   const rows = Array.isArray(variants) ? variants : [];
@@ -74,6 +82,15 @@ const applyBranchPrefill = (groups, initialSelections, menuBranch) => {
     const opt = findOptionForMenuBranch(sizeG.options, menuBranch.size);
     if (opt) {
       next[sizeG.group_id] = { type: "single", option: opt, quantity: 1 };
+    }
+  }
+  if (!menuBranch.size && sizeG?.options && tempG?.options) {
+    const selectedTemp = next[tempG.group_id]?.option || null;
+    if (selectedTemp) {
+      const preferred = pickPreferredSizeForTemp(sizeG.options, selectedTemp);
+      if (preferred) {
+        next[sizeG.group_id] = { type: "single", option: preferred, quantity: 1 };
+      }
     }
   }
   return next;
@@ -183,11 +200,21 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
           const sizeSel = next[sizeGroup.group_id];
           const sizeOpt = sizeSel?.option || null;
           if (sizeOpt && !isSizeAllowedForTemp(sizeOpt.name, option?.name)) {
+            const preferred = pickPreferredSizeForTemp(sizeGroup.options, option);
             next[sizeGroup.group_id] = {
               type: "single",
-              option: null,
+              option: preferred || null,
               quantity: 1
             };
+          } else if (!sizeOpt) {
+            const preferred = pickPreferredSizeForTemp(sizeGroup.options, option);
+            if (preferred) {
+              next[sizeGroup.group_id] = {
+                type: "single",
+                option: preferred,
+                quantity: 1
+              };
+            }
           }
         }
       }

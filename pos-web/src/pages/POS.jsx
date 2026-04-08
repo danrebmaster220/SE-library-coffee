@@ -17,6 +17,14 @@ const isSizeAllowedForTemp = (sizeName, tempName) => {
   if (isHotOptionName(tempName) && isLargeSizeOptionName(sizeName)) return false;
   return true;
 };
+const pickPreferredSizeForTemp = (sizeOptions, tempOption) => {
+  const options = Array.isArray(sizeOptions) ? sizeOptions : [];
+  const tempName = tempOption?.name || null;
+  const valid = options.filter((o) => isSizeAllowedForTemp(o.name, tempName));
+  if (valid.length === 0) return null;
+  const medium = valid.find((o) => /medium|med|16/i.test(String(o.name || '')));
+  return medium || valid[0];
+};
 
 const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   const rows = Array.isArray(variants) ? variants : [];
@@ -76,6 +84,19 @@ const buildBranchPrefillSelections = (groups, menuBranch) => {
       const gid = sizeG.group_id || sizeG.id;
       const oid = opt.option_id ?? opt.id;
       out[gid] = [oid];
+    }
+  }
+  if (!menuBranch.size && sizeG?.options?.length && tempG?.options?.length) {
+    const tempGid = tempG.group_id || tempG.id;
+    const selectedTempId = (out[tempGid] || [])[0];
+    const selectedTemp = tempG.options.find((o) => (o.option_id ?? o.id) === selectedTempId) || null;
+    if (selectedTemp) {
+      const preferred = pickPreferredSizeForTemp(sizeG.options, selectedTemp);
+      if (preferred) {
+        const sizeGid = sizeG.group_id || sizeG.id;
+        const sizeOid = preferred.option_id ?? preferred.id;
+        out[sizeGid] = [sizeOid];
+      }
     }
   }
   return out;
@@ -490,7 +511,13 @@ export default function POS() {
             if (selectedSizeId) {
               const sizeOpt = sizeGroup.options?.find((o) => (o.option_id || o.id) === selectedSizeId) || null;
               if (sizeOpt && !isSizeAllowedForTemp(sizeOpt.name, tempOpt?.name)) {
-                next[sizeGroupId] = [];
+                const preferred = pickPreferredSizeForTemp(sizeGroup.options, tempOpt);
+                next[sizeGroupId] = preferred ? [preferred.option_id || preferred.id] : [];
+              }
+            } else {
+              const preferred = pickPreferredSizeForTemp(sizeGroup.options, tempOpt);
+              if (preferred) {
+                next[sizeGroupId] = [preferred.option_id || preferred.id];
               }
             }
           }
