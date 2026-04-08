@@ -3,6 +3,28 @@ import api from "../api";
 import FilterSelectWrap from "../components/FilterSelectWrap";
 import "../styles/menu-management-styles/index.css";
 
+/** Normalize DB flags so Temp column always matches (0/1, strings, null). */
+const toFlag01 = (v, defaultOn = true) => {
+  if (v === undefined || v === null || v === "") return defaultOn ? 1 : 0;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  const n = Number(v);
+  if (!Number.isNaN(n)) return n === 0 ? 0 : 1;
+  return defaultOn ? 1 : 0;
+};
+
+const normalizeCategoryList = (rows) =>
+  (Array.isArray(rows) ? rows : []).map((row) => ({
+    ...row,
+    allow_hot: toFlag01(row.allow_hot, true),
+    allow_iced: toFlag01(row.allow_iced, true)
+  }));
+
+const tempModesLabel = (allowHot, allowIced) => {
+  if (!allowHot && !allowIced) return "Disabled";
+  if (allowHot && allowIced) return "Hot / Iced";
+  return allowHot ? "Hot" : "Iced";
+};
+
 export default function MenuCategories() {
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -23,8 +45,11 @@ export default function MenuCategories() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get("/menu/categories");
-      setCategories(response.data.categories || response.data || []);
+      const response = await api.get("/menu/categories", {
+        params: { _: Date.now() }
+      });
+      const raw = response.data.categories || response.data || [];
+      setCategories(normalizeCategoryList(raw));
     } catch (error) {
       console.error("Error fetching categories:", error);
     } finally {
@@ -42,20 +67,40 @@ export default function MenuCategories() {
         const hot = formData.allow_hot ? 1 : 0;
         const iced = formData.allow_iced ? 1 : 0;
         setCategories((prev) =>
-          prev.map((c) =>
-            c.category_id === editingCategory.category_id
-              ? {
-                  ...c,
-                  name: formData.name,
-                  status: formData.status,
-                  allow_hot: hot,
-                  allow_iced: iced
-                }
-              : c
+          normalizeCategoryList(
+            prev.map((c) =>
+              c.category_id === editingCategory.category_id
+                ? {
+                    ...c,
+                    name: formData.name.trim(),
+                    status: formData.status,
+                    allow_hot: hot,
+                    allow_iced: iced
+                  }
+                : c
+            )
           )
         );
       } else {
-        await api.post("/menu/categories", formData);
+        const response = await api.post("/menu/categories", formData);
+        const newId = response.data?.category_id;
+        const hot = formData.allow_hot ? 1 : 0;
+        const iced = formData.allow_iced ? 1 : 0;
+        if (newId != null) {
+          setCategories((prev) =>
+            normalizeCategoryList([
+              ...prev,
+              {
+                category_id: newId,
+                name: formData.name.trim(),
+                status: formData.status,
+                allow_hot: hot,
+                allow_iced: iced,
+                created_at: new Date().toISOString()
+              }
+            ])
+          );
+        }
       }
       await fetchCategories();
       closeModal();
@@ -97,8 +142,8 @@ export default function MenuCategories() {
     setFormData({
       name: category.name,
       status: category.status || "active",
-      allow_hot: Number(category.allow_hot ?? 1) === 1,
-      allow_iced: Number(category.allow_iced ?? 1) === 1
+      allow_hot: toFlag01(category.allow_hot, true) === 1,
+      allow_iced: toFlag01(category.allow_iced, true) === 1
     });
     setShowModal(true);
   };
@@ -224,13 +269,10 @@ export default function MenuCategories() {
                     <td><span className="item-name-text">{category.name}</span></td>
                     <td>
                       <span style={{ fontSize: '12px', color: '#5d4037', fontWeight: 600 }}>
-                        {(() => {
-                          const allowHot = Number(category.allow_hot ?? 1) === 1;
-                          const allowIced = Number(category.allow_iced ?? 1) === 1;
-                          if (!allowHot && !allowIced) return 'Disabled';
-                          if (allowHot && allowIced) return 'Hot / Iced';
-                          return allowHot ? 'Hot' : 'Iced';
-                        })()}
+                        {tempModesLabel(
+                          toFlag01(category.allow_hot, true) === 1,
+                          toFlag01(category.allow_iced, true) === 1
+                        )}
                       </span>
                     </td>
                     <td>
