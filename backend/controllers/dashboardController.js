@@ -169,37 +169,8 @@ exports.getSalesChart = async (req, res) => {
             };
         });
 
-        // Weekly sales for current month
-        const [monthData] = await db.query(`
-            SELECT 
-                WEEK(t.created_at, 1) - WEEK(DATE_FORMAT(t.created_at, '%Y-%m-01'), 1) + 1 as week_num,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
-            FROM transactions t
-            LEFT JOIN (
-                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
-                FROM void_log
-                WHERE action_type = 'refund'
-                GROUP BY transaction_id
-            ) vl ON vl.transaction_id = t.transaction_id
-            WHERE MONTH(t.created_at) = MONTH(CURDATE())
-            AND YEAR(t.created_at) = YEAR(CURDATE())
-            AND t.status NOT IN ('voided', 'pending')
-            GROUP BY week_num
-            ORDER BY week_num ASC
-        `);
-        
-        // Fill in 4 weeks
-        const monthlyData = [];
-        for (let w = 1; w <= 4; w++) {
-            const found = monthData.find(d => d.week_num === w);
-            monthlyData.push({
-                week: `Week ${w}`,
-                sales: found ? parseFloat(found.sales) : 0
-            });
-        }
-
-        // Monthly sales for current year
-        const [yearData] = await db.query(`
+        // Monthly chart: sales per calendar month for the current year (Jan–Dec)
+        const [monthOfYearData] = await db.query(`
             SELECT 
                 MONTH(t.created_at) as month_num,
                 COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
@@ -215,16 +186,45 @@ exports.getSalesChart = async (req, res) => {
             GROUP BY MONTH(t.created_at)
             ORDER BY month_num ASC
         `);
-        
-        // Fill in all 12 months
+
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const yearlyData = monthNames.map((month, idx) => {
-            const found = yearData.find(d => d.month_num === idx + 1);
+        const monthlyData = monthNames.map((month, idx) => {
+            const found = monthOfYearData.find(d => d.month_num === idx + 1);
             return {
-                month: month,
+                month,
                 sales: found ? parseFloat(found.sales) : 0
             };
         });
+
+        // Yearly chart: rolling 5-year window ending in current calendar year
+        const [multiYearRows] = await db.query(`
+            SELECT 
+                YEAR(t.created_at) as year_num,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE YEAR(t.created_at) BETWEEN YEAR(CURDATE()) - 4 AND YEAR(CURDATE())
+            AND t.status NOT IN ('voided', 'pending')
+            GROUP BY YEAR(t.created_at)
+            ORDER BY year_num ASC
+        `);
+
+        const [currentYearRows] = await db.query(`SELECT YEAR(CURDATE()) AS cy`);
+        const endYear = Number(currentYearRows[0]?.cy ?? new Date().getFullYear());
+        const startYear = endYear - 4;
+        const yearlyData = [];
+        for (let y = startYear; y <= endYear; y += 1) {
+            const found = multiYearRows.find((d) => Number(d.year_num) === y);
+            yearlyData.push({
+                year: String(y),
+                sales: found ? parseFloat(found.sales) : 0
+            });
+        }
 
         res.json({
             today: hourlyData,

@@ -140,9 +140,9 @@ export default function Dashboard() {
       case 'today':
         return { data: chartData.today, labelKey: 'hour' };
       case 'monthly':
-        return { data: chartData.monthly, labelKey: 'week' };
+        return { data: chartData.monthly, labelKey: 'month' };
       case 'yearly':
-        return { data: chartData.yearly, labelKey: 'month' };
+        return { data: chartData.yearly, labelKey: 'year' };
       default:
         return { data: chartData.weekly, labelKey: 'day' };
     }
@@ -252,7 +252,7 @@ export default function Dashboard() {
                 className={`period-btn ${overviewPeriod === 'today' ? 'active' : ''}`}
                 onClick={() => setOverviewPeriod('today')}
               >
-                Today
+                Daily
               </button>
               <button
                 type="button"
@@ -348,7 +348,7 @@ export default function Dashboard() {
                 className={`period-btn ${categoryPeriod === 'today' ? 'active' : ''}`}
                 onClick={() => setCategoryPeriod('today')}
               >
-                Today
+                Daily
               </button>
               <button
                 type="button"
