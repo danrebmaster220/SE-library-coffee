@@ -160,11 +160,13 @@ const toTinyBool = (value, fallback = 1) => {
 // CATEGORIES
 
 const MENU_CACHE_CONTROL = 'public, max-age=60, s-maxage=60, stale-while-revalidate=120';
+/** Categories list must not be cached in the browser — admin edits (temp toggles, etc.) must show immediately after save. */
+const CATEGORIES_LIST_CACHE_CONTROL = 'private, no-cache';
 
 // Get All Categories
 exports.getCategories = async (req, res) => {
     try {
-        res.set('Cache-Control', MENU_CACHE_CONTROL);
+        res.set('Cache-Control', CATEGORIES_LIST_CACHE_CONTROL);
         const [rows] = await db.query('SELECT * FROM categories ORDER BY category_id ASC');
         res.json(rows);
     } catch (error) {

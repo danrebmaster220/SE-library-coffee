@@ -10,10 +10,8 @@ export default function MenuCategories() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true });
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,10 +39,25 @@ export default function MenuCategories() {
     try {
       if (editingCategory) {
         await api.put(`/menu/categories/${editingCategory.category_id}`, formData);
+        const hot = formData.allow_hot ? 1 : 0;
+        const iced = formData.allow_iced ? 1 : 0;
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.category_id === editingCategory.category_id
+              ? {
+                  ...c,
+                  name: formData.name,
+                  status: formData.status,
+                  allow_hot: hot,
+                  allow_iced: iced
+                }
+              : c
+          )
+        );
       } else {
         await api.post("/menu/categories", formData);
       }
-      fetchCategories();
+      await fetchCategories();
       closeModal();
     } catch (error) {
       console.error("Error saving category:", error);
@@ -103,20 +116,14 @@ export default function MenuCategories() {
   };
 
   const filteredCategories = categories.filter((cat) => {
-    const matchesSearch = cat.name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesStatus = !appliedStatus || cat.status === appliedStatus;
+    const matchesSearch = cat.name.toLowerCase().includes(filterSearch.toLowerCase());
+    const matchesStatus = !filterStatus || cat.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [appliedSearch, appliedStatus, categories]);
-
-  const applyFilters = () => {
-    setAppliedSearch(pendingSearch);
-    setAppliedStatus(pendingStatus);
-    setCurrentPage(1);
-  };
+  }, [filterSearch, filterStatus, categories]);
 
   const totalPages = Math.ceil(filteredCategories.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -160,25 +167,22 @@ export default function MenuCategories() {
               type="text"
               className="search-input"
               placeholder="Search categories..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
             />
           </div>
           <div className="toolbar-filters-actions">
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </FilterSelectWrap>
-            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
-              Apply Filter
-            </button>
           </div>
         </div>
         <div className="toolbar-right">

@@ -9,10 +9,8 @@ export default function Discounts() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingDiscount, setEditingDiscount] = useState(null);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [discountPage, setDiscountPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
@@ -112,20 +110,14 @@ export default function Discounts() {
   };
 
   const filteredDiscounts = discounts.filter((discount) => {
-    const matchesSearch = discount.name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesStatus = !appliedStatus || discount.status === appliedStatus;
+    const matchesSearch = discount.name.toLowerCase().includes(filterSearch.toLowerCase());
+    const matchesStatus = !filterStatus || discount.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   useEffect(() => {
     setDiscountPage(1);
-  }, [appliedSearch, appliedStatus, discounts]);
-
-  const applyFilters = () => {
-    setAppliedSearch(pendingSearch);
-    setAppliedStatus(pendingStatus);
-    setDiscountPage(1);
-  };
+  }, [filterSearch, filterStatus, discounts]);
 
   const totalPages = Math.ceil(filteredDiscounts.length / rowsPerPage);
   const startIndex = (discountPage - 1) * rowsPerPage;
@@ -169,25 +161,22 @@ export default function Discounts() {
               type="text"
               className="search-input"
               placeholder="Search discounts..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
             />
           </div>
           <div className="toolbar-filters-actions">
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </FilterSelectWrap>
-            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
-              Apply Filter
-            </button>
           </div>
         </div>
         <div className="toolbar-right">

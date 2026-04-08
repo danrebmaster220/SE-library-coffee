@@ -14,10 +14,8 @@ export default function Customizations() {
   const [editingGroup, setEditingGroup] = useState(null);
   const [editingOption, setEditingOption] = useState(null);
   const [currentGroupId, setCurrentGroupId] = useState(null);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [groupPage, setGroupPage] = useState(1);
   const rowsPerPage = 8;
   const [loading, setLoading] = useState(true);
@@ -248,20 +246,14 @@ export default function Customizations() {
   };
 
   const filteredGroups = groups.filter((group) => {
-    const matchesSearch = group.name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesStatus = !appliedStatus || group.status === appliedStatus;
+    const matchesSearch = group.name.toLowerCase().includes(filterSearch.toLowerCase());
+    const matchesStatus = !filterStatus || group.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   useEffect(() => {
     setGroupPage(1);
-  }, [appliedSearch, appliedStatus, groups]);
-
-  const applyFilters = () => {
-    setAppliedSearch(pendingSearch);
-    setAppliedStatus(pendingStatus);
-    setGroupPage(1);
-  };
+  }, [filterSearch, filterStatus, groups]);
 
   const totalPages = Math.ceil(filteredGroups.length / rowsPerPage);
   const startIndex = (groupPage - 1) * rowsPerPage;
@@ -327,25 +319,22 @@ export default function Customizations() {
               type="text"
               className="search-input"
               placeholder="Search groups..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
             />
           </div>
           <div className="toolbar-filters-actions">
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </FilterSelectWrap>
-            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
-              Apply Filter
-            </button>
           </div>
         </div>
         <div className="toolbar-right">

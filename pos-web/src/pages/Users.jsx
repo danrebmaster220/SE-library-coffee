@@ -11,12 +11,9 @@ export default function Users() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingRole, setPendingRole] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedRole, setAppliedRole] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterRole, setFilterRole] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [userPage, setUserPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
@@ -216,27 +213,20 @@ export default function Users() {
   // Filter users based on search, role, and status
   const filteredUsers = users
     .filter((user) => {
-      const searchLower = appliedSearch.toLowerCase();
+      const searchLower = filterSearch.toLowerCase();
       const display = user.display_name || user.full_name || "";
       const matchesSearch =
         display.toLowerCase().includes(searchLower) ||
         user.full_name?.toLowerCase().includes(searchLower) ||
         user.username?.toLowerCase().includes(searchLower);
-      const matchesRole = !appliedRole || user.role_id?.toString() === appliedRole;
-      const matchesStatus = !appliedStatus || user.status === appliedStatus;
+      const matchesRole = !filterRole || user.role_id?.toString() === filterRole;
+      const matchesStatus = !filterStatus || user.status === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
 
   useEffect(() => {
     setUserPage(1);
-  }, [appliedSearch, appliedRole, appliedStatus, users]);
-
-  const applyFilters = () => {
-    setAppliedSearch(pendingSearch);
-    setAppliedRole(pendingRole);
-    setAppliedStatus(pendingStatus);
-    setUserPage(1);
-  };
+  }, [filterSearch, filterRole, filterStatus, users]);
 
   const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
   const startIndex = (userPage - 1) * rowsPerPage;
@@ -280,16 +270,16 @@ export default function Users() {
               type="text"
               className="search-input"
               placeholder="Search by name or username..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
             />
           </div>
           <div className="toolbar-filters-actions">
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingRole}
-                onChange={(e) => setPendingRole(e.target.value)}
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
               >
                 <option value="">All Roles</option>
                 {roles.map((role) => (
@@ -302,17 +292,14 @@ export default function Users() {
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </FilterSelectWrap>
-            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
-              Apply Filter
-            </button>
           </div>
         </div>
         <div className="toolbar-right">

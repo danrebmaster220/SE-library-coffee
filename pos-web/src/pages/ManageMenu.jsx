@@ -8,12 +8,9 @@ export default function ManageMenu() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingCategory, setPendingCategory] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedCategory, setAppliedCategory] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [itemPage, setItemPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
@@ -77,22 +74,15 @@ export default function ManageMenu() {
   };
 
   const filteredItems = items.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesCategory = !appliedCategory || item.category_id === parseInt(appliedCategory);
-    const matchesStatus = !appliedStatus || item.status === appliedStatus;
+    const matchesSearch = item.name.toLowerCase().includes(filterSearch.toLowerCase());
+    const matchesCategory = !filterCategory || item.category_id === parseInt(filterCategory, 10);
+    const matchesStatus = !filterStatus || item.status === filterStatus;
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
   useEffect(() => {
     setItemPage(1);
-  }, [appliedSearch, appliedCategory, appliedStatus, items]);
-
-  const applyFilters = () => {
-    setAppliedSearch(pendingSearch);
-    setAppliedCategory(pendingCategory);
-    setAppliedStatus(pendingStatus);
-    setItemPage(1);
-  };
+  }, [filterSearch, filterCategory, filterStatus, items]);
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
   const startIndex = (itemPage - 1) * rowsPerPage;
@@ -136,16 +126,16 @@ export default function ManageMenu() {
               type="text"
               className="search-input"
               placeholder="Search items..."
-              value={pendingSearch}
-              onChange={(e) => setPendingSearch(e.target.value)}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
             />
           </div>
           <div className="toolbar-filters-actions">
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingCategory}
-                onChange={(e) => setPendingCategory(e.target.value)}
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => (
@@ -158,17 +148,14 @@ export default function ManageMenu() {
             <FilterSelectWrap>
               <select
                 className="filter-select"
-                value={pendingStatus}
-                onChange={(e) => setPendingStatus(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="">All Status</option>
                 <option value="available">Available</option>
                 <option value="sold_out">Sold Out</option>
               </select>
             </FilterSelectWrap>
-            <button type="button" className="btn-apply-filter" onClick={applyFilters}>
-              Apply Filter
-            </button>
           </div>
         </div>
         <div className="toolbar-right">
