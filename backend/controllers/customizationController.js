@@ -7,6 +7,7 @@ const isIcedOption = (optionName) => {
     const lowered = String(optionName || '').trim().toLowerCase();
     return lowered.includes('iced') || lowered.includes('cold');
 };
+const isLargeSizeOption = (optionName) => /large|22/i.test(String(optionName || '').trim());
 
 const toNumberOrNull = (value) => {
     if (value === undefined || value === null || value === '') return null;
@@ -50,6 +51,18 @@ const applyTemperatureFilter = (group, flags) => {
             return true;
         })
     };
+};
+
+/**
+ * Combo rule: Hot can not be Large.
+ * Keep this centralized so Admin/POS/Kiosk share one behavior.
+ */
+const isSizeTempComboAllowed = (sizeOptionName, tempOptionName) => {
+    if (!tempOptionName || !sizeOptionName) return true;
+    const hot = isHotOption(tempOptionName);
+    const large = isLargeSizeOption(sizeOptionName);
+    if (hot && large) return false;
+    return true;
 };
 
 const getItemVariantPricing = async (itemId) => {
@@ -142,6 +155,7 @@ const getVariantPricingCompletenessForItem = async (itemId) => {
         if (sizeOpts.length > 0 && tempOpts.length > 0) {
             tempOpts.forEach((t) => {
                 sizeOpts.forEach((s) => {
+                    if (!isSizeTempComboAllowed(s.name, t.name)) return;
                     combos.push({
                         size_option_id: s.option_id,
                         temp_option_id: t.option_id
@@ -543,7 +557,15 @@ exports.saveItemVariantPrices = async (req, res) => {
                     .filter((id) => id != null)
             )
         ];
+        const sizeIds = [
+            ...new Set(
+                variantList
+                    .map((r) => toNumberOrNull(r.size_option_id))
+                    .filter((id) => id != null)
+            )
+        ];
         let tempNameById = new Map();
+        let sizeNameById = new Map();
         if (tempIds.length > 0) {
             const [tops] = await connection.query(
                 `SELECT option_id, name FROM customization_options WHERE option_id IN (?)`,
@@ -551,14 +573,24 @@ exports.saveItemVariantPrices = async (req, res) => {
             );
             tempNameById = new Map(tops.map((o) => [o.option_id, o.name]));
         }
+        if (sizeIds.length > 0) {
+            const [sops] = await connection.query(
+                `SELECT option_id, name FROM customization_options WHERE option_id IN (?)`,
+                [sizeIds]
+            );
+            sizeNameById = new Map(sops.map((o) => [o.option_id, o.name]));
+        }
 
         variantList = variantList.filter((row) => {
             const tid = toNumberOrNull(row.temp_option_id);
+            const sid = toNumberOrNull(row.size_option_id);
             if (tid == null) return true;
             const name = tempNameById.get(tid);
             if (name === undefined) return false;
             if (isHotOption(name) && !flags.allow_hot) return false;
             if (isIcedOption(name) && !flags.allow_iced) return false;
+            const sizeName = sid == null ? null : sizeNameById.get(sid);
+            if (!isSizeTempComboAllowed(sizeName, name)) return false;
             return true;
         });
 

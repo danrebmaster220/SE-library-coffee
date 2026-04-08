@@ -9,6 +9,13 @@ const isIcedOptionName = (name) => {
   const l = String(name || "").trim().toLowerCase();
   return l.includes("iced") || l.includes("cold");
 };
+const isLargeSizeOptionName = (name) => /large|22/i.test(String(name || "").trim());
+
+const isSizeTempComboAllowedByNames = (sizeName, tempName) => {
+  if (!sizeName || !tempName) return true;
+  if (isHotOptionName(tempName) && isLargeSizeOptionName(sizeName)) return false;
+  return true;
+};
 
 const filterTempsByCategory = (tempOptions, flags) =>
   (tempOptions || []).filter((opt) => {
@@ -140,6 +147,7 @@ export default function MenuItems() {
       if (szOpts.length > 0 && temps.length > 0) {
         temps.forEach((tempOpt) => {
           szOpts.forEach((sizeOpt) => {
+            if (!isSizeTempComboAllowedByNames(sizeOpt.name, tempOpt.name)) return;
             ensureCombo(sizeOpt.option_id, tempOpt.option_id);
           });
         });
@@ -170,6 +178,7 @@ export default function MenuItems() {
     if (availableSizeOptions.length > 0 && availableTempOptions.length > 0) {
       availableTempOptions.forEach((tempOpt) => {
         availableSizeOptions.forEach((sizeOpt) => {
+          if (!isSizeTempComboAllowedByNames(sizeOpt.name, tempOpt.name)) return;
           variants.push({
             size_option_id: sizeOpt.option_id,
             temp_option_id: tempOpt.option_id,
@@ -482,6 +491,7 @@ export default function MenuItems() {
     if (availableSizeOptions.length > 0 && m2TempOptions.length > 0) {
       m2TempOptions.forEach((tempOpt) => {
         availableSizeOptions.forEach((sizeOpt) => {
+          if (!isSizeTempComboAllowedByNames(sizeOpt.name, tempOpt.name)) return;
           combos.push({ sizeOptionId: sizeOpt.option_id, tempOptionId: tempOpt.option_id });
         });
       });
@@ -952,14 +962,18 @@ export default function MenuItems() {
                                     <td style={{ fontWeight: 600 }}>{tempOpt.name}</td>
                                     {availableSizeOptions.map(sizeOpt => (
                                       <td key={`${tempOpt.option_id}-${sizeOpt.option_id}`}>
-                                        <input
-                                          type="text"
-                                          inputMode="decimal"
-                                          className="form-input"
-                                          value={getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)}
-                                          onChange={(e) => setVariantPriceValue(sizeOpt.option_id, tempOpt.option_id, e.target.value)}
-                                          style={{ width: '100%', minWidth: 0, padding: '8px 10px' }}
-                                        />
+                                        {isSizeTempComboAllowedByNames(sizeOpt.name, tempOpt.name) ? (
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="form-input"
+                                            value={getVariantPriceValue(sizeOpt.option_id, tempOpt.option_id)}
+                                            onChange={(e) => setVariantPriceValue(sizeOpt.option_id, tempOpt.option_id, e.target.value)}
+                                            style={{ width: '100%', minWidth: 0, padding: '8px 10px' }}
+                                          />
+                                        ) : (
+                                          <div style={{ color: "#9e8f84", fontSize: "12px", fontWeight: 600 }}>N/A</div>
+                                        )}
                                       </td>
                                     ))}
                                   </tr>

@@ -10,6 +10,13 @@ import '../styles/pos.css';
 
 const isSizeGroupName = (name) => String(name || '').toLowerCase().includes('size');
 const isTempGroupName = (name) => String(name || '').toLowerCase().includes('temperature');
+const isHotOptionName = (name) => String(name || '').toLowerCase().includes('hot');
+const isLargeSizeOptionName = (name) => /large|22/i.test(String(name || ''));
+const isSizeAllowedForTemp = (sizeName, tempName) => {
+  if (!sizeName || !tempName) return true;
+  if (isHotOptionName(tempName) && isLargeSizeOptionName(sizeName)) return false;
+  return true;
+};
 
 const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   const rows = Array.isArray(variants) ? variants : [];
@@ -472,7 +479,23 @@ export default function POS() {
           return { ...prev, [groupId]: [...current, optionId] };
         }
       } else {
-        return { ...prev, [groupId]: [optionId] };
+        const next = { ...prev, [groupId]: [optionId] };
+        const changedGroup = customizationGroups.find((g) => (g.group_id || g.id) === Number(groupId));
+        if (changedGroup && isTempGroupName(changedGroup.name)) {
+          const tempOpt = changedGroup.options?.find((o) => (o.option_id || o.id) === optionId) || null;
+          const sizeGroup = customizationGroups.find((g) => isSizeGroupName(g.name));
+          if (sizeGroup) {
+            const sizeGroupId = sizeGroup.group_id || sizeGroup.id;
+            const selectedSizeId = (next[sizeGroupId] || [])[0];
+            if (selectedSizeId) {
+              const sizeOpt = sizeGroup.options?.find((o) => (o.option_id || o.id) === selectedSizeId) || null;
+              if (sizeOpt && !isSizeAllowedForTemp(sizeOpt.name, tempOpt?.name)) {
+                next[sizeGroupId] = [];
+              }
+            }
+          }
+        }
+        return next;
       }
     });
   };
@@ -1690,6 +1713,17 @@ export default function POS() {
                     {/* Required Groups (Size, Temperature) - Always visible */}
                     {requiredGroups.map(group => {
                       const groupId = group.group_id || group.id;
+                      const tempGroup = customizationGroups.find((g) => isTempGroupName(g.name));
+                      const tempGroupId = tempGroup ? (tempGroup.group_id || tempGroup.id) : null;
+                      const selectedTempId = tempGroupId ? (selectedCustomizations[tempGroupId] || [])[0] : null;
+                      const selectedTempOption = tempGroup?.options?.find(
+                        (o) => (o.option_id || o.id) === selectedTempId
+                      ) || null;
+                      const visibleOptions = isSizeGroupName(group.name)
+                        ? (group.options || []).filter((opt) =>
+                            isSizeAllowedForTemp(opt.name, selectedTempOption?.name)
+                          )
+                        : (group.options || []);
                       return (
                         <div key={groupId} className="customization-group required-group">
                           <h4>
@@ -1697,7 +1731,7 @@ export default function POS() {
                             <span className="required-badge">Required</span>
                           </h4>
                           <div className="customization-options-row">
-                            {group.options.map(option => {
+                            {visibleOptions.map(option => {
                               const optionId = option.option_id || option.id;
                               const optPrice = parseFloat(option.price || option.price_per_unit) || 0;
                               const isVariantDriverGroup = hasVariantPricing && (isSizeGroupName(group.name) || isTempGroupName(group.name));

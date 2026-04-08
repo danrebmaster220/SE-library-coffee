@@ -17,6 +17,13 @@ import { useResponsive } from "../hooks/useResponsive";
 
 const isSizeGroupName = (name) => String(name || "").toLowerCase().includes("size");
 const isTempGroupName = (name) => String(name || "").toLowerCase().includes("temperature");
+const isHotOptionName = (name) => String(name || "").toLowerCase().includes("hot");
+const isLargeSizeOptionName = (name) => /large|22/i.test(String(name || ""));
+const isSizeAllowedForTemp = (sizeName, tempName) => {
+  if (!sizeName || !tempName) return true;
+  if (isHotOptionName(tempName) && isLargeSizeOptionName(sizeName)) return false;
+  return true;
+};
 
 const findVariantMatch = (variants, sizeOptionId, tempOptionId) => {
   const rows = Array.isArray(variants) ? variants : [];
@@ -160,14 +167,33 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
   }, [visible, item, menuBranch, fetchItemCustomizations]);
 
   const handleSingleSelect = (group, option) => {
-    setSelections(prev => ({
-      ...prev,
-      [group.group_id]: {
-        type: "single",
-        option: option,
-        quantity: 1
+    setSelections(prev => {
+      const next = {
+        ...prev,
+        [group.group_id]: {
+          type: "single",
+          option: option,
+          quantity: 1
+        }
+      };
+
+      if (isTempGroupName(group?.name)) {
+        const sizeGroup = customizationGroups.find((g) => isSizeGroupName(g.name));
+        if (sizeGroup) {
+          const sizeSel = next[sizeGroup.group_id];
+          const sizeOpt = sizeSel?.option || null;
+          if (sizeOpt && !isSizeAllowedForTemp(sizeOpt.name, option?.name)) {
+            next[sizeGroup.group_id] = {
+              type: "single",
+              option: null,
+              quantity: 1
+            };
+          }
+        }
       }
-    }));
+
+      return next;
+    });
   };
 
   const handleToggleSelect = (group, option) => {
@@ -389,6 +415,13 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
   const sizeGroup = customizationGroups.find(g => isSizeGroupName(g.name));
   const temperatureGroup = customizationGroups.find(g => isTempGroupName(g.name));
   const hasVariantPricing = Array.isArray(variantPricing) && variantPricing.length > 0;
+  const selectedTempOption =
+    temperatureGroup ? (selections[temperatureGroup.group_id]?.option ?? null) : null;
+  const visibleSizeOptions = sizeGroup
+    ? (sizeGroup.options || []).filter((opt) =>
+        isSizeAllowedForTemp(opt.name, selectedTempOption?.name)
+      )
+    : [];
   
   // Add-on tab groups - All groups except Size and Temperature (which are shown in the main section)
   // Includes: quantity-based inputs, single-select non-required, and multiple-select groups
@@ -475,7 +508,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
                     {sizeGroup.is_required && <Text style={phoneStyles.requiredBadge}>Required</Text>}
                   </View>
                   <View style={phoneStyles.optionRow}>
-                    {sizeGroup.options?.map((option) => (
+                    {visibleSizeOptions.map((option) => (
                       <TouchableOpacity
                         key={option.option_id}
                         style={[phoneStyles.optionButton, isOptionSelected(sizeGroup.group_id, option) && phoneStyles.selectedOption]}
@@ -635,7 +668,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
             {sizeGroup.is_required && <Text style={s.requiredBadge}>Required</Text>}
           </View>
           <View style={s.optionRow}>
-            {sizeGroup.options?.map((option) => (
+            {visibleSizeOptions.map((option) => (
               <TouchableOpacity
                 key={option.option_id}
                 style={[s.optionButton, isOptionSelected(sizeGroup.group_id, option) && s.selectedOption]}
