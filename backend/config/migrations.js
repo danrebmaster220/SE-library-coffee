@@ -55,6 +55,9 @@ async function runMigrations() {
         // Migration 15: Users — split name + optional profile image (TiDB-safe: one ADD per column, no AFTER)
         await addUsersProfileColumns();
 
+        // Migration 16: Add addon_limit column to categories (NULL = unlimited)
+        await addCategoryAddonLimit();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -676,6 +679,29 @@ async function addUsersProfileColumns() {
         }
     } catch (error) {
         console.error('   ⚠️ addUsersProfileColumns:', error.message);
+    }
+}
+
+async function addCategoryAddonLimit() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'categories'
+            AND COLUMN_NAME = 'addon_limit'
+        `);
+
+        if (cols.length === 0) {
+            await db.query(`
+                ALTER TABLE categories
+                ADD COLUMN addon_limit INT NULL DEFAULT NULL
+            `);
+            console.log('   ✅ Added categories.addon_limit');
+        } else {
+            console.log('   ⏭️  categories.addon_limit already exists');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addCategoryAddonLimit:', error.message);
     }
 }
 

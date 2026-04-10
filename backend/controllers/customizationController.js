@@ -303,7 +303,10 @@ exports.getItemCustomizations = async (req, res) => {
         const temperatureFlags = await getItemTemperatureFlags(itemId);
 
         const [items] = await db.query(
-            'SELECT item_id, is_customizable, price FROM items WHERE item_id = ?',
+            `SELECT i.item_id, i.is_customizable, i.price, i.category_id, c.addon_limit
+             FROM items i
+             LEFT JOIN categories c ON i.category_id = c.category_id
+             WHERE i.item_id = ?`,
             [itemId]
         );
 
@@ -319,7 +322,8 @@ exports.getItemCustomizations = async (req, res) => {
                 is_customizable: false,
                 base_price: Number(item.price || 0),
                 variant_pricing: [],
-                temperature_flags: temperatureFlags
+                temperature_flags: temperatureFlags,
+                addon_limit: item.addon_limit != null ? Number(item.addon_limit) : null
             });
         }
 
@@ -347,7 +351,8 @@ exports.getItemCustomizations = async (req, res) => {
             is_customizable: true,
             base_price: Number(item.price || 0),
             variant_pricing: variantPricing,
-            temperature_flags: temperatureFlags
+            temperature_flags: temperatureFlags,
+            addon_limit: item.addon_limit != null ? Number(item.addon_limit) : null
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -661,7 +666,10 @@ exports.getBaristaDefaults = async (req, res) => {
         const temperatureFlags = await getItemTemperatureFlags(itemId);
 
         const [items] = await db.query(
-            `SELECT item_id, name, station, is_customizable, price FROM items WHERE item_id = ?`,
+            `SELECT i.item_id, i.name, i.station, i.is_customizable, i.price, c.addon_limit
+             FROM items i
+             LEFT JOIN categories c ON i.category_id = c.category_id
+             WHERE i.item_id = ?`,
             [itemId]
         );
 
@@ -679,7 +687,8 @@ exports.getBaristaDefaults = async (req, res) => {
                 addon_groups: [],
                 base_price: Number(item.price || 0),
                 variant_pricing: [],
-                temperature_flags: temperatureFlags
+                temperature_flags: temperatureFlags,
+                addon_limit: item.addon_limit != null ? Number(item.addon_limit) : null
             });
         }
 
@@ -729,7 +738,8 @@ exports.getBaristaDefaults = async (req, res) => {
             addon_groups,
             base_price: Number(item.price || 0),
             variant_pricing: variantPricing,
-            temperature_flags: temperatureFlags
+            temperature_flags: temperatureFlags,
+            addon_limit: item.addon_limit != null ? Number(item.addon_limit) : null
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

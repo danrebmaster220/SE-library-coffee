@@ -103,6 +103,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
   const [isCustomizable, setIsCustomizable] = useState(false);
   const [activeAddonTab, setActiveAddonTab] = useState(null);
   const [variantPricing, setVariantPricing] = useState([]);
+  const [addonLimit, setAddonLimit] = useState(null); // Global add-on limit from category (null = unlimited)
   
   const { isPhone, isLandscape, width, height } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -124,6 +125,7 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
         setIsCustomizable(true);
         setCustomizationGroups(data.groups);
         setVariantPricing(data.variant_pricing || []);
+        setAddonLimit(data.addon_limit != null ? Number(data.addon_limit) : null);
         
         const initialSelections = {};
         data.groups.forEach(group => {
@@ -238,6 +240,16 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
           }
         };
       } else {
+        // Check global addon limit before selecting
+        if (addonLimit != null) {
+          const currentTotal = getTotalAddonQuantity(prev);
+          // If we're replacing an existing selection, no net increase
+          const netIncrease = current?.option ? 0 : 1;
+          if (currentTotal + netIncrease > addonLimit) {
+            Alert.alert("Add-on Limit Reached", `Maximum of ${addonLimit} total add-ons allowed.`);
+            return prev;
+          }
+        }
         return {
           ...prev,
           [group.group_id]: {
@@ -250,11 +262,49 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
     });
   };
 
+  // Helper: compute total add-on quantity across all groups (excluding Size/Temperature)
+  const getTotalAddonQuantity = (currentSelections) => {
+    let total = 0;
+    const addonGroups = customizationGroups.filter(
+      g => !isSizeGroupName(g.name) && !isTempGroupName(g.name)
+    );
+    for (const group of addonGroups) {
+      const sel = currentSelections[group.group_id];
+      if (!sel) continue;
+      if (sel.type === "quantity" && sel.options) {
+        total += Object.values(sel.options).reduce(
+          (sum, opt) => sum + (opt?.quantity || 0), 0
+        );
+      } else if (sel.type === "single" && sel.option) {
+        total += 1;
+      } else if (sel.type === "multiple" && sel.options) {
+        total += Object.values(sel.options).filter(o => o && o.quantity > 0).length;
+      }
+    }
+    return total;
+  };
+
   const handleQuantityChange = (group, option, change) => {
     setSelections(prev => {
       const current = prev[group.group_id] || { type: "quantity", options: {} };
       const currentQty = current.options?.[option.option_id]?.quantity || 0;
-      const newQty = Math.max(0, Math.min(currentQty + change, option.max_quantity || 10));
+      const maxQty = option.max_quantity || 99;
+      const newQty = Math.max(0, Math.min(currentQty + change, maxQty));
+
+      // Check per-option max_quantity
+      if (change > 0 && currentQty >= maxQty) {
+        Alert.alert("Limit Reached", `Maximum ${maxQty} for ${option.name}`);
+        return prev;
+      }
+
+      // Check global addon limit
+      if (change > 0 && addonLimit != null) {
+        const currentTotal = getTotalAddonQuantity(prev);
+        if (currentTotal >= addonLimit) {
+          Alert.alert("Add-on Limit Reached", `Maximum of ${addonLimit} total add-ons allowed.`);
+          return prev;
+        }
+      }
       
       return {
         ...prev,

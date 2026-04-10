@@ -176,7 +176,7 @@ exports.getCategories = async (req, res) => {
 
 // Create Category
 exports.createCategory = async (req, res) => {
-    const { name, icon, status, allow_hot, allow_iced } = req.body;
+    const { name, icon, status, allow_hot, allow_iced, addon_limit } = req.body;
     let connection;
 
     try {
@@ -187,14 +187,17 @@ exports.createCategory = async (req, res) => {
         const [maxResult] = await connection.query('SELECT COALESCE(MAX(category_id), 0) + 1 as nextId FROM categories FOR UPDATE');
         const nextId = maxResult[0].nextId;
 
+        const parsedLimit = addon_limit != null && addon_limit !== '' ? parseInt(addon_limit, 10) : null;
+
         await connection.query(
-            'INSERT INTO categories (category_id, name, status, allow_hot, allow_iced) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO categories (category_id, name, status, allow_hot, allow_iced, addon_limit) VALUES (?, ?, ?, ?, ?, ?)',
             [
                 nextId,
                 name,
                 status || 'active',
                 toTinyBool(allow_hot, 1),
-                toTinyBool(allow_iced, 1)
+                toTinyBool(allow_iced, 1),
+                Number.isNaN(parsedLimit) ? null : parsedLimit
             ]
         );
         
@@ -214,16 +217,19 @@ exports.createCategory = async (req, res) => {
 // Update Category
 exports.updateCategory = async (req, res) => {
     const { id } = req.params;
-    const { name, icon, status, allow_hot, allow_iced } = req.body;
+    const { name, icon, status, allow_hot, allow_iced, addon_limit } = req.body;
 
     try {
+        const parsedLimit = addon_limit != null && addon_limit !== '' ? parseInt(addon_limit, 10) : null;
+
         await db.query(
-            'UPDATE categories SET name = ?, status = ?, allow_hot = ?, allow_iced = ? WHERE category_id = ?',
+            'UPDATE categories SET name = ?, status = ?, allow_hot = ?, allow_iced = ?, addon_limit = ? WHERE category_id = ?',
             [
                 name,
                 status,
                 toTinyBool(allow_hot, 1),
                 toTinyBool(allow_iced, 1),
+                Number.isNaN(parsedLimit) ? null : parsedLimit,
                 id
             ]
         );

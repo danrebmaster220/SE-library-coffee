@@ -31,7 +31,7 @@ export default function MenuCategories() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true });
+  const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true, addon_limit: "" });
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,8 @@ export default function MenuCategories() {
                     name: formData.name.trim(),
                     status: formData.status,
                     allow_hot: hot,
-                    allow_iced: iced
+                    allow_iced: iced,
+                    addon_limit: formData.addon_limit !== "" ? parseInt(formData.addon_limit, 10) : null
                   }
                 : c
             )
@@ -96,6 +97,7 @@ export default function MenuCategories() {
                 status: formData.status,
                 allow_hot: hot,
                 allow_iced: iced,
+                addon_limit: formData.addon_limit !== "" ? parseInt(formData.addon_limit, 10) : null,
                 created_at: new Date().toISOString()
               }
             ])
@@ -143,7 +145,8 @@ export default function MenuCategories() {
       name: category.name,
       status: category.status || "active",
       allow_hot: toFlag01(category.allow_hot, true) === 1,
-      allow_iced: toFlag01(category.allow_iced, true) === 1
+      allow_iced: toFlag01(category.allow_iced, true) === 1,
+      addon_limit: category.addon_limit != null ? String(category.addon_limit) : ""
     });
     setShowModal(true);
   };
@@ -157,7 +160,7 @@ export default function MenuCategories() {
   const closeModal = () => {
     setShowModal(false);
     setEditingCategory(null);
-    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true });
+    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true, addon_limit: "" });
   };
 
   const filteredCategories = categories.filter((cat) => {
@@ -257,6 +260,7 @@ export default function MenuCategories() {
                     <th>ID</th>
                     <th>Category Name</th>
                     <th>Temp Modes</th>
+                    <th>Add-on Limit</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -273,6 +277,11 @@ export default function MenuCategories() {
                           toFlag01(category.allow_hot, true) === 1,
                           toFlag01(category.allow_iced, true) === 1
                         )}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: category.addon_limit != null ? '#e65100' : '#888', fontWeight: 600 }}>
+                        {category.addon_limit != null ? category.addon_limit : 'Unlimited'}
                       </span>
                     </td>
                     <td>
@@ -383,6 +392,21 @@ export default function MenuCategories() {
               <small className="form-hint" style={{ display: 'block', marginTop: '6px' }}>
                 These toggles control which Temperature options appear for items in this category.
               </small>
+              <div className="form-group" style={{ marginTop: '16px' }}>
+                <label className="form-label">Add-on Limit</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.addon_limit}
+                  onChange={(e) => setFormData({ ...formData, addon_limit: e.target.value })}
+                  placeholder="Leave empty for unlimited"
+                  min="1"
+                  max="99"
+                />
+                <small className="form-hint" style={{ display: 'block', marginTop: '4px' }}>
+                  Maximum total add-on quantity across all groups (e.g., 3 for drinks). Leave empty for no limit.
+                </small>
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeModal}>
                   Cancel

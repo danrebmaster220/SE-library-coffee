@@ -133,6 +133,7 @@ export default function POS() {
   const [selectedCustomizations, setSelectedCustomizations] = useState({});
   const [quantitySelections, setQuantitySelections] = useState({}); // For pump-based options {groupId: {optionId: quantity}}
   const [activeAddonTab, setActiveAddonTab] = useState(null); // For tabbed add-ons
+  const [addonLimit, setAddonLimit] = useState(null); // Global add-on limit from category (null = unlimited)
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState(null);
   const [voidReasonType, setVoidReasonType] = useState('');
@@ -431,6 +432,7 @@ export default function POS() {
         setCustomizationGroups(groups);
         setSelectedCustomizations(defaults);
         setQuantitySelections({});
+        setAddonLimit(baristaData.addon_limit != null ? Number(baristaData.addon_limit) : null);
         setShowCustomization(true);
         return;
       }
@@ -468,6 +470,7 @@ export default function POS() {
         setCustomizationGroups(groups);
         setSelectedCustomizations(defaults);
         setQuantitySelections({});
+        setAddonLimit(res.data.addon_limit != null ? Number(res.data.addon_limit) : null);
         setShowCustomization(true);
         return;
       }
@@ -497,9 +500,34 @@ export default function POS() {
         if (current.includes(optionId)) {
           return { ...prev, [groupId]: current.filter(id => id !== optionId) };
         } else {
+          // Check global addon limit before adding
+          if (addonLimit != null) {
+            const currentTotal = getTotalAddonQuantity(quantitySelections, prev);
+            if (currentTotal >= addonLimit) {
+              showToast(`Maximum of ${addonLimit} total add-ons reached`, 'warning');
+              return prev;
+            }
+          }
           return { ...prev, [groupId]: [...current, optionId] };
         }
       } else {
+        // Single-select Add-ons (non-required): toggling on counts as 1, toggling off frees 1
+        const current = prev[groupId] || [];
+        const isDeselecting = current.includes(optionId);
+        if (!isDeselecting && addonLimit != null) {
+          // Check if this is an add-on group (not Size/Temperature)
+          const changedGroup = customizationGroups.find((g) => (g.group_id || g.id) === Number(groupId));
+          const isAddonGroup = changedGroup && !isSizeGroupName(changedGroup.name) && !isTempGroupName(changedGroup.name);
+          if (isAddonGroup) {
+            const currentTotal = getTotalAddonQuantity(quantitySelections, prev);
+            // If the group already has a selection, we're swapping (no net increase)
+            const netIncrease = current.length === 0 ? 1 : 0;
+            if (currentTotal + netIncrease > addonLimit) {
+              showToast(`Maximum of ${addonLimit} total add-ons reached`, 'warning');
+              return prev;
+            }
+          }
+        }
         const next = { ...prev, [groupId]: [optionId] };
         const changedGroup = customizationGroups.find((g) => (g.group_id || g.id) === Number(groupId));
         if (changedGroup && isTempGroupName(changedGroup.name)) {
@@ -527,12 +555,53 @@ export default function POS() {
     });
   };
 
+  // Helper: compute total add-on quantity across all groups (for global limit check)
+  const getTotalAddonQuantity = (currentQuantitySelections, currentSelectedCustomizations) => {
+    let total = 0;
+    // Count quantity-based add-ons (pumps)
+    const addonGroupIds = customizationGroups
+      .filter(g => !isSizeGroupName(g.name) && !isTempGroupName(g.name))
+      .map(g => g.group_id || g.id);
+
+    for (const gid of addonGroupIds) {
+      const group = customizationGroups.find(g => (g.group_id || g.id) === gid);
+      if (group?.input_type === 'quantity') {
+        const groupQty = currentQuantitySelections[gid] || {};
+        total += Object.values(groupQty).reduce((sum, qty) => sum + (qty || 0), 0);
+      } else {
+        // Single/multiple select add-ons: count each selected option as 1
+        total += (currentSelectedCustomizations[gid] || []).length;
+      }
+    }
+    return total;
+  };
+
   // Handle quantity-based options (pumps for Syrup/Sauces)
   const handleQuantityChange = (groupId, optionId, change) => {
+    // Find the option to get its max_quantity
+    const group = customizationGroups.find(g => (g.group_id || g.id) === Number(groupId));
+    const option = group?.options?.find(o => (o.option_id || o.id) === Number(optionId));
+    const maxQty = option?.max_quantity || 99;
+
     setQuantitySelections(prev => {
       const groupQty = prev[groupId] || {};
       const currentQty = groupQty[optionId] || 0;
-      const newQty = Math.max(0, Math.min(currentQty + change, 10));
+      let newQty = Math.max(0, Math.min(currentQty + change, maxQty));
+
+      // Check per-option max_quantity
+      if (change > 0 && newQty > maxQty) {
+        showToast(`Maximum ${maxQty} for ${option?.name || 'this option'}`, 'warning');
+        return prev;
+      }
+
+      // Check global addon limit
+      if (change > 0 && addonLimit != null) {
+        const currentTotal = getTotalAddonQuantity(prev, selectedCustomizations);
+        if (currentTotal >= addonLimit) {
+          showToast(`Maximum of ${addonLimit} total add-ons reached`, 'warning');
+          return prev;
+        }
+      }
       
       return {
         ...prev,
