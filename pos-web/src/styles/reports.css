@@ -490,10 +490,22 @@
   border-color: #b3e5fc;
 }
 
-.status-badge.audit-shift {
-  background: #fff3bf;
-  color: #8d6b00;
-  border-color: #ffe08a;
+.status-badge.audit-shift-started {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.status-badge.audit-shift-ended {
+  background: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
+}
+
+.status-badge.audit-shift-force-closed {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #ef9a9a;
 }
 
 .status-badge.audit-order {

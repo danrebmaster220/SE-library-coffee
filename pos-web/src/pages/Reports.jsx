@@ -385,8 +385,17 @@ export default function Reports() {
       return 'audit-auth';
     }
 
-    if (normalized.startsWith('shift_') || normalized.includes('shift')) {
-      return 'audit-shift';
+    if (normalized === 'shift_started') {
+      return 'audit-shift-started';
+    }
+    if (normalized === 'shift_ended') {
+      return 'audit-shift-ended';
+    }
+    if (normalized === 'shift_force_closed') {
+      return 'audit-shift-force-closed';
+    }
+    if (normalized.includes('shift')) {
+      return 'audit-shift-started';
     }
 
     if (
