@@ -240,21 +240,21 @@ exports.getSalesChart = async (req, res) => {
     }
 };
 
-/** Date window for transactions — must match Sales Overview chart periods. */
+/** Date window for category sales — each period covers a distinct time range. */
 const getCategorySalesDateClause = (periodRaw) => {
     const p = String(periodRaw || 'daily').toLowerCase();
     switch (p) {
         case 'daily':
         case 'today':  // legacy fallback
-            return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
+            return 'DATE(t.created_at) = CURDATE()';
         case 'weekly':
-            return 'MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
+            return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
         case 'monthly':
             return 'MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
         case 'yearly':
             return 'YEAR(t.created_at) = YEAR(CURDATE())';
         default:
-            return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
+            return 'DATE(t.created_at) = CURDATE()';
     }
 };
 
