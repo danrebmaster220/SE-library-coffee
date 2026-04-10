@@ -395,13 +395,14 @@ export default function MenuCategories() {
               <div className="form-group" style={{ marginTop: '16px' }}>
                 <label className="form-label">Add-on Limit</label>
                 <input
-                  type="number"
+                  type="text"
                   className="form-input"
                   value={formData.addon_limit}
-                  onChange={(e) => setFormData({ ...formData, addon_limit: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setFormData({ ...formData, addon_limit: val });
+                  }}
                   placeholder="Leave empty for unlimited"
-                  min="1"
-                  max="99"
                 />
                 <small className="form-hint" style={{ display: 'block', marginTop: '4px' }}>
                   Maximum total add-on quantity across all groups (e.g., 3 for drinks). Leave empty for no limit.
