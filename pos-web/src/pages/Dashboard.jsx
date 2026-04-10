@@ -24,9 +24,9 @@ export default function Dashboard() {
   };
 
   /** Sales Overview chart (left) — independent from category breakdown period. */
-  const [overviewPeriod, setOverviewPeriod] = useState('weekly');
+  const [overviewPeriod, setOverviewPeriod] = useState('daily');
   /** Sales by Category list (right) — its own filter; does not change the chart. */
-  const [categoryPeriod, setCategoryPeriod] = useState('weekly');
+  const [categoryPeriod, setCategoryPeriod] = useState('daily');
   const [loading, setLoading] = useState(true);
   const [isCompactChart, setIsCompactChart] = useState(getInitialCompactChart);
 
@@ -47,7 +47,7 @@ export default function Dashboard() {
   });
 
   const [chartData, setChartData] = useState({
-    today: [],
+    daily: [],
     weekly: [],
     monthly: [],
     yearly: []
@@ -92,7 +92,7 @@ export default function Dashboard() {
         });
 
         setChartData({
-          today: salesChartRes.data.today || [],
+          daily: salesChartRes.data.daily || [],
           weekly: salesChartRes.data.weekly || [],
           monthly: salesChartRes.data.monthly || [],
           yearly: salesChartRes.data.yearly || []
@@ -137,23 +137,22 @@ export default function Dashboard() {
   // Get current chart data based on selected period
   const getChartData = () => {
     switch (overviewPeriod) {
-      case 'today':
-        return { data: chartData.today, labelKey: 'hour' };
+      case 'daily':
+        return { data: chartData.daily, labelKey: 'day' };
+      case 'weekly':
+        return { data: chartData.weekly, labelKey: 'week' };
       case 'monthly':
         return { data: chartData.monthly, labelKey: 'month' };
       case 'yearly':
         return { data: chartData.yearly, labelKey: 'year' };
       default:
-        return { data: chartData.weekly, labelKey: 'day' };
+        return { data: chartData.daily, labelKey: 'day' };
     }
   };
 
   const { data: currentChartData, labelKey } = getChartData();
 
-  const formatXAxisTick = (value, index) => {
-    if (overviewPeriod === 'today' && isCompactChart) {
-      return index % 2 === 0 || index === currentChartData.length - 1 ? value : '';
-    }
+  const formatXAxisTick = (value) => {
     return value;
   };
 
@@ -249,8 +248,8 @@ export default function Dashboard() {
             <div className="period-tabs">
               <button
                 type="button"
-                className={`period-btn ${overviewPeriod === 'today' ? 'active' : ''}`}
-                onClick={() => setOverviewPeriod('today')}
+                className={`period-btn ${overviewPeriod === 'daily' ? 'active' : ''}`}
+                onClick={() => setOverviewPeriod('daily')}
               >
                 Daily
               </button>
@@ -345,8 +344,8 @@ export default function Dashboard() {
             <div className="period-tabs">
               <button
                 type="button"
-                className={`period-btn ${categoryPeriod === 'today' ? 'active' : ''}`}
-                onClick={() => setCategoryPeriod('today')}
+                className={`period-btn ${categoryPeriod === 'daily' ? 'active' : ''}`}
+                onClick={() => setCategoryPeriod('daily')}
               >
                 Daily
               </button>

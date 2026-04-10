@@ -37,10 +37,12 @@ const Header = ({ customerName, orderType, isPhone: isPhoneProp }) => {
         </View>
 
         <View style={[styles.headerSide, styles.headerSideRight, isPhone && styles.headerSidePhone]}>
-          <Image
-            source={require("../assets/images/logo/logo.png")}
-            style={[styles.logo, isPhone && styles.logoPhone]}
-          />
+          <View style={[styles.logoContainer, isPhone && styles.logoContainerPhone]}>
+            <Image
+              source={require("../assets/images/logo/logo.png")}
+              style={[styles.logo, isPhone && styles.logoPhone]}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -122,5 +124,14 @@ const styles = StyleSheet.create({
   logoPhone: {
     width: 60,
     height: 45,
+  },
+  logoContainer: {
+    backgroundColor: '#efe6d8',
+    borderRadius: 10,
+    padding: 4,
+  },
+  logoContainerPhone: {
+    borderRadius: 8,
+    padding: 3,
   },
 });

@@ -110,38 +110,8 @@ exports.getLibraryStatus = async (req, res) => {
 // Get sales chart data - returns all periods
 exports.getSalesChart = async (req, res) => {
     try {
-        // Hourly sales for today
-        const [todayData] = await db.query(`
-            SELECT 
-                HOUR(t.created_at) as hour,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
-            FROM transactions t
-            LEFT JOIN (
-                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
-                FROM void_log
-                WHERE action_type = 'refund'
-                GROUP BY transaction_id
-            ) vl ON vl.transaction_id = t.transaction_id
-            WHERE DATE(t.created_at) = CURDATE()
-            AND t.status NOT IN ('voided', 'pending')
-            GROUP BY HOUR(t.created_at)
-            ORDER BY hour ASC
-        `);
-        
-        // Fill in missing hours based on operating window (8AM-11PM)
-        // Labels use 12NN/12MN to avoid ambiguous duplicate 12PM formatting.
-        const hourlyData = [];
-        for (let h = 8; h <= 23; h++) {
-            const found = todayData.find(d => d.hour === h);
-            const hourLabel = formatHourLabel(h);
-            hourlyData.push({
-                hour: hourLabel,
-                sales: found ? parseFloat(found.sales) : 0
-            });
-        }
-
-        // Daily sales for current week
-        const [weekData] = await db.query(`
+        // ── DAILY: sales per day of current week (Mon–Sun) ──
+        const [dailyWeekData] = await db.query(`
             SELECT 
                 DAYOFWEEK(t.created_at) as day_num,
                 COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
@@ -157,19 +127,51 @@ exports.getSalesChart = async (req, res) => {
             GROUP BY DAYOFWEEK(t.created_at)
             ORDER BY day_num ASC
         `);
-        
+
         // Fill in all days of week (Monday first)
         const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const dayNums = [2, 3, 4, 5, 6, 7, 1]; // MySQL DAYOFWEEK: 1=Sun, 2=Mon, etc.
-        const weeklyData = dayNames.map((day, idx) => {
-            const found = weekData.find(d => d.day_num === dayNums[idx]);
+        const dailyData = dayNames.map((day, idx) => {
+            const found = dailyWeekData.find(d => d.day_num === dayNums[idx]);
             return {
                 day: day,
                 sales: found ? parseFloat(found.sales) : 0
             };
         });
 
-        // Monthly chart: sales per calendar month for the current year (Jan–Dec)
+        // ── WEEKLY: sales per week of current month (Week 1–5) ──
+        const [weekOfMonthData] = await db.query(`
+            SELECT 
+                CEIL(DAY(t.created_at) / 7) as week_num,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE MONTH(t.created_at) = MONTH(CURDATE())
+            AND YEAR(t.created_at) = YEAR(CURDATE())
+            AND t.status NOT IN ('voided', 'pending')
+            GROUP BY CEIL(DAY(t.created_at) / 7)
+            ORDER BY week_num ASC
+        `);
+
+        // Determine how many weeks the current month has
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const totalWeeks = Math.ceil(daysInMonth / 7);
+        const weeklyData = [];
+        for (let w = 1; w <= totalWeeks; w++) {
+            const found = weekOfMonthData.find(d => Number(d.week_num) === w);
+            weeklyData.push({
+                week: `Week ${w}`,
+                sales: found ? parseFloat(found.sales) : 0
+            });
+        }
+
+        // ── MONTHLY: sales per calendar month for current year (Jan–Dec) ──
         const [monthOfYearData] = await db.query(`
             SELECT 
                 MONTH(t.created_at) as month_num,
@@ -196,7 +198,7 @@ exports.getSalesChart = async (req, res) => {
             };
         });
 
-        // Yearly chart: rolling 5-year window ending in current calendar year
+        // ── YEARLY: rolling 5-year window ending in current calendar year ──
         const [multiYearRows] = await db.query(`
             SELECT 
                 YEAR(t.created_at) as year_num,
@@ -227,7 +229,7 @@ exports.getSalesChart = async (req, res) => {
         }
 
         res.json({
-            today: hourlyData,
+            daily: dailyData,
             weekly: weeklyData,
             monthly: monthlyData,
             yearly: yearlyData
@@ -240,12 +242,13 @@ exports.getSalesChart = async (req, res) => {
 
 /** Date window for transactions — must match Sales Overview chart periods. */
 const getCategorySalesDateClause = (periodRaw) => {
-    const p = String(periodRaw || 'weekly').toLowerCase();
+    const p = String(periodRaw || 'daily').toLowerCase();
     switch (p) {
-        case 'today':
-            return 'DATE(t.created_at) = CURDATE()';
-        case 'weekly':
+        case 'daily':
+        case 'today':  // legacy fallback
             return 'YEARWEEK(t.created_at, 1) = YEARWEEK(CURDATE(), 1)';
+        case 'weekly':
+            return 'MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
         case 'monthly':
             return 'MONTH(t.created_at) = MONTH(CURDATE()) AND YEAR(t.created_at) = YEAR(CURDATE())';
         case 'yearly':
