@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions, BackHandler } from "react-native";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useResponsive } from "../hooks/useResponsive";
 
@@ -50,6 +50,27 @@ const OrderSuccess = () => {
     return () => subscription.remove();
   }, [router]);
 
+  // Auto-redirect countdown (10 seconds)
+  const [countdown, setCountdown] = useState(10);
+  const countdownRef = useRef(null);
+
+  useEffect(() => {
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          router.replace("/");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [router]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <TouchableOpacity 
@@ -69,7 +90,8 @@ const OrderSuccess = () => {
 
             {/* Title */}
             <Text style={[styles.title, isPhone && styles.titlePhone]}>Order Placed!</Text>
-            <Text style={styles.subtitle}>Tap anywhere to continue</Text>
+            <Text style={styles.subtitle}>Returning to home in {countdown}s...</Text>
+            <Text style={styles.subtitleHint}>Tap anywhere to continue</Text>
 
             {/* Main Content Row */}
             <View style={styles.contentRow}>
@@ -173,6 +195,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
+    color: "#D4AF37",
+    marginBottom: 4,
+    fontWeight: "600",
+  },
+  subtitleHint: {
+    fontSize: 12,
     color: "#999",
     marginBottom: 20,
   },

@@ -626,9 +626,9 @@ export default function MenuPage() {
             <View style={styles.floatingCartContent}>
               <View style={styles.floatingCartLeft}>
                 <ShoppingCart color="#fff" size={22} />
-                {totalCartItems > 0 && (
+                {(totalCartItems > 0 || currentLibraryBooking) && (
                   <View style={styles.cartBadge}>
-                    <Text style={styles.cartBadgeText}>{totalCartItems}</Text>
+                    <Text style={styles.cartBadgeText}>{totalCartItems + (currentLibraryBooking ? 1 : 0)}</Text>
                   </View>
                 )}
               </View>

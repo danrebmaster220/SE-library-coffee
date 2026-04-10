@@ -1634,12 +1634,13 @@ export default function POS() {
                   <div className="quantity-controls">
                     <button 
                       onClick={() => handleDecreaseQuantity(item)}
-                      className={pendingOrderId ? 'qty-btn-auth' : ''}
+                      disabled={!!pendingOrderId}
+                      className={pendingOrderId ? 'qty-btn-disabled' : ''}
                     >-</button>
                     <span>{item.quantity}</span>
                     <button 
                       onClick={() => handleIncreaseQuantity(item)}
-                      disabled={pendingOrderId}
+                      disabled={!!pendingOrderId}
                       className={pendingOrderId ? 'qty-btn-disabled' : ''}
                     >+</button>
                   </div>
@@ -2051,7 +2052,7 @@ export default function POS() {
                   <button onClick={() => setCashAmount(String(calculateTotal()))} className="quick-cash-btn exact-btn">
                     Exact
                   </button>
-                  {[200, 500, 1000, 2000].map(amount => (
+                  {[100, 200, 500, 1000].map(amount => (
                     <button key={amount} onClick={() => setCashAmount(String(amount))} className="quick-cash-btn">
                       ₱{amount}
                     </button>
