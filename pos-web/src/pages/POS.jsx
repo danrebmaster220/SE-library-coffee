@@ -112,7 +112,7 @@ export default function POS() {
   /** 'all' = entire menu; otherwise category_id number */
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [menuBranchMode, setMenuBranchMode] = useState('all');
-  const [menuIcedSize, setMenuIcedSize] = useState(null);
+  const [menuIcedSize, setMenuIcedSize] = useState('medium');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [cart, setCart] = useState(() => {
     const d = loadPosDraft();
@@ -339,13 +339,13 @@ export default function POS() {
 
   useEffect(() => {
     setMenuBranchMode('all');
-    setMenuIcedSize(null);
+    setMenuIcedSize('medium');
   }, [selectedCategory]);
 
   useEffect(() => {
     if (selectedCategory === 'all' && !menuSearchQuery.trim()) {
       setMenuBranchMode('all');
-      setMenuIcedSize(null);
+      setMenuIcedSize('medium');
     }
   }, [menuSearchQuery, selectedCategory]);
 
@@ -1497,7 +1497,7 @@ export default function POS() {
                   <button
                     type="button"
                     className={`pos-branch-chip pos-branch-chip--temp ${menuBranchMode === 'all' ? 'active' : ''}`}
-                    onClick={() => { setMenuBranchMode('all'); setMenuIcedSize(null); }}
+                    onClick={() => { setMenuBranchMode('all'); setMenuIcedSize('medium'); }}
                   >
                     All
                   </button>
@@ -1514,7 +1514,7 @@ export default function POS() {
                     <button
                       type="button"
                       className={`pos-branch-chip pos-branch-chip--temp ${menuBranchMode === 'hot' ? 'active' : ''}`}
-                      onClick={() => { setMenuBranchMode('hot'); setMenuIcedSize(null); }}
+                      onClick={() => { setMenuBranchMode('hot'); setMenuIcedSize('medium'); }}
                     >
                       Hot
                     </button>
@@ -1527,13 +1527,7 @@ export default function POS() {
                   <div className="pos-filter-inline-group">
                     <span className="pos-filter-inline-label">Size</span>
                     <div className="pos-branch-chips pos-branch-chips--inline">
-                      <button
-                        type="button"
-                        className={`pos-branch-chip pos-branch-chip--size ${menuIcedSize === null ? 'active' : ''}`}
-                        onClick={() => setMenuIcedSize(null)}
-                      >
-                        Any
-                      </button>
+
                       <button
                         type="button"
                         className={`pos-branch-chip pos-branch-chip--size ${menuIcedSize === 'medium' ? 'active' : ''}`}

@@ -1558,9 +1558,14 @@ exports.exportPDF = async (req, res) => {
             filename = `Library_Report_${startDate}_to_${endDate}.pdf`;
 
             let whereConditions = ['1=1'];
-            const params = [startDate, endDate];
+            const params = [];
 
-            if (status) {
+            if (startDate && endDate) {
+                whereConditions.push('DATE(ls.start_time) BETWEEN ? AND ?');
+                params.push(startDate, endDate);
+            }
+
+            if (status && status !== 'all') {
                 whereConditions.push('ls.status = ?');
                 params.push(status);
             }
@@ -1573,25 +1578,32 @@ exports.exportPDF = async (req, res) => {
             const [sessions] = await db.query(`
                 SELECT 
                     ls.session_id,
+                    ls.seat_id,
+                    s.seat_number,
+                    s.table_number,
                     ls.customer_name,
-                    ls.check_in_time,
-                    ls.check_out_time,
-                    ls.duration_hours,
-                    ls.fee,
-                    ls.status,
-                    lt.table_name,
-                    ls.seat_number
+                    ls.start_time,
+                    ls.end_time,
+                    ls.paid_minutes,
+                    ls.total_minutes,
+                    ls.amount_paid,
+                    ls.amount_due,
+                    ls.status
                 FROM library_sessions ls
-                LEFT JOIN library_tables lt ON ls.table_id = lt.table_id
-                WHERE DATE(ls.check_in_time) BETWEEN ? AND ?
-                AND ${whereConditions.join(' AND ')}
-                ORDER BY ls.check_in_time DESC
+                LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
+                WHERE ${whereConditions.join(' AND ')}
+                ORDER BY ls.start_time DESC
             `, params);
 
             // Calculate summary
             const totalSessions = sessions.length;
-            const totalRevenue = sessions.reduce((sum, s) => sum + parseFloat(s.fee || 0), 0);
-            const totalHours = sessions.reduce((sum, s) => sum + parseFloat(s.duration_hours || 0), 0);
+            const completedSessions = sessions.filter(s => s.status === 'completed').length;
+            const activeSessions = sessions.filter(s => s.status === 'active').length;
+            const totalMinutes = sessions.reduce((sum, s) => sum + parseInt(s.total_minutes || 0), 0);
+            const totalHours = (totalMinutes / 60).toFixed(2);
+            const totalRevenue = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
 
             // Page header
             let y = addPageHeader('Library Report', `Date Range: ${startDate} to ${endDate}`);
@@ -1601,26 +1613,31 @@ exports.exportPDF = async (req, res) => {
             doc.text('Summary', 40, y);
             y += 18;
             doc.font('Helvetica').fontSize(10).fillColor('black');
-            doc.text(`Total Sessions: ${totalSessions}    |    Total Revenue: ${formatCurrency(totalRevenue)}    |    Total Hours: ${totalHours.toFixed(1)}`, 40, y);
+            doc.text(`Total Sessions: ${totalSessions}    |    Completed: ${completedSessions}    |    Active: ${activeSessions}    |    Total Hours: ${totalHours}    |    Revenue: ${formatCurrency(totalRevenue)}`, 40, y);
             y += 30;
 
             // Table
-            const headers = ['Session #', 'Customer', 'Table/Seat', 'Check In', 'Check Out', 'Duration', 'Fee', 'Status'];
+            const headers = ['Session #', 'Customer', 'Table/Seat', 'Start Time', 'End Time', 'Duration', 'Amount', 'Status'];
             const columnWidths = [80, 120, 80, 110, 110, 70, 80, 70];
             
             y = drawTableHeader(headers, y, columnWidths);
 
             sessions.forEach((session, index) => {
                 y = checkNewPage(y);
+                const durationMins = session.total_minutes || 0;
+                const hours = Math.floor(durationMins / 60);
+                const mins = durationMins % 60;
+                const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
                 const rowData = [
-                    `SES-${String(session.session_id).padStart(6, '0')}`,
+                    `LIB-${String(session.session_id).padStart(6, '0')}`,
                     session.customer_name || '-',
-                    session.table_name ? `${session.table_name} / Seat ${session.seat_number}` : '-',
-                    formatDateTime(session.check_in_time),
-                    session.check_out_time ? formatDateTime(session.check_out_time) : '-',
-                    session.duration_hours ? `${parseFloat(session.duration_hours).toFixed(1)} hrs` : '-',
-                    formatCurrency(session.fee),
-                    session.status
+                    session.table_number ? `T${session.table_number} / S${session.seat_number}` : '-',
+                    formatDateTime(session.start_time),
+                    session.end_time ? formatDateTime(session.end_time) : '-',
+                    durationStr,
+                    formatCurrency(session.amount_paid || session.amount_due),
+                    session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
                 ];
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });

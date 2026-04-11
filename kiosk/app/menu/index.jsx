@@ -83,7 +83,7 @@ export default function MenuPage() {
 
   /** Iced / Hot branch (only for categories with allow_iced / allow_hot) */
   const [branchMode, setBranchMode] = useState('all'); // 'all' | 'iced' | 'hot'
-  const [icedSize, setIcedSize] = useState(null); // null | 'medium' | 'large'
+  const [icedSize, setIcedSize] = useState('medium'); // 'medium' | 'large'
 
   // Handle category scroll to show/hide arrows
   const handleCategoryScroll = useCallback((event) => {
@@ -277,7 +277,7 @@ export default function MenuPage() {
   const selectCategory = useCallback((name) => {
     setSelectedCategory(name);
     setBranchMode('all');
-    setIcedSize(null);
+    setIcedSize('medium');
   }, []);
 
   // Fetch categories on mount
@@ -398,7 +398,7 @@ export default function MenuPage() {
       <>
         <TouchableOpacity
           style={[styles.branchChip, branchMode === 'all' && styles.branchChipActive]}
-          onPress={() => { setBranchMode('all'); setIcedSize(null); }}
+          onPress={() => { setBranchMode('all'); setIcedSize('medium'); }}
         >
           <Text style={[styles.branchChipText, branchMode === 'all' && styles.branchChipTextActive]}>All</Text>
         </TouchableOpacity>
@@ -413,7 +413,7 @@ export default function MenuPage() {
         {Number(currentCategoryObj.allow_hot ?? 1) === 1 && (
           <TouchableOpacity
             style={[styles.branchChip, branchMode === 'hot' && styles.branchChipActive]}
-            onPress={() => { setBranchMode('hot'); setIcedSize(null); }}
+            onPress={() => { setBranchMode('hot'); setIcedSize('medium'); }}
           >
             <Text style={[styles.branchChipText, branchMode === 'hot' && styles.branchChipTextActive]}>Hot</Text>
           </TouchableOpacity>
@@ -423,12 +423,6 @@ export default function MenuPage() {
 
     const sizeButtons = (
       <>
-        <TouchableOpacity
-          style={[styles.branchChipSmall, icedSize === null && styles.branchChipSmallMuted]}
-          onPress={() => setIcedSize(null)}
-        >
-          <Text style={styles.branchChipText}>Any</Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.branchChipSmall, icedSize === 'medium' && styles.branchChipActive]}
           onPress={() => setIcedSize('medium')}
