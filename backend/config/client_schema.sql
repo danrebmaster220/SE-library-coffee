@@ -117,20 +117,39 @@ CREATE TABLE IF NOT EXISTS `library_seats` (
   `seat_id` int(11) NOT NULL AUTO_INCREMENT,
   `table_number` int(11) NOT NULL,
   `seat_number` int(11) NOT NULL,
-  `status` enum('available','occupied') DEFAULT 'available',
+  `status` enum('available','occupied','maintenance') DEFAULT 'available',
   PRIMARY KEY (`seat_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
+
+-- Table: library_tables
+CREATE TABLE IF NOT EXISTS `library_tables` (
+  `table_id` int(11) NOT NULL AUTO_INCREMENT,
+  `table_number` int(11) NOT NULL,
+  `table_name` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`table_id`),
+  UNIQUE KEY `table_number` (`table_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
 -- Table: library_sessions
 CREATE TABLE IF NOT EXISTS `library_sessions` (
   `session_id` int(11) NOT NULL AUTO_INCREMENT,
   `seat_id` int(11) DEFAULT NULL,
-  `customer_name` varchar(100) NOT NULL,
-  `duration_minutes` int(11) NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
+  `customer_name` varchar(100) DEFAULT NULL,
+  `start_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `end_time` datetime DEFAULT NULL,
+  `total_minutes` int(11) DEFAULT 0,
+  `amount_due` decimal(10,2) DEFAULT 0.00,
   `status` enum('active','completed','voided') DEFAULT 'active',
-  `started_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `completed_at` datetime DEFAULT NULL,
+  `paid_minutes` int(11) DEFAULT 0,
+  `amount_paid` decimal(10,2) DEFAULT 0.00,
+  `cash_tendered` decimal(10,2) DEFAULT NULL,
+  `change_due` decimal(10,2) DEFAULT NULL,
+  `voided_at` datetime DEFAULT NULL,
+  `voided_by` int(11) DEFAULT NULL,
+  `void_reason` varchar(255) DEFAULT NULL,
+  `processed_by` int(11) DEFAULT NULL,
   PRIMARY KEY (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
 
