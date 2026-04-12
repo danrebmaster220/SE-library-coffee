@@ -24,38 +24,41 @@ async function runMigrations() {
         // Migration 5: Create shifts table for cash management
         await createShiftsTable();
 
-        // Migration 6: Add 'processed_by' column to library_sessions
+        // Migration 6: Normalize legacy library schema to current API expectations
+        await ensureLibrarySchemaCompatibility();
+
+        // Migration 7: Add 'processed_by' column to library_sessions
         await addLibraryProcessedBy();
 
-        // Migration 7: Backfill/index library_sessions.processed_by from transactions
+        // Migration 8: Backfill/index library_sessions.processed_by from transactions
         await backfillLibrarySessionsProcessedBy();
 
-        // Migration 8: Fix library_sessions seat_id foreign key constraint
+        // Migration 9: Fix library_sessions seat_id foreign key constraint
         await fixLibrarySessionsForeignKey();
 
-        // Migration 9: Fix library_tables duplicate bug
+        // Migration 10: Fix library_tables duplicate bug
         await fixLibraryTablesDuplicateBug();
         await fixLibrarySessionsGhostBug();
 
-        // Migration 10: Create audit logs table for operational traces
+        // Migration 11: Create audit logs table for operational traces
         await createAuditLogsTable();
 
-        // Migration 11: Backfill historical force-closed shifts into audit logs
+        // Migration 12: Backfill historical force-closed shifts into audit logs
         await backfillShiftForceClosedAuditLogs();
 
-        // Migration 12: Clean technical backfill terms from audit details
+        // Migration 13: Clean technical backfill terms from audit details
         await sanitizeAuditBackfillDetails();
 
-        // Migration 13: Add category-level hot/iced visibility flags
+        // Migration 14: Add category-level hot/iced visibility flags
         await addCategoryTempVisibilityColumns();
 
-        // Migration 14: Create item-level variant pricing table
+        // Migration 15: Create item-level variant pricing table
         await createItemVariantPricingTable();
 
-        // Migration 15: Users — split name + optional profile image (TiDB-safe: one ADD per column, no AFTER)
+        // Migration 16: Users — split name + optional profile image (TiDB-safe: one ADD per column, no AFTER)
         await addUsersProfileColumns();
 
-        // Migration 16: Add addon_limit column to categories (NULL = unlimited)
+        // Migration 17: Add addon_limit column to categories (NULL = unlimited)
         await addCategoryAddonLimit();
 
         console.log('✅ All database migrations completed successfully.');
@@ -193,6 +196,238 @@ async function createShiftsTable() {
         }
     } catch (error) {
         console.error('   ⚠️ createShiftsTable:', error.message);
+    }
+}
+
+async function ensureLibrarySchemaCompatibility() {
+    try {
+        const tableExists = async (tableName) => {
+            const [rows] = await db.query(
+                `
+                SELECT TABLE_NAME
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+                `,
+                [tableName]
+            );
+            return rows.length > 0;
+        };
+
+        const columnExists = async (tableName, columnName) => {
+            const [rows] = await db.query(
+                `
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+                AND COLUMN_NAME = ?
+                `,
+                [tableName, columnName]
+            );
+            return rows.length > 0;
+        };
+
+        const [seatStatusCol] = await db.query(`
+            SELECT COLUMN_TYPE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'library_seats'
+            AND COLUMN_NAME = 'status'
+        `);
+
+        if (seatStatusCol.length > 0 && !seatStatusCol[0].COLUMN_TYPE.includes('maintenance')) {
+            await db.query(`
+                ALTER TABLE library_seats
+                MODIFY COLUMN status enum('available','occupied','maintenance') DEFAULT 'available'
+            `);
+            console.log('   ✅ Updated library_seats.status enum to include "maintenance"');
+        }
+
+        if (!(await tableExists('library_tables'))) {
+            await db.query(`
+                CREATE TABLE library_tables (
+                    table_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    table_number INT NOT NULL,
+                    table_name VARCHAR(100) DEFAULT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY table_number (table_number)
+                )
+            `);
+            console.log('   ✅ Created "library_tables" table');
+        } else {
+            if (!(await columnExists('library_tables', 'table_name'))) {
+                await db.query('ALTER TABLE library_tables ADD COLUMN table_name VARCHAR(100) DEFAULT NULL');
+                console.log('   ✅ Added library_tables.table_name');
+            }
+
+            if (!(await columnExists('library_tables', 'created_at'))) {
+                await db.query('ALTER TABLE library_tables ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+                console.log('   ✅ Added library_tables.created_at');
+            }
+
+            if (!(await columnExists('library_tables', 'updated_at'))) {
+                await db.query('ALTER TABLE library_tables ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+                console.log('   ✅ Added library_tables.updated_at');
+            }
+        }
+
+        if (await tableExists('library_seats')) {
+            const [seedResult] = await db.query(`
+                INSERT INTO library_tables (table_number, table_name)
+                SELECT DISTINCT ls.table_number, CONCAT('Table ', ls.table_number)
+                FROM library_seats ls
+                LEFT JOIN library_tables lt ON lt.table_number = ls.table_number
+                WHERE lt.table_number IS NULL
+            `);
+
+            const seeded = Number(seedResult?.affectedRows || 0);
+            if (seeded > 0) {
+                console.log(`   ✅ Seeded ${seeded} missing library table metadata row(s)`);
+            }
+        }
+
+        if (!(await tableExists('library_sessions'))) {
+            await db.query(`
+                CREATE TABLE library_sessions (
+                    session_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    seat_id INT DEFAULT NULL,
+                    customer_name VARCHAR(100) DEFAULT NULL,
+                    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    end_time DATETIME DEFAULT NULL,
+                    total_minutes INT DEFAULT 0,
+                    amount_due DECIMAL(10,2) DEFAULT 0.00,
+                    status enum('active','completed','voided') DEFAULT 'active',
+                    paid_minutes INT DEFAULT 0,
+                    amount_paid DECIMAL(10,2) DEFAULT 0.00,
+                    cash_tendered DECIMAL(10,2) DEFAULT NULL,
+                    change_due DECIMAL(10,2) DEFAULT NULL,
+                    voided_at DATETIME DEFAULT NULL,
+                    voided_by INT DEFAULT NULL,
+                    void_reason VARCHAR(255) DEFAULT NULL,
+                    processed_by INT DEFAULT NULL
+                )
+            `);
+            console.log('   ✅ Created "library_sessions" table with current columns');
+            return;
+        }
+
+        const hasLegacyStartedAt = await columnExists('library_sessions', 'started_at');
+        const hasLegacyCompletedAt = await columnExists('library_sessions', 'completed_at');
+        const hasLegacyDuration = await columnExists('library_sessions', 'duration_minutes');
+        const hasLegacyAmount = await columnExists('library_sessions', 'amount');
+
+        if (!(await columnExists('library_sessions', 'start_time'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN start_time DATETIME DEFAULT CURRENT_TIMESTAMP');
+            console.log('   ✅ Added library_sessions.start_time');
+        }
+
+        if (hasLegacyStartedAt) {
+            await db.query(`
+                UPDATE library_sessions
+                SET start_time = started_at
+                WHERE start_time IS NULL AND started_at IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'end_time'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN end_time DATETIME DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.end_time');
+        }
+
+        if (hasLegacyCompletedAt) {
+            await db.query(`
+                UPDATE library_sessions
+                SET end_time = completed_at
+                WHERE end_time IS NULL AND completed_at IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'total_minutes'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN total_minutes INT DEFAULT 0');
+            console.log('   ✅ Added library_sessions.total_minutes');
+        }
+
+        if (hasLegacyDuration) {
+            await db.query(`
+                UPDATE library_sessions
+                SET total_minutes = COALESCE(duration_minutes, 0)
+                WHERE (total_minutes IS NULL OR total_minutes = 0)
+                AND duration_minutes IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'amount_due'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN amount_due DECIMAL(10,2) DEFAULT 0.00');
+            console.log('   ✅ Added library_sessions.amount_due');
+        }
+
+        if (hasLegacyAmount) {
+            await db.query(`
+                UPDATE library_sessions
+                SET amount_due = COALESCE(amount, 0)
+                WHERE (amount_due IS NULL OR amount_due = 0)
+                AND amount IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'paid_minutes'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN paid_minutes INT DEFAULT 0');
+            console.log('   ✅ Added library_sessions.paid_minutes');
+        }
+
+        if (hasLegacyDuration) {
+            await db.query(`
+                UPDATE library_sessions
+                SET paid_minutes = COALESCE(duration_minutes, 0)
+                WHERE (paid_minutes IS NULL OR paid_minutes = 0)
+                AND duration_minutes IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'amount_paid'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN amount_paid DECIMAL(10,2) DEFAULT 0.00');
+            console.log('   ✅ Added library_sessions.amount_paid');
+        }
+
+        if (hasLegacyAmount) {
+            await db.query(`
+                UPDATE library_sessions
+                SET amount_paid = COALESCE(amount, 0)
+                WHERE (amount_paid IS NULL OR amount_paid = 0)
+                AND amount IS NOT NULL
+            `);
+        }
+
+        if (!(await columnExists('library_sessions', 'cash_tendered'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN cash_tendered DECIMAL(10,2) DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.cash_tendered');
+        }
+
+        if (!(await columnExists('library_sessions', 'change_due'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN change_due DECIMAL(10,2) DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.change_due');
+        }
+
+        if (!(await columnExists('library_sessions', 'voided_at'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN voided_at DATETIME DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.voided_at');
+        }
+
+        if (!(await columnExists('library_sessions', 'voided_by'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN voided_by INT DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.voided_by');
+        }
+
+        if (!(await columnExists('library_sessions', 'void_reason'))) {
+            await db.query('ALTER TABLE library_sessions ADD COLUMN void_reason VARCHAR(255) DEFAULT NULL');
+            console.log('   ✅ Added library_sessions.void_reason');
+        }
+
+        console.log('   ✅ Library schema compatibility checks completed');
+    } catch (error) {
+        console.error('   ⚠️ ensureLibrarySchemaCompatibility:', error.message);
     }
 }
 
