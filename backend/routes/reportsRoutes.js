@@ -33,8 +33,8 @@ router.get('/library', verifyToken, isAdmin, reportsController.getLibraryReport)
 // Audit trail (operational logs)
 router.get('/audit-logs', verifyToken, isAdmin, reportsController.getAuditLogs);
 
-// Export to Excel
-router.get('/export', verifyToken, isAdmin, reportsController.exportExcel);
+// Export by format (default: Excel, supports format=pdf)
+router.get('/export', verifyToken, isAdmin, reportsController.exportReport);
 
 // Export to PDF
 router.get('/export-pdf', verifyToken, isAdmin, reportsController.exportPDF);
