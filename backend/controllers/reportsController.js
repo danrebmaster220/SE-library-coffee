@@ -597,6 +597,16 @@ exports.getAuditLogs = async (req, res) => {
 
 // EXPORT TO EXCEL
 
+exports.exportReport = async (req, res) => {
+    const format = String(req.query.format || 'excel').toLowerCase();
+
+    if (format === 'pdf') {
+        return exports.exportPDF(req, res);
+    }
+
+    return exports.exportExcel(req, res);
+};
+
 exports.exportExcel = async (req, res) => {
     const { type, startDate, endDate, orderType, status, action, actorUserId, staffUserId, targetType, search, cashierUserId } = req.query;
 
