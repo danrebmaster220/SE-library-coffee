@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import CashierTopBar from './components/CashierTopBar';
 import Dashboard from './pages/Dashboard';
@@ -20,18 +20,32 @@ import Reports from './pages/Reports';
 import Config from './pages/Config';
 import CashManagement from './pages/CashManagement';
 import Login from './pages/Login';
+import ForcePasswordChange from './pages/ForcePasswordChange';
 import './App.css';
 import './styles/global.css';
 import './styles/cashier.css';
 
+function getStoredUser() {
+  const raw = localStorage.getItem('user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem('user');
+    return null;
+  }
+}
+
 // Get user role from localStorage
 function getUserRole() {
-  const storedUser = localStorage.getItem('user');
-  if (storedUser) {
-    const userData = JSON.parse(storedUser);
-    return userData.role?.toLowerCase() || 'cashier';
-  }
-  return null;
+  const userData = getStoredUser();
+  if (!userData) return null;
+  return userData.role?.toLowerCase() || 'cashier';
+}
+
+function mustForcePasswordChange() {
+  const userData = getStoredUser();
+  return Boolean(userData?.mustChangePassword);
 }
 
 // Admin Layout - with Sidebar
@@ -70,10 +84,21 @@ function CashierLayout({ children }) {
 
 // Protected Route Component - checks role and redirects if unauthorized
 function ProtectedRoute({ children, allowedRoles = ['admin', 'cashier'] }) {
+  const location = useLocation();
   const role = getUserRole();
+  const requiresPasswordChange = mustForcePasswordChange();
+  const isForcePasswordPage = location.pathname === '/force-password-change';
   
   if (!role) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiresPasswordChange && !isForcePasswordPage) {
+    return <Navigate to="/force-password-change" replace />;
+  }
+
+  if (!requiresPasswordChange && isForcePasswordPage) {
+    return <Navigate to={role === 'admin' ? '/dashboard' : '/pos'} replace />;
   }
   
   if (!allowedRoles.includes(role)) {
@@ -110,6 +135,12 @@ function App() {
       <Route path="/login" element={<Login />} />
       
       {/* Shared Routes (Admin + Cashier) */}
+      <Route path="/force-password-change" element={
+        <ProtectedRoute allowedRoles={['admin', 'cashier']}>
+          <ForcePasswordChange />
+        </ProtectedRoute>
+      } />
+
       <Route path="/pos" element={
         <ProtectedRoute allowedRoles={['admin', 'cashier']}>
           <RoleBasedLayout fullScreen={true}><POS /></RoleBasedLayout>

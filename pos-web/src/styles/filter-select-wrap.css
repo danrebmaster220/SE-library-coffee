@@ -18,23 +18,33 @@
   box-sizing: border-box;
 }
 
-.filter-select-wrap::after {
-  content: '';
+.filter-select-caret {
   position: absolute;
-  right: 14px;
-  top: 50%;
-  margin-top: -3px;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid #8d6e63;
+  right: 10px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  display: grid;
+  place-items: center;
   pointer-events: none;
-  transition: transform 0.2s ease;
-  transform: translateY(0);
 }
 
-.filter-select-wrap--open::after {
+.filter-select-caret svg {
+  display: block;
+  width: 10px;
+  height: 6px;
+  fill: none;
+  stroke: #8d6e63;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: center;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+}
+
+.filter-select-wrap--open .filter-select-caret svg {
   transform: rotate(180deg);
-  margin-top: 1px;
 }
 
 /* Phone / narrow toolbars: wrapper must stretch so <select> matches Apply button width */

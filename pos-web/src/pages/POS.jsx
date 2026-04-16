@@ -2167,7 +2167,7 @@ export default function POS() {
               
               <div style={{ width: '90%', margin: '0 auto' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#333' }}>Reason for modification: *</label>
-                <FilterSelectWrap fullWidth>
+                <FilterSelectWrap fullWidth className="item-removal-reason-select-wrap">
                   <select 
                     value={itemRemovalReasonType}
                     onChange={(e) => setItemRemovalReasonType(e.target.value)}

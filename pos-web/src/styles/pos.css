@@ -1033,9 +1033,12 @@
   background-image: none !important;
 }
 
-.pos-filter-select-wrap::after {
-  border-top-color: #6b4423;
-  right: 10px;
+.pos-filter-select-wrap .filter-select-caret {
+  right: 8px;
+}
+
+.pos-filter-select-wrap .filter-select-caret svg {
+  fill: #6b4423;
 }
 
 /* Modal reason dropdowns (FilterSelectWrap + .filter-select) */
@@ -1049,6 +1052,37 @@
   font-size: 14px;
   color: #333;
   box-sizing: border-box;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+}
+
+/* Modal dropdowns use the shared center-locked caret layout from filter-select-wrap.css. */
+
+/* Decrease modal root-cause fix: isolate from global .filter-select rules and anchor caret position explicitly. */
+.item-removal-modal .item-removal-reason-select-wrap > .filter-select {
+  background-image: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  padding-right: 36px !important;
+}
+
+.item-removal-modal .item-removal-reason-select-wrap .filter-select-caret {
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-58%);
+  right: 10px;
+  z-index: 2;
+}
+
+.item-removal-modal .item-removal-reason-select-wrap .filter-select-caret svg {
+  transform: rotate(0deg) !important;
+}
+
+.item-removal-modal .item-removal-reason-select-wrap.filter-select-wrap--open .filter-select-caret svg {
+  transform: rotate(180deg) !important;
 }
 
 /* Cart Totals */

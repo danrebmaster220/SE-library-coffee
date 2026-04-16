@@ -74,6 +74,11 @@ export default function Login() {
     if (token && storedUser) {
       try {
         const userData = JSON.parse(storedUser);
+        if (userData?.mustChangePassword) {
+          navigate('/force-password-change', { replace: true });
+          return;
+        }
+
         const role = userData.role?.toLowerCase() || 'cashier';
         if (role === 'admin') {
           navigate('/dashboard', { replace: true });
@@ -106,9 +111,19 @@ export default function Login() {
       
       // Backend returns { token, user } on success
       if (response.data.token) {
+        const mustChangePassword = Boolean(response.data?.user?.mustChangePassword);
+
         // Store user data and token
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('user', JSON.stringify({
+          ...response.data.user,
+          mustChangePassword
+        }));
+
+        if (mustChangePassword) {
+          navigate('/force-password-change', { replace: true });
+          return;
+        }
         
         // Navigate based on user role
         const userRole = response.data.user.role?.toLowerCase() || 'cashier';

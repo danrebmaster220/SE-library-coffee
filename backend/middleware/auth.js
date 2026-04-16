@@ -24,6 +24,14 @@ const extractBearerToken = (rawValue) => {
     return value;
 };
 
+const isPasswordChangeBypassRequest = (req) => {
+    const method = String(req?.method || '').toUpperCase();
+    if (method !== 'PUT') return false;
+
+    const rawPath = String(req?.originalUrl || req?.url || '').split('?')[0].trim().toLowerCase();
+    return rawPath === '/api/users/me/password' || rawPath.endsWith('/users/me/password');
+};
+
 const verifySocketToken = (rawToken) => {
     const token = extractBearerToken(rawToken);
     if (!token) return null;
@@ -36,7 +44,7 @@ const verifySocketToken = (rawToken) => {
 };
 
 // Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
 
     if (!token) {
@@ -45,7 +53,39 @@ const verifyToken = (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded; 
+
+        req.user = decoded;
+
+        // Allow password update endpoint so users can satisfy first-login security requirements.
+        if (isPasswordChangeBypassRequest(req)) {
+            return next();
+        }
+
+        const userId = decoded?.user_id || decoded?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Invalid user token payload.' });
+        }
+
+        try {
+            const [rows] = await db.query(
+                'SELECT COALESCE(must_change_password, 0) AS must_change_password FROM users WHERE user_id = ? LIMIT 1',
+                [userId]
+            );
+
+            if (rows.length > 0 && Number(rows[0].must_change_password) === 1) {
+                return res.status(428).json({
+                    error: 'Password change required before continuing.',
+                    code: 'MUST_CHANGE_PASSWORD',
+                    must_change_password: true
+                });
+            }
+        } catch (flagError) {
+            // Backward compatibility for databases that do not yet have must_change_password.
+            if (flagError?.code !== 'ER_BAD_FIELD_ERROR') {
+                throw flagError;
+            }
+        }
+
         next();
     } catch (error) {
         res.status(401).json({ error: 'Invalid or expired token' });

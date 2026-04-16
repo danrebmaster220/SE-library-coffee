@@ -63,7 +63,9 @@ exports.login = async (req, res) => {
                 username: user.username,
                 fullName: resolveDisplayName(user),
                 profileImage: user.profile_image || null,
-                role: user.role_name
+                role: user.role_name,
+                mustChangePassword: Number(user.must_change_password || 0) === 1,
+                mustChangePin: Number(user.must_change_pin || 0) === 1
             }
         });
 
@@ -203,7 +205,10 @@ exports.verify = async (req, res) => {
         
         // Optionally fetch latest user info from DB
         const [users] = await db.query(
-            `SELECT u.user_id, u.username, u.full_name, r.role_name 
+            `SELECT u.user_id, u.username, u.full_name, u.profile_image,
+                    COALESCE(u.must_change_password, 0) AS must_change_password,
+                    COALESCE(u.must_change_pin, 0) AS must_change_pin,
+                    r.role_name 
              FROM users u 
              JOIN roles r ON u.role_id = r.role_id 
              WHERE u.user_id = ? AND u.status = 'active'`,
@@ -223,7 +228,9 @@ exports.verify = async (req, res) => {
                 username: user.username,
                 fullName: resolveDisplayName(user),
                 profileImage: user.profile_image || null,
-                role: user.role_name
+                role: user.role_name,
+                mustChangePassword: Number(user.must_change_password || 0) === 1,
+                mustChangePin: Number(user.must_change_pin || 0) === 1
             }
         });
 

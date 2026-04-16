@@ -1,4 +1,5 @@
 const db = require('./db');
+const bcrypt = require('bcrypt');
 
 /**
  * Database Migrations
@@ -69,6 +70,9 @@ async function runMigrations() {
 
         // Migration 20: Add admin PIN + first-change security flags on users
         await addUsersSecurityColumns();
+
+        // Migration 21: Bootstrap default admin account on empty users table
+        await ensureDefaultAdminAccount();
 
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
@@ -1135,6 +1139,116 @@ async function addUsersSecurityColumns() {
         }
     } catch (error) {
         console.error('   ⚠️ addUsersSecurityColumns:', error.message);
+    }
+}
+
+async function ensureDefaultAdminAccount() {
+    try {
+        const bootstrapUsername = String(process.env.DEFAULT_ADMIN_USERNAME || 'sa').trim();
+        const bootstrapPassword = String(process.env.DEFAULT_ADMIN_PASSWORD || 'sa123456').trim();
+
+        if (!bootstrapUsername || !bootstrapPassword) {
+            console.log('   ⏭️  Skipped default admin bootstrap (missing DEFAULT_ADMIN_USERNAME/DEFAULT_ADMIN_PASSWORD)');
+            return;
+        }
+
+        const [userCountRows] = await db.query('SELECT COUNT(*) AS total FROM users');
+        const userCount = Number(userCountRows?.[0]?.total || 0);
+
+        if (userCount > 0) {
+            console.log('   ⏭️  users table already has records; default admin bootstrap skipped');
+            return;
+        }
+
+        let adminRoleId = null;
+        const [adminRoleRows] = await db.query(
+            `SELECT role_id FROM roles WHERE LOWER(role_name) = 'admin' LIMIT 1`
+        );
+
+        if (adminRoleRows.length > 0) {
+            adminRoleId = adminRoleRows[0].role_id;
+        } else {
+            const [insertRoleResult] = await db.query(
+                `INSERT INTO roles (role_name) VALUES (?)`,
+                ['Admin']
+            );
+            adminRoleId = insertRoleResult.insertId;
+            console.log('   ✅ Created missing Admin role for bootstrap account');
+        }
+
+        const passwordHash = await bcrypt.hash(bootstrapPassword, 10);
+
+        const [insertUserResult] = await db.query(
+            `INSERT INTO users (
+                role_id,
+                full_name,
+                first_name,
+                middle_name,
+                last_name,
+                username,
+                password_hash,
+                status,
+                must_change_password,
+                must_change_pin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                adminRoleId,
+                'System Admin',
+                'System',
+                null,
+                'Admin',
+                bootstrapUsername,
+                passwordHash,
+                'active',
+                1,
+                1
+            ]
+        );
+
+        console.log(`   ✅ Bootstrapped default admin account: username "${bootstrapUsername}" (user_id: ${insertUserResult.insertId})`);
+        console.log('   ⚠️  First login requires password change before accessing the system.');
+    } catch (error) {
+        // Backward compatibility for schemas that do not yet have split-name/security columns.
+        if (error?.code === 'ER_BAD_FIELD_ERROR') {
+            try {
+                const bootstrapUsername = String(process.env.DEFAULT_ADMIN_USERNAME || 'sa').trim();
+                const bootstrapPassword = String(process.env.DEFAULT_ADMIN_PASSWORD || 'sa123456').trim();
+                const passwordHash = await bcrypt.hash(bootstrapPassword, 10);
+
+                const [userCountRows] = await db.query('SELECT COUNT(*) AS total FROM users');
+                const userCount = Number(userCountRows?.[0]?.total || 0);
+                if (userCount > 0) {
+                    console.log('   ⏭️  users table already has records; fallback bootstrap skipped');
+                    return;
+                }
+
+                const [adminRoleRows] = await db.query(
+                    `SELECT role_id FROM roles WHERE LOWER(role_name) = 'admin' LIMIT 1`
+                );
+                let adminRoleId = null;
+
+                if (adminRoleRows.length > 0) {
+                    adminRoleId = adminRoleRows[0].role_id;
+                } else {
+                    const [insertRoleResult] = await db.query(
+                        `INSERT INTO roles (role_name) VALUES (?)`,
+                        ['Admin']
+                    );
+                    adminRoleId = insertRoleResult.insertId;
+                }
+
+                await db.query(
+                    `INSERT INTO users (role_id, full_name, username, password_hash, status) VALUES (?, ?, ?, ?, ?)`,
+                    [adminRoleId, 'System Admin', bootstrapUsername, passwordHash, 'active']
+                );
+                console.log('   ✅ Bootstrapped fallback default admin account (legacy schema)');
+            } catch (fallbackError) {
+                console.error('   ⚠️ ensureDefaultAdminAccount fallback:', fallbackError.message);
+            }
+            return;
+        }
+
+        console.error('   ⚠️ ensureDefaultAdminAccount:', error.message);
     }
 }
 

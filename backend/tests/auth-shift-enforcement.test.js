@@ -16,6 +16,7 @@ const {
 const originalDbQuery = db.query;
 
 let activeShiftRows = [];
+let mustChangePasswordRows = [{ must_change_password: 0 }];
 let dbQueryCount = 0;
 
 const buildToken = (payload) => jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -29,6 +30,10 @@ app.get('/api/protected', verifyToken, requireActiveShiftForNonAdmin, (_req, res
 test.before(() => {
     db.query = async (sql) => {
         dbQueryCount += 1;
+
+        if (String(sql).includes('COALESCE(must_change_password, 0) AS must_change_password')) {
+            return [mustChangePasswordRows];
+        }
 
         if (String(sql).includes('SELECT shift_id FROM shifts')) {
             return [activeShiftRows];
@@ -44,6 +49,7 @@ test.after(() => {
 
 test.beforeEach(() => {
     activeShiftRows = [];
+    mustChangePasswordRows = [{ must_change_password: 0 }];
     dbQueryCount = 0;
 });
 
@@ -74,7 +80,7 @@ test('blocks cashier without active shift', async () => {
 
     assert.equal(response.status, 403);
     assert.match(response.body.error || '', /no active shift/i);
-    assert.equal(dbQueryCount, 1);
+    assert.equal(dbQueryCount, 2);
 });
 
 test('allows cashier with active shift', async () => {
@@ -87,7 +93,7 @@ test('allows cashier with active shift', async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body, { ok: true });
-    assert.equal(dbQueryCount, 1);
+    assert.equal(dbQueryCount, 2);
 });
 
 test('allows admin without checking active shift', async () => {
@@ -99,5 +105,19 @@ test('allows admin without checking active shift', async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body, { ok: true });
-    assert.equal(dbQueryCount, 0);
+    assert.equal(dbQueryCount, 1);
+});
+
+test('blocks requests when password change is required', async () => {
+    const cashierToken = buildToken({ user_id: 25, role: 'cashier' });
+    mustChangePasswordRows = [{ must_change_password: 1 }];
+
+    const response = await request(app)
+        .get('/api/protected')
+        .set('Authorization', `Bearer ${cashierToken}`);
+
+    assert.equal(response.status, 428);
+    assert.equal(response.body.code, 'MUST_CHANGE_PASSWORD');
+    assert.equal(response.body.must_change_password, true);
+    assert.equal(dbQueryCount, 1);
 });

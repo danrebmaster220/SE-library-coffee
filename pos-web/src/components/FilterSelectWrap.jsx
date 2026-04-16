@@ -65,6 +65,11 @@ export default function FilterSelectWrap({ children, fullWidth = false, classNam
         .join(' ')}
     >
       {enhanced}
+      <span className="filter-select-caret" aria-hidden="true">
+        <svg viewBox="0 0 12 8" focusable="false" aria-hidden="true">
+          <polyline points="2,2 6,6 10,2" />
+        </svg>
+      </span>
     </div>
   );
 }
