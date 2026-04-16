@@ -55,6 +55,8 @@ export default function MenuItems() {
     selected_groups: []
   });
   const [variantPricing, setVariantPricing] = useState([]);
+  const [isVariantMatrixCleared, setIsVariantMatrixCleared] = useState(false);
+  const [priceUpdateSettings, setPriceUpdateSettings] = useState({ delay_days: 3, timezone: 'Asia/Manila' });
 
   const isSizeGroup = (name) => String(name || "").toLowerCase().includes("size");
   const isTempGroup = (name) => String(name || "").toLowerCase().includes("temperature");
@@ -105,6 +107,10 @@ export default function MenuItems() {
 
   const setVariantPriceValue = (sizeOptionId, tempOptionId, priceValue) => {
     if (!(priceValue === '' || /^\d*\.?\d{0,2}$/.test(priceValue))) return;
+
+    if (isVariantMatrixCleared) {
+      setIsVariantMatrixCleared(false);
+    }
 
     setVariantPricing((prev) => {
       const { availableSizeOptions: szOpts, availableTempOptions: rawTemps } = getVariantDriverGroups();
@@ -166,6 +172,10 @@ export default function MenuItems() {
   };
 
   const buildVariantPayload = () => {
+    if (isVariantMatrixCleared) {
+      return [];
+    }
+
     const { availableSizeOptions, availableTempOptions: rawTemps } = getVariantDriverGroups();
     const flags = getCategoryTempFlags(formData.category_id);
     const availableTempOptions = filterTempsByCategory(rawTemps, flags);
@@ -223,14 +233,16 @@ export default function MenuItems() {
 
   const fetchData = async () => {
     try {
-      const [itemsRes, categoriesRes, groupsRes] = await Promise.all([
+      const [itemsRes, categoriesRes, groupsRes, settingsRes] = await Promise.all([
         api.get("/menu/items"),
         api.get("/menu/categories"),
-        api.get("/customizations/groups")
+        api.get("/customizations/groups"),
+        api.get('/menu/price-update-settings').catch(() => ({ data: { settings: { delay_days: 3, timezone: 'Asia/Manila' } } }))
       ]);
       setItems(itemsRes.data.items || itemsRes.data || []);
       setCategories(categoriesRes.data.categories || categoriesRes.data || []);
       setCustomizationGroups(groupsRes.data.groups || []);
+      setPriceUpdateSettings(settingsRes?.data?.settings || { delay_days: 3, timezone: 'Asia/Manila' });
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -267,8 +279,12 @@ export default function MenuItems() {
       };
       
       let itemId;
+      let itemUpdateRes = null;
       if (editingItem) {
-        await api.put(`/menu/items/${editingItem.item_id}`, payload);
+        itemUpdateRes = await api.put(`/menu/items/${editingItem.item_id}`, {
+          ...payload,
+          apply_price_immediately: false
+        });
         itemId = editingItem.item_id;
       } else {
         const response = await api.post("/menu/items", payload);
@@ -290,9 +306,28 @@ export default function MenuItems() {
       // Save item-level variant matrix (M2 + A2: save always; warn if incomplete)
       if (itemId) {
         const variantPayload = formData.is_customizable ? buildVariantPayload() : [];
+        const applyVariantImmediately = !editingItem || isVariantMatrixCleared || variantPayload.length === 0;
         const vRes = await api.put(`/customizations/item/${itemId}/variant-prices`, {
-          variants: variantPayload
+          variants: variantPayload,
+          apply_price_immediately: applyVariantImmediately
         });
+
+        const notices = [];
+
+        const basePriceUpdate = itemUpdateRes?.data?.price_update;
+        if (editingItem && basePriceUpdate?.mode === 'scheduled') {
+          notices.push(
+            `Base price update is scheduled for ${basePriceUpdate.effective_at} (${basePriceUpdate.timezone || 'Asia/Manila'}).`
+          );
+        }
+
+        const variantPriceUpdate = vRes?.data?.price_update;
+        if (editingItem && variantPriceUpdate?.mode === 'scheduled' && Number(variantPriceUpdate?.scheduled_count || 0) > 0) {
+          notices.push(
+            `Variant price updates are scheduled for ${variantPriceUpdate.effective_at} (${variantPriceUpdate.timezone || 'Asia/Manila'}) across ${variantPriceUpdate.scheduled_count} row(s).`
+          );
+        }
+
         if (
           formData.is_customizable &&
           variantPayload.length > 0 &&
@@ -300,9 +335,13 @@ export default function MenuItems() {
         ) {
           const miss = vRes.data?.variant_pricing_missing_count ?? 0;
           const req = vRes.data?.variant_pricing_required_count ?? 0;
-          window.alert(
+          notices.push(
             `Item saved, but variant pricing is incomplete (${miss} of ${req} required size/temperature combinations still need valid prices). Kiosk and POS may use fallback pricing until every required cell is filled.`
           );
+        }
+
+        if (notices.length > 0) {
+          window.alert(notices.join('\n\n'));
         }
       }
 
@@ -377,6 +416,7 @@ export default function MenuItems() {
     });
     setImagePreview(item.image || null);
     setVariantPricing(existingVariants);
+    setIsVariantMatrixCleared(false);
     setShowModal(true);
   };
 
@@ -394,6 +434,7 @@ export default function MenuItems() {
       selected_groups: []
     });
     setVariantPricing([]);
+    setIsVariantMatrixCleared(false);
     setImagePreview(null);
     setShowModal(true);
   };
@@ -417,6 +458,17 @@ export default function MenuItems() {
       selected_groups: []
     });
     setVariantPricing([]);
+    setIsVariantMatrixCleared(false);
+  };
+
+  const handleClearVariantMatrix = () => {
+    const confirmed = window.confirm(
+      "Clear all variant pricing for this item? After saving, this item will use Base Price until matrix prices are entered again."
+    );
+    if (!confirmed) return;
+
+    setVariantPricing([]);
+    setIsVariantMatrixCleared(true);
   };
 
   const handleGroupToggle = (groupId) => {
@@ -485,6 +537,18 @@ export default function MenuItems() {
   const showVariantPricingEditor = formData.is_customizable && (
     availableSizeOptions.length > 0 || rawTempOptionsForMatrix.length > 0
   );
+
+  const hasActiveVariantPricingRows = variantPricing.some((row) => {
+    if (!row) return false;
+    const p = String(row.price ?? "").trim();
+    if (p === "") return false;
+    return !Number.isNaN(Number(p));
+  });
+
+  const lockBasePriceInput =
+    showVariantPricingEditor && hasActiveVariantPricingRows && String(formData.price ?? "").trim() !== "";
+
+  const priceModeBadgeText = lockBasePriceInput ? "Matrix Active" : "Base Mode";
 
   const expectedVariantCombos = (() => {
     const combos = [];
@@ -624,7 +688,31 @@ export default function MenuItems() {
                         )}
                       </div>
                     </td>
-                    <td><span className="item-name-text">{item.name}</span></td>
+                    <td>
+                      <span className="item-name-text">{item.name}</span>
+                      {item.has_pending_price_update && (
+                        <span
+                          style={{
+                            marginLeft: '8px',
+                            display: 'inline-block',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            background: '#fff3e0',
+                            color: '#b26a00',
+                            border: '1px solid #ffd08a'
+                          }}
+                          title={
+                            item.next_price_effective_at
+                              ? `Pending price update: effective ${item.next_price_effective_at}`
+                              : 'Pending price update'
+                          }
+                        >
+                          Price Pending
+                        </span>
+                      )}
+                    </td>
                     <td>{getCategoryName(item.category_id)}</td>
                     <td className="price-cell">P{parseFloat(item.price).toFixed(2)}</td>
                     <td>
@@ -726,16 +814,56 @@ export default function MenuItems() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Price (PHP)</label>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span>{lockBasePriceInput ? "Base Price (Reference)" : "Price (PHP)"}</span>
+                    {showVariantPricingEditor && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          background: lockBasePriceInput ? '#fff3e0' : '#e8f5e9',
+                          color: lockBasePriceInput ? '#b26a00' : '#2e7d32',
+                          border: `1px solid ${lockBasePriceInput ? '#ffd08a' : '#a5d6a7'}`
+                        }}
+                      >
+                        {priceModeBadgeText}
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     inputMode="decimal"
                     className="form-input"
                     value={formData.price}
-                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) setFormData({ ...formData, price: e.target.value }); }}
+                    onChange={(e) => {
+                      if (lockBasePriceInput) return;
+                      if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) {
+                        setFormData({ ...formData, price: e.target.value });
+                      }
+                    }}
                     placeholder="0.00"
+                    disabled={lockBasePriceInput}
+                    title={lockBasePriceInput ? "Variant Pricing Matrix is active. Edit matrix prices instead." : undefined}
+                    aria-describedby={showVariantPricingEditor ? "menu-item-price-note" : undefined}
+                    style={lockBasePriceInput ? { backgroundColor: "#f5f5f5", color: "#666", cursor: "not-allowed" } : undefined}
                     required
                   />
+                  {showVariantPricingEditor && (
+                    <small
+                      id="menu-item-price-note"
+                      className="form-hint"
+                      style={{ display: 'block', marginTop: '6px', color: lockBasePriceInput ? '#8d5e2e' : undefined }}
+                    >
+                      {lockBasePriceInput
+                        ? "Final selling prices come from the Variant Pricing Matrix below."
+                        : "This value is used as default/fallback for empty variant cells."}
+                      {editingItem
+                        ? ` Updates are scheduled after ${priceUpdateSettings.delay_days} day(s) (${priceUpdateSettings.timezone || 'Asia/Manila'}).`
+                        : ""}
+                    </small>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Station</label>
@@ -895,7 +1023,7 @@ export default function MenuItems() {
 
                     {showVariantPricingEditor && (
                       <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e6e0d8' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <label className="form-label" style={{ marginBottom: 0 }}>Variant Pricing Matrix</label>
                           <span
                             style={{
@@ -910,7 +1038,28 @@ export default function MenuItems() {
                           >
                             {isVariantMatrixComplete ? 'Complete' : `Incomplete (${missingVariantCount} missing)`}
                           </span>
+                          <button
+                            type="button"
+                            className="btn-cancel"
+                            onClick={handleClearVariantMatrix}
+                            style={{ marginLeft: 'auto', padding: '6px 10px', fontSize: '12px' }}
+                            title="Clear all variant rows and revert to base-price mode after saving"
+                          >
+                            Clear Matrix
+                          </button>
                         </div>
+                        {isVariantMatrixCleared && (
+                          <small
+                            style={{
+                              display: 'block',
+                              marginBottom: '10px',
+                              color: '#8d5e2e',
+                              fontWeight: 600
+                            }}
+                          >
+                            Matrix cleared in this form. Save changes to apply base-price mode for this item.
+                          </small>
+                        )}
                         <small className="form-hint" style={{ display: 'block', marginBottom: '10px' }}>
                           Set item-specific base prices by Size/Temperature. These override global Size/Temperature option prices.
                           Rows follow the category&apos;s temperature settings ({categoryTempSummary}).

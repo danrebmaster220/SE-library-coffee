@@ -5,6 +5,38 @@ import { printCustomerReceipt } from '../services/webPrinter';
 import '../styles/settings.css';
 import '../styles/menu.css';
 
+const toMoney = (value) => {
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '0.00';
+  return numeric.toFixed(2);
+};
+
+const formatScheduleDateTime = (value, timezone = 'Asia/Manila') => {
+  if (!value) return '-';
+  const normalized = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
+  const dt = new Date(`${normalized}+08:00`);
+  if (Number.isNaN(dt.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: timezone || 'Asia/Manila'
+  }).format(dt);
+};
+
+const getScopeLabel = (schedule) => {
+  if (!schedule) return 'BASE';
+  if (schedule.price_scope === 'base') return 'BASE';
+
+  const size = schedule.size_option_name ? `Size: ${schedule.size_option_name}` : 'Size: Any';
+  const temp = schedule.temp_option_name ? `Temp: ${schedule.temp_option_name}` : 'Temp: Any';
+  return `${size} | ${temp}`;
+};
+
 export default function Config() {
   const [showPasswordPanel, setShowPasswordPanel] = useState(false);
   const [printers, setPrinters] = useState([]);
@@ -13,7 +45,16 @@ export default function Config() {
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileSnapshot, setProfileSnapshot] = useState(null);
   const [passwordMessage, setPasswordMessage] = useState(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [priceDelayDays, setPriceDelayDays] = useState('3');
+  const [priceDelayLoading, setPriceDelayLoading] = useState(false);
+  const [priceDelayMessage, setPriceDelayMessage] = useState(null);
+  const [pendingSchedules, setPendingSchedules] = useState([]);
+  const [pendingSchedulesLoading, setPendingSchedulesLoading] = useState(false);
+  const [pendingSchedulesMessage, setPendingSchedulesMessage] = useState(null);
   const profileFileRef = useRef(null);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -46,6 +87,44 @@ export default function Config() {
   }, []);
 
   useEffect(() => {
+    const stored = (() => {
+      try {
+        const raw = localStorage.getItem('user');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    const roleName = String(stored?.role || '').toLowerCase();
+    const roleId = Number(stored?.role_id);
+    const admin = roleName === 'admin' || roleId === 1;
+    setIsAdminUser(admin);
+
+    if (!admin) return;
+
+    const loadPriceDelaySettings = async () => {
+      try {
+        const [settingsRes, pendingRes] = await Promise.all([
+          api.get('/menu/price-update-settings'),
+          api.get('/menu/price-schedules/pending?limit=200')
+        ]);
+
+        const delay = settingsRes?.data?.settings?.delay_days;
+        if (delay != null) {
+          setPriceDelayDays(String(delay));
+        }
+
+        setPendingSchedules(Array.isArray(pendingRes?.data?.schedules) ? pendingRes.data.schedules : []);
+      } catch (err) {
+        console.error('Error loading price update settings:', err);
+      }
+    };
+
+    loadPriceDelaySettings();
+  }, []);
+
+  useEffect(() => {
     const readStoredUser = () => {
       try {
         const raw = localStorage.getItem('user');
@@ -60,23 +139,31 @@ export default function Config() {
       try {
         const profileRes = await api.get('/users/me/profile');
         const d = profileRes.data;
-        setProfileData({
+        const nextProfileData = {
           firstName: d.first_name || '',
           middleName: d.middle_name || '',
           lastName: d.last_name || '',
           username: d.username || stored?.username || '',
           role: d.role_name || d.role || stored?.role || '',
           profileImage: d.profile_image ?? stored?.profileImage ?? null
-        });
+        };
+
+        setProfileData(nextProfileData);
+        setProfileSnapshot(nextProfileData);
       } catch (err) {
         console.error('Error loading profile:', err);
         if (stored) {
-          setProfileData((prev) => ({
-            ...prev,
-            username: stored.username || prev.username,
-            role: stored.role || prev.role,
-            profileImage: stored.profileImage ?? prev.profileImage
-          }));
+          const fallbackProfileData = {
+            firstName: '',
+            middleName: '',
+            lastName: '',
+            username: stored.username || '',
+            role: stored.role || '',
+            profileImage: stored.profileImage ?? null
+          };
+
+          setProfileData(fallbackProfileData);
+          setProfileSnapshot(fallbackProfileData);
         }
       }
     };
@@ -152,6 +239,8 @@ export default function Config() {
   };
 
   const handleProfileImageChange = (e) => {
+    if (!isEditingProfile) return;
+
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
@@ -162,7 +251,16 @@ export default function Config() {
   };
 
   const handleProfileUpdate = async () => {
-    if (!profileData.firstName.trim() || !profileData.lastName.trim()) {
+    if (!isEditingProfile) return;
+
+    const normalizedProfileData = {
+      ...profileData,
+      firstName: profileData.firstName.trim(),
+      middleName: profileData.middleName.trim(),
+      lastName: profileData.lastName.trim()
+    };
+
+    if (!normalizedProfileData.firstName || !normalizedProfileData.lastName) {
       setProfileMessage({ success: false, message: 'First name and last name are required' });
       return;
     }
@@ -171,13 +269,13 @@ export default function Config() {
     setProfileMessage(null);
     try {
       await api.put('/users/me/profile', {
-        first_name: profileData.firstName.trim(),
-        middle_name: profileData.middleName.trim() || '',
-        last_name: profileData.lastName.trim(),
-        profile_image: profileData.profileImage
+        first_name: normalizedProfileData.firstName,
+        middle_name: normalizedProfileData.middleName || '',
+        last_name: normalizedProfileData.lastName,
+        profile_image: normalizedProfileData.profileImage
       });
 
-      const display = [profileData.firstName, profileData.middleName, profileData.lastName]
+      const display = [normalizedProfileData.firstName, normalizedProfileData.middleName, normalizedProfileData.lastName]
         .map((s) => (s && String(s).trim()) || '')
         .filter(Boolean)
         .join(' ');
@@ -186,10 +284,14 @@ export default function Config() {
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         userData.fullName = display;
-        userData.profileImage = profileData.profileImage || null;
+        userData.profileImage = normalizedProfileData.profileImage || null;
         localStorage.setItem('user', JSON.stringify(userData));
         window.dispatchEvent(new Event('userUpdated'));
       }
+
+      setProfileData(normalizedProfileData);
+      setProfileSnapshot(normalizedProfileData);
+      setIsEditingProfile(false);
       
       setProfileMessage({ success: true, message: 'Profile updated successfully!' });
     } catch (err) {
@@ -199,6 +301,25 @@ export default function Config() {
       });
     }
     setProfileLoading(false);
+  };
+
+  const handleStartProfileEdit = () => {
+    setProfileMessage(null);
+    setProfileSnapshot({ ...profileData });
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelProfileEdit = () => {
+    if (profileSnapshot) {
+      setProfileData({ ...profileSnapshot });
+    }
+
+    if (profileFileRef.current) {
+      profileFileRef.current.value = '';
+    }
+
+    setProfileMessage(null);
+    setIsEditingProfile(false);
   };
 
   const handlePasswordChange = async () => {
@@ -238,6 +359,103 @@ export default function Config() {
     }
   };
 
+  const handleSavePriceDelay = async () => {
+    setPriceDelayLoading(true);
+    setPriceDelayMessage(null);
+
+    try {
+      const delay = Number(priceDelayDays);
+      await api.put('/menu/price-update-settings', { delay_days: delay });
+      setPriceDelayMessage({ success: true, message: `Price update delay saved: ${delay} day(s)` });
+    } catch (err) {
+      setPriceDelayMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to save price update delay'
+      });
+    } finally {
+      setPriceDelayLoading(false);
+    }
+  };
+
+  const refreshPendingSchedules = async () => {
+    setPendingSchedulesLoading(true);
+    setPendingSchedulesMessage(null);
+
+    try {
+      const res = await api.get('/menu/price-schedules/pending?limit=200');
+      setPendingSchedules(Array.isArray(res?.data?.schedules) ? res.data.schedules : []);
+    } catch (err) {
+      setPendingSchedulesMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to load pending schedules'
+      });
+    } finally {
+      setPendingSchedulesLoading(false);
+    }
+  };
+
+  const handleCancelPendingSchedule = async (schedule) => {
+    if (!schedule?.schedule_id) return;
+
+    const confirmCancel = window.confirm('Cancel this pending price update?');
+    if (!confirmCancel) return;
+
+    setPendingSchedulesMessage(null);
+    try {
+      await api.put(`/menu/price-schedules/${schedule.schedule_id}/cancel`, {
+        reason: 'Cancelled from Config pending schedules manager'
+      });
+
+      setPendingSchedulesMessage({ success: true, message: 'Pending schedule cancelled.' });
+      await refreshPendingSchedules();
+    } catch (err) {
+      setPendingSchedulesMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to cancel pending schedule'
+      });
+    }
+  };
+
+  const handleReplacePendingSchedule = async (schedule) => {
+    if (!schedule?.schedule_id) return;
+
+    const input = window.prompt(
+      `Enter new scheduled price for ${schedule.item_name}:`,
+      String(schedule.scheduled_price ?? '')
+    );
+
+    if (input == null) return;
+
+    const newPrice = Number(input);
+    if (Number.isNaN(newPrice)) {
+      setPendingSchedulesMessage({ success: false, message: 'Invalid price value.' });
+      return;
+    }
+
+    setPendingSchedulesMessage(null);
+    try {
+      await api.put(`/menu/price-schedules/${schedule.schedule_id}/replace`, {
+        scheduled_price: Number(newPrice.toFixed(2)),
+        notes: 'Replaced from Config pending schedules manager'
+      });
+
+      setPendingSchedulesMessage({
+        success: true,
+        message: 'Pending schedule replaced. Effective date restarted based on current delay setting.'
+      });
+      await refreshPendingSchedules();
+    } catch (err) {
+      setPendingSchedulesMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to replace pending schedule'
+      });
+    }
+  };
+
+  const lockedEditableFieldStyle = !isEditingProfile
+    ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' }
+    : undefined;
+
   return (
     <div className="main-content settings-container">
       <div className="page-header">
@@ -246,7 +464,7 @@ export default function Config() {
       </div>
 
       {/* Printer Configuration Card */}
-      <div className="settings-card">
+      <div className="settings-card settings-card-printer">
         <div className="settings-card-header">
           <span className="icon">🖨️</span>
           <h2>Printer Configuration</h2>
@@ -321,8 +539,142 @@ export default function Config() {
         </div>
       </div>
 
+      {isAdminUser && (
+        <div className="settings-card settings-card-delay">
+          <div className="settings-card-header">
+            <span className="icon">⏱️</span>
+            <h2>Price Update Delay</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-info-box">
+              <h4>ℹ️ Effective Date Rule</h4>
+              <p>
+                Item price edits are automatically scheduled using PH time (Asia/Manila).
+                The selected delay applies only to new updates and does not change already scheduled entries.
+              </p>
+            </div>
+
+            <div className="settings-form-group">
+              <label>Delay before price update becomes active</label>
+              <FilterSelectWrap fullWidth>
+                <select
+                  className="filter-select"
+                  value={priceDelayDays}
+                  onChange={(e) => setPriceDelayDays(e.target.value)}
+                >
+                  <option value="3">3 days</option>
+                  <option value="5">5 days</option>
+                  <option value="7">7 days</option>
+                </select>
+              </FilterSelectWrap>
+            </div>
+
+            <div className="settings-actions">
+              <button
+                className="settings-btn settings-btn-primary"
+                onClick={handleSavePriceDelay}
+                disabled={priceDelayLoading}
+              >
+                {priceDelayLoading ? '⏳ Saving...' : '💾 Save Delay'}
+              </button>
+            </div>
+
+            {priceDelayMessage && (
+              <div className={`settings-status ${priceDelayMessage.success ? 'success' : 'error'}`}>
+                <span className="icon">{priceDelayMessage.success ? '✅' : '❌'}</span>
+                {priceDelayMessage.message}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isAdminUser && (
+        <div className="settings-card settings-card-pending">
+          <div className="settings-card-header">
+            <span className="icon">🗓️</span>
+            <h2>Pending Price Schedules</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-info-box">
+              <h4>ℹ️ Manage Pending Updates</h4>
+              <p>
+                Use <strong>Replace</strong> to submit a new price and restart the effective date countdown.
+                Use <strong>Cancel</strong> to remove a pending schedule before it activates.
+              </p>
+            </div>
+
+            <div className="settings-actions" style={{ marginBottom: '8px' }}>
+              <button
+                className="settings-btn settings-btn-secondary"
+                onClick={refreshPendingSchedules}
+                disabled={pendingSchedulesLoading}
+              >
+                {pendingSchedulesLoading ? '⏳ Refreshing...' : '🔄 Refresh Pending List'}
+              </button>
+            </div>
+
+            {pendingSchedulesMessage && (
+              <div className={`settings-status ${pendingSchedulesMessage.success ? 'success' : 'error'}`}>
+                <span className="icon">{pendingSchedulesMessage.success ? '✅' : '❌'}</span>
+                {pendingSchedulesMessage.message}
+              </div>
+            )}
+
+            {pendingSchedules.length === 0 ? (
+              <div className="settings-status success">
+                <span className="icon">✅</span>
+                No pending price schedules.
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Scope</th>
+                      <th>Current</th>
+                      <th>Scheduled</th>
+                      <th>Effective At (PH)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingSchedules.map((schedule) => (
+                      <tr key={schedule.schedule_id}>
+                        <td>{schedule.item_name}</td>
+                        <td>{getScopeLabel(schedule)}</td>
+                        <td>PHP {toMoney(schedule.current_price)}</td>
+                        <td>PHP {toMoney(schedule.scheduled_price)}</td>
+                        <td>{formatScheduleDateTime(schedule.effective_at, schedule.timezone || 'Asia/Manila')}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              className="btn btn-secondary"
+                              onClick={() => handleReplacePendingSchedule(schedule)}
+                            >
+                              Replace
+                            </button>
+                            <button
+                              className="btn btn-danger"
+                              onClick={() => handleCancelPendingSchedule(schedule)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Personal Information Card */}
-      <div className="settings-card">
+      <div className="settings-card settings-card-personal">
         <div className="settings-card-header">
           <span className="icon">👤</span>
           <h2>Personal Information</h2>
@@ -354,8 +706,13 @@ export default function Config() {
               <input
                 type="text"
                 value={profileData.firstName}
-                onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                onChange={(e) => {
+                  if (!isEditingProfile) return;
+                  setProfileData({ ...profileData, firstName: e.target.value });
+                }}
                 placeholder="First name"
+                readOnly={!isEditingProfile}
+                style={lockedEditableFieldStyle}
               />
             </div>
             <div className="settings-form-group">
@@ -363,8 +720,13 @@ export default function Config() {
               <input
                 type="text"
                 value={profileData.middleName}
-                onChange={(e) => setProfileData({ ...profileData, middleName: e.target.value })}
+                onChange={(e) => {
+                  if (!isEditingProfile) return;
+                  setProfileData({ ...profileData, middleName: e.target.value });
+                }}
                 placeholder="Middle name"
+                readOnly={!isEditingProfile}
+                style={lockedEditableFieldStyle}
               />
             </div>
           </div>
@@ -373,8 +735,13 @@ export default function Config() {
             <input
               type="text"
               value={profileData.lastName}
-              onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+              onChange={(e) => {
+                if (!isEditingProfile) return;
+                setProfileData({ ...profileData, lastName: e.target.value });
+              }}
               placeholder="Last name"
+              readOnly={!isEditingProfile}
+              style={lockedEditableFieldStyle}
             />
           </div>
           <div className="settings-form-group">
@@ -385,50 +752,86 @@ export default function Config() {
                 ref={profileFileRef}
                 accept="image/*"
                 onChange={handleProfileImageChange}
+                disabled={!isEditingProfile}
                 className="file-input-hidden"
                 id="profile-image-upload"
               />
               {profileData.profileImage ? (
                 <div className="image-preview-box">
                   <img src={profileData.profileImage} alt="Profile" />
-                  <button
-                    type="button"
-                    className="change-image-btn"
-                    onClick={() => profileFileRef.current?.click()}
-                  >
-                    Change Image
-                  </button>
-                  <button
-                    type="button"
-                    className="remove-image-btn"
-                    onClick={() => {
-                      setProfileData((p) => ({ ...p, profileImage: null }));
-                      if (profileFileRef.current) profileFileRef.current.value = '';
-                    }}
-                  >
-                    ×
-                  </button>
+                  {isEditingProfile && (
+                    <>
+                      <button
+                        type="button"
+                        className="change-image-btn"
+                        onClick={() => profileFileRef.current?.click()}
+                      >
+                        Change Image
+                      </button>
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={() => {
+                          setProfileData((p) => ({ ...p, profileImage: null }));
+                          if (profileFileRef.current) profileFileRef.current.value = '';
+                        }}
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
-                <label htmlFor="profile-image-upload" className="upload-placeholder">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                  <span>Choose Image</span>
-                </label>
+                isEditingProfile ? (
+                  <label htmlFor="profile-image-upload" className="upload-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>Choose Image</span>
+                  </label>
+                ) : (
+                  <div className="upload-placeholder upload-placeholder-disabled" aria-disabled="true">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>No Image</span>
+                  </div>
+                )
               )}
             </div>
           </div>
           <div className="settings-actions">
-            <button 
-              className="settings-btn settings-btn-primary"
-              onClick={handleProfileUpdate}
-              disabled={profileLoading}
-            >
-              {profileLoading ? '⏳ Saving...' : '💾 Update Profile'}
-            </button>
+            {!isEditingProfile && (
+              <button
+                className="settings-btn settings-btn-primary"
+                onClick={handleStartProfileEdit}
+                disabled={profileLoading}
+              >
+                ✏️ Edit Profile
+              </button>
+            )}
+            {isEditingProfile && (
+              <>
+                <button
+                  className="settings-btn settings-btn-secondary"
+                  onClick={handleCancelProfileEdit}
+                  disabled={profileLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="settings-btn settings-btn-primary"
+                  onClick={handleProfileUpdate}
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? '⏳ Saving...' : '💾 Save'}
+                </button>
+              </>
+            )}
           </div>
 
           {profileMessage && (
@@ -441,12 +844,7 @@ export default function Config() {
           <div className="settings-divider"></div>
 
           {/* Account Security Section */}
-          <h3 style={{ 
-            fontFamily: "'Playfair Display', serif",
-            fontSize: '16px',
-            color: 'var(--coffee-dark)',
-            marginBottom: '16px'
-          }}>
+          <h3 className="settings-subsection-title">
             🔐 Account Security
           </h3>
           

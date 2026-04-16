@@ -54,8 +54,23 @@ pos-web/QUICKSTART.md
 pos-web/ROUTES_MAP.md
 DEPLOYMENT_GUIDE.md
 
+
 # Temporary files
 *.bin
 temp/
 backend/temp/
 
+# Additional sensitive/local artifacts
+**/.env
+**/.env.*
+!**/.env.example
+
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+**/*.sqlite
+**/*.sqlite3
+**/*.db

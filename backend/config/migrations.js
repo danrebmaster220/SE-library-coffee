@@ -61,6 +61,12 @@ async function runMigrations() {
         // Migration 17: Add addon_limit column to categories (NULL = unlimited)
         await addCategoryAddonLimit();
 
+        // Migration 18: Create effective-dated item price schedule table
+        await createItemPriceSchedulesTable();
+
+        // Migration 19: Seed default pricing schedule settings
+        await ensurePriceScheduleSettings();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -937,6 +943,96 @@ async function addCategoryAddonLimit() {
         }
     } catch (error) {
         console.error('   ⚠️ addCategoryAddonLimit:', error.message);
+    }
+}
+
+async function createItemPriceSchedulesTable() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'item_price_schedules'
+        `);
+
+        if (tables.length > 0) {
+            console.log('   ⏭️  item_price_schedules table already exists');
+            return;
+        }
+
+        await db.query(`
+            CREATE TABLE item_price_schedules (
+                schedule_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                item_id INT NOT NULL,
+                price_scope ENUM('base','variant') NOT NULL DEFAULT 'base',
+                size_option_id INT NULL,
+                temp_option_id INT NULL,
+                current_price DECIMAL(10,2) NULL,
+                scheduled_price DECIMAL(10,2) NOT NULL,
+                status ENUM('pending','applied','cancelled','replaced','failed') NOT NULL DEFAULT 'pending',
+                effective_at DATETIME NOT NULL,
+                applied_at DATETIME NULL,
+                cancelled_at DATETIME NULL,
+                replaced_by_schedule_id BIGINT NULL,
+                timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Manila',
+                notes VARCHAR(255) NULL,
+                created_by INT NULL,
+                updated_by INT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_price_sched_status_effective (status, effective_at),
+                INDEX idx_price_sched_item_scope_status (item_id, price_scope, status, effective_at),
+                INDEX idx_price_sched_variant_opts (size_option_id, temp_option_id),
+                INDEX idx_price_sched_created_by (created_by),
+                INDEX idx_price_sched_updated_by (updated_by),
+                INDEX idx_price_sched_replaced_by (replaced_by_schedule_id),
+                CONSTRAINT fk_price_sched_item FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE,
+                CONSTRAINT fk_price_sched_size_opt FOREIGN KEY (size_option_id) REFERENCES customization_options(option_id) ON DELETE SET NULL,
+                CONSTRAINT fk_price_sched_temp_opt FOREIGN KEY (temp_option_id) REFERENCES customization_options(option_id) ON DELETE SET NULL,
+                CONSTRAINT fk_price_sched_created_by FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE SET NULL,
+                CONSTRAINT fk_price_sched_updated_by FOREIGN KEY (updated_by) REFERENCES users(user_id) ON DELETE SET NULL,
+                CONSTRAINT fk_price_sched_replaced_by FOREIGN KEY (replaced_by_schedule_id) REFERENCES item_price_schedules(schedule_id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        `);
+
+        console.log('   ✅ Created item_price_schedules table');
+    } catch (error) {
+        console.error('   ⚠️ createItemPriceSchedulesTable:', error.message);
+    }
+}
+
+async function ensurePriceScheduleSettings() {
+    try {
+        const [settingsTableRows] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'system_settings'
+        `);
+
+        if (settingsTableRows.length === 0) {
+            await db.query(`
+                CREATE TABLE system_settings (
+                    setting_key VARCHAR(50) NOT NULL,
+                    setting_value TEXT DEFAULT NULL,
+                    PRIMARY KEY (setting_key)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+            `);
+            console.log('   ✅ Created system_settings table');
+        }
+
+        await db.query(`
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES
+                ('price_update_delay_days', '3'),
+                ('price_update_timezone', 'Asia/Manila'),
+                ('price_update_delay_options', '3,5,7')
+            ON DUPLICATE KEY UPDATE setting_value = setting_value
+        `);
+
+        console.log('   ✅ Ensured pricing schedule default settings');
+    } catch (error) {
+        console.error('   ⚠️ ensurePriceScheduleSettings:', error.message);
     }
 }
 

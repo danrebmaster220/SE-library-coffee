@@ -4,6 +4,35 @@ import api from '../api';
 import '../styles/login.css';
 import logoImg from '../assets/logo.png';
 
+const formatNoticeDateTime = (value, timezone = 'Asia/Manila') => {
+  if (!value) return '-';
+  const normalized = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
+  const dt = new Date(`${normalized}+08:00`);
+  if (Number.isNaN(dt.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: timezone || 'Asia/Manila'
+  }).format(dt);
+};
+
+const toMoney = (value) => {
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? '0.00' : parsed.toFixed(2);
+};
+
+const getNoticeScope = (schedule) => {
+  if (!schedule || schedule.price_scope === 'base') return 'Base price';
+  const size = schedule.size_option_name ? `Size: ${schedule.size_option_name}` : 'Size: Any';
+  const temp = schedule.temp_option_name ? `Temp: ${schedule.temp_option_name}` : 'Temp: Any';
+  return `${size} | ${temp}`;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -12,6 +41,8 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPriceNoticeModal, setShowPriceNoticeModal] = useState(false);
+  const [priceNoticeData, setPriceNoticeData] = useState(null);
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -61,7 +92,19 @@ export default function Login() {
         if (userRole === 'admin') {
           navigate('/dashboard');
         } else {
-          navigate('/pos');
+          try {
+            const noticeRes = await api.get('/menu/price-update-notices?windowHours=24&maxItems=12');
+            const notice = noticeRes?.data;
+
+            if (notice?.has_notice) {
+              setPriceNoticeData(notice);
+              setShowPriceNoticeModal(true);
+            } else {
+              navigate('/pos');
+            }
+          } catch {
+            navigate('/pos');
+          }
         }
       }
     } catch (err) {
@@ -121,6 +164,52 @@ export default function Login() {
           </button>
         </form>
       </div>
+
+      {showPriceNoticeModal && (
+        <div className="price-notice-overlay" role="dialog" aria-modal="true" aria-label="Price update notice">
+          <div className="price-notice-modal">
+            <h2>Price Update Notice</h2>
+            <p className="price-notice-subtitle">
+              There are pending price updates effective today and within the next 24 hours (PH time).
+            </p>
+
+            <div className="price-notice-summary">
+              <span>Effective today: <strong>{Number(priceNoticeData?.effective_today_count || 0)}</strong></span>
+              <span>Next 24h: <strong>{Number(priceNoticeData?.upcoming_24h_count || 0)}</strong></span>
+            </div>
+
+            <div className="price-notice-list">
+              {(priceNoticeData?.schedules || []).map((row) => (
+                <div key={row.schedule_id} className="price-notice-item">
+                  <div className="price-notice-item-head">
+                    <strong>{row.item_name}</strong>
+                    <span>{getNoticeScope(row)}</span>
+                  </div>
+                  <div className="price-notice-item-body">
+                    PHP {toMoney(row.current_price)} → PHP {toMoney(row.scheduled_price)}
+                  </div>
+                  <div className="price-notice-item-time">
+                    Effective: {formatNoticeDateTime(row.effective_at, row.timezone || 'Asia/Manila')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="price-notice-actions">
+              <button
+                type="button"
+                className="login-button"
+                onClick={() => {
+                  setShowPriceNoticeModal(false);
+                  navigate('/pos');
+                }}
+              >
+                Continue to POS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

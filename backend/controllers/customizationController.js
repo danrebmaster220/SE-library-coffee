@@ -1,4 +1,14 @@
 const db = require('../config/db');
+const { scheduleVariantPriceUpdates } = require('../services/priceScheduleService');
+const { logAuditEvent } = require('../services/auditLogService');
+
+const safeLogAuditEvent = async (payload) => {
+    try {
+        await logAuditEvent(payload);
+    } catch (error) {
+        console.error('⚠️ Audit log error:', error.message);
+    }
+};
 
 const isTemperatureGroup = (groupName) => String(groupName || '').trim().toLowerCase().includes('temperature');
 const isSizeGroup = (groupName) => String(groupName || '').trim().toLowerCase().includes('size');
@@ -543,15 +553,18 @@ exports.getItemVariantPrices = async (req, res) => {
 // Replace variant pricing rows for an item (admin)
 exports.saveItemVariantPrices = async (req, res) => {
     const { itemId } = req.params;
-    const { variants } = req.body;
+    const { variants, apply_price_immediately } = req.body;
     const connection = await db.getConnection();
+    const applyPriceImmediately =
+        apply_price_immediately === true ||
+        String(apply_price_immediately || '').toLowerCase() === 'true';
+    const actorUserIdRaw = req?.user?.user_id ?? req?.user?.id ?? null;
+    const actorUserId = Number.isNaN(Number(actorUserIdRaw)) ? null : Number(actorUserIdRaw);
 
     try {
         await connection.beginTransaction();
 
         await ensureVariantPricingTable(connection);
-
-        await connection.query('DELETE FROM item_variant_prices WHERE item_id = ?', [itemId]);
 
         let variantList = Array.isArray(variants) ? variants : [];
         const flags = await getItemTemperatureFlags(itemId);
@@ -625,20 +638,93 @@ exports.saveItemVariantPrices = async (req, res) => {
             ]);
         }
 
-        if (values.length > 0) {
-            await connection.query(
-                `INSERT INTO item_variant_prices (item_id, size_option_id, temp_option_id, price, status)
-                 VALUES ?`,
-                [values]
-            );
+        const normalizedVariants = values.map((row) => ({
+            size_option_id: row[1],
+            temp_option_id: row[2],
+            price: row[3],
+            status: row[4]
+        }));
+
+        let priceUpdate = {
+            mode: 'scheduled',
+            scheduled_count: 0,
+            replaced_count: 0,
+            unchanged_count: normalizedVariants.length,
+            effective_at: null,
+            delay_days: null,
+            timezone: null
+        };
+
+        if (applyPriceImmediately) {
+            await connection.query('DELETE FROM item_variant_prices WHERE item_id = ?', [itemId]);
+
+            if (values.length > 0) {
+                await connection.query(
+                    `INSERT INTO item_variant_prices (item_id, size_option_id, temp_option_id, price, status)
+                     VALUES ?`,
+                    [values]
+                );
+            }
+
+            priceUpdate = {
+                mode: 'immediate',
+                scheduled_count: 0,
+                replaced_count: 0,
+                unchanged_count: 0,
+                effective_at: null,
+                delay_days: null,
+                timezone: null
+            };
+        } else {
+            const scheduleResult = await scheduleVariantPriceUpdates({
+                connection,
+                itemId: Number(itemId),
+                variantRows: normalizedVariants,
+                actorUserId,
+                notes: 'Scheduled from item variant matrix update',
+                settings: null
+            });
+
+            priceUpdate = {
+                mode: scheduleResult.scheduled_count > 0 ? 'scheduled' : 'unchanged',
+                scheduled_count: scheduleResult.scheduled_count,
+                replaced_count: scheduleResult.replaced_count,
+                unchanged_count: scheduleResult.unchanged_count,
+                effective_at: scheduleResult.effective_at,
+                delay_days: scheduleResult.delay_days,
+                timezone: scheduleResult.timezone,
+                schedule_ids: scheduleResult.schedule_ids || []
+            };
         }
 
         await connection.commit();
 
+        if (!applyPriceImmediately && Number(priceUpdate.scheduled_count || 0) > 0) {
+            await safeLogAuditEvent({
+                action: 'price_update_scheduled',
+                actorUserId,
+                targetType: 'item',
+                targetId: Number(itemId),
+                details: {
+                    item_id: Number(itemId),
+                    scope: 'variant',
+                    scheduled_count: Number(priceUpdate.scheduled_count),
+                    replaced_count: Number(priceUpdate.replaced_count || 0),
+                    unchanged_count: Number(priceUpdate.unchanged_count || 0),
+                    effective_at: priceUpdate.effective_at,
+                    delay_days: Number(priceUpdate.delay_days || 0),
+                    timezone: priceUpdate.timezone,
+                    schedule_ids: Array.isArray(priceUpdate.schedule_ids) ? priceUpdate.schedule_ids : []
+                },
+                ipAddress: req.ip
+            });
+        }
+
         const completeness = await getVariantPricingCompletenessForItem(itemId);
         res.json({
-            message: 'Variant prices saved successfully',
+            message: applyPriceImmediately ? 'Variant prices saved successfully' : 'Variant price update scheduled successfully',
             count: values.length,
+            price_update: priceUpdate,
             ...completeness
         });
     } catch (error) {

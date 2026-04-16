@@ -413,7 +413,9 @@ export default function Reports() {
       normalized.includes('item') ||
       normalized.includes('menu') ||
       normalized.includes('stock') ||
-      normalized.includes('inventory')
+      normalized.includes('inventory') ||
+      normalized.includes('price_update') ||
+      normalized.includes('schedule')
     ) {
       return 'audit-inventory';
     }
@@ -837,6 +839,11 @@ export default function Reports() {
                   <option value="shift_started">Shift Started</option>
                   <option value="shift_ended">Shift Ended</option>
                   <option value="shift_force_closed">Shift Force Closed</option>
+                  <option value="price_update_scheduled">Price Update Scheduled</option>
+                  <option value="price_update_replaced">Price Update Replaced</option>
+                  <option value="price_update_cancelled">Price Update Cancelled</option>
+                  <option value="price_update_applied">Price Update Applied</option>
+                  <option value="price_update_failed">Price Update Failed</option>
                 </select>
               </FilterSelectWrap>
             )}

@@ -99,6 +99,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Import Database Connection
 const db = require('./config/db');
 const runMigrations = require('./config/migrations');
+const { applyDuePriceSchedules } = require('./services/priceScheduleService');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -397,9 +398,39 @@ app.set('printAgents', printAgents);
 app.set('io', io);
 app.set('lockedSeats', lockedSeats);
 
+let priceScheduleRunnerBusy = false;
+let priceScheduleRunnerTimer = null;
+
+const runPriceScheduleSweep = async () => {
+    if (priceScheduleRunnerBusy) return;
+
+    priceScheduleRunnerBusy = true;
+    try {
+        const result = await applyDuePriceSchedules({ limit: 250 });
+        if ((result?.applied_count || 0) > 0 || (result?.failed_count || 0) > 0) {
+            console.log(
+                `⏱️ Price schedule sweep: applied=${result.applied_count || 0}, failed=${result.failed_count || 0}, scanned=${result.scanned_count || 0}, tz=${result.timezone || 'Asia/Manila'}`
+            );
+        }
+    } catch (error) {
+        console.error('⚠️ Price schedule sweep error:', error.message);
+    } finally {
+        priceScheduleRunnerBusy = false;
+    }
+};
+
+const startPriceScheduleRunner = () => {
+    if (priceScheduleRunnerTimer) return;
+
+    // Initial delayed run to let startup settle, then sweep every minute.
+    setTimeout(runPriceScheduleSweep, 10 * 1000);
+    priceScheduleRunnerTimer = setInterval(runPriceScheduleSweep, 60 * 1000);
+};
+
 
 // START SERVER — Run migrations first, then listen
 runMigrations().then(() => {
+    startPriceScheduleRunner();
     server.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('╔════════════════════════════════════════════════════════════╗');

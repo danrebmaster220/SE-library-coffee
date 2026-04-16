@@ -13,18 +13,23 @@ const ENV = {
     API_URL: 'http://192.168.1.11:3000/api',
     ENV_NAME: 'development',
   },
-  
+
   // Production - Update these when deploying to cloud
   production: {
     // Option 1: Local network (in-store kiosk on same network as backend)
     // API_URL: 'http://192.168.1.100:3000/api',
-    
+
     // Option 2: Cloud hosted backend
     // API_URL: 'https://your-backend.railway.app/api',
     // API_URL: 'https://your-backend.render.com/api',
-    
+
     // Current setting (update when you deploy):
+    // SE Backend
+    // API_URL: 'https://library-coffee-se.onrender.com/api',
+
+    // Client Backend
     API_URL: 'https://library-coffee-api.onrender.com/api',
+
     ENV_NAME: 'production',
   },
 };

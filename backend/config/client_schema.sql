@@ -311,6 +311,35 @@ INSERT INTO `quick_cash_amounts` (`id`, `amount`, `label`, `display_order`, `sta
 (5, 500.00, '₱500', 5, 'active'),
 (6, 1000.00, '₱1000', 6, 'active');
 
+-- Table: item_price_schedules
+CREATE TABLE IF NOT EXISTS `item_price_schedules` (
+  `schedule_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `item_id` int(11) NOT NULL,
+  `price_scope` enum('base','variant') NOT NULL DEFAULT 'base',
+  `size_option_id` int(11) DEFAULT NULL,
+  `temp_option_id` int(11) DEFAULT NULL,
+  `current_price` decimal(10,2) DEFAULT NULL,
+  `scheduled_price` decimal(10,2) NOT NULL,
+  `status` enum('pending','applied','cancelled','replaced','failed') NOT NULL DEFAULT 'pending',
+  `effective_at` datetime NOT NULL,
+  `applied_at` datetime DEFAULT NULL,
+  `cancelled_at` datetime DEFAULT NULL,
+  `replaced_by_schedule_id` bigint(20) DEFAULT NULL,
+  `timezone` varchar(64) NOT NULL DEFAULT 'Asia/Manila',
+  `notes` varchar(255) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`schedule_id`),
+  KEY `idx_price_sched_status_effective` (`status`,`effective_at`),
+  KEY `idx_price_sched_item_scope_status` (`item_id`,`price_scope`,`status`,`effective_at`),
+  KEY `idx_price_sched_variant_opts` (`size_option_id`,`temp_option_id`),
+  KEY `idx_price_sched_created_by` (`created_by`),
+  KEY `idx_price_sched_updated_by` (`updated_by`),
+  KEY `idx_price_sched_replaced_by` (`replaced_by_schedule_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_ID_CACHE=1;
+
 -- Table: system_settings
 CREATE TABLE IF NOT EXISTS `system_settings` (
   `setting_key` varchar(50) NOT NULL,
@@ -321,4 +350,7 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
 INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES
 ('printer_type', 'USB'),
 ('receipt_footer', 'Thank you for studying with us!'),
-('shop_name', 'The Library: Coffee + Study');
+('shop_name', 'The Library: Coffee + Study'),
+('price_update_delay_days', '3'),
+('price_update_timezone', 'Asia/Manila'),
+('price_update_delay_options', '3,5,7');

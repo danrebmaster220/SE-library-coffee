@@ -9,6 +9,8 @@
 .settings-container {
   padding: 16px;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Settings Cards */
@@ -18,6 +20,22 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   margin-bottom: 16px;
   overflow: hidden;
+}
+
+.settings-card-personal {
+  order: 1;
+}
+
+.settings-card-printer {
+  order: 4;
+}
+
+.settings-card-delay {
+  order: 3;
+}
+
+.settings-card-pending {
+  order: 2;
 }
 
 .settings-card-header {
@@ -187,6 +205,25 @@
   height: 1px;
   background: linear-gradient(to right, transparent, #e0e0e0, transparent);
   margin: 24px 0;
+}
+
+.settings-subsection-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--coffee-dark);
+  margin: 0 0 16px;
+}
+
+.upload-placeholder-disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  background: #f8f8f8;
+}
+
+.upload-placeholder-disabled:hover {
+  color: var(--coffee-light);
+  background: #f8f8f8;
 }
 
 /* Info Box */

@@ -1,4 +1,23 @@
 const db = require('../config/db');
+const {
+    ALLOWED_DELAY_DAYS,
+    getPriceUpdateSettings,
+    updatePriceUpdateDelayDays,
+    scheduleBasePriceUpdate,
+    getPendingPriceSchedules,
+    cancelPendingPriceSchedule,
+    replacePendingPriceSchedule,
+    getPriceUpdateNotices
+} = require('../services/priceScheduleService');
+const { logAuditEvent } = require('../services/auditLogService');
+
+const safeLogAuditEvent = async (payload) => {
+    try {
+        await logAuditEvent(payload);
+    } catch (error) {
+        console.error('⚠️ Audit log error:', error.message);
+    }
+};
 
 // ── Menu card pricing (variant matrix + “From ₱min”) ───────────────────────
 
@@ -156,6 +175,12 @@ const toTinyBool = (value, fallback = 1) => {
     return fallback;
 };
 
+const getActorUserIdFromRequest = (req) => {
+    const raw = req?.user?.user_id ?? req?.user?.id ?? null;
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
 
 // CATEGORIES
 
@@ -169,6 +194,210 @@ exports.getCategories = async (req, res) => {
         res.set('Cache-Control', CATEGORIES_LIST_CACHE_CONTROL);
         const [rows] = await db.query('SELECT * FROM categories ORDER BY category_id ASC');
         res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get effective-date pricing settings (admin)
+exports.getPriceUpdateSettings = async (_req, res) => {
+    try {
+        const settings = await getPriceUpdateSettings(db);
+        res.json({ settings });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Update effective-date pricing delay (admin)
+exports.updatePriceUpdateSettings = async (req, res) => {
+    try {
+        const requestedDelay = Number(req.body?.delay_days);
+        if (!ALLOWED_DELAY_DAYS.includes(requestedDelay)) {
+            return res.status(400).json({
+                error: `delay_days must be one of: ${ALLOWED_DELAY_DAYS.join(', ')}`
+            });
+        }
+
+        const settings = await updatePriceUpdateDelayDays({
+            delayDays: requestedDelay,
+            actorUserId: getActorUserIdFromRequest(req),
+            ipAddress: req.ip,
+            queryRunner: db
+        });
+
+        res.json({
+            message: 'Price update delay settings saved successfully',
+            settings
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// List pending scheduled price updates (admin)
+exports.getPendingPriceSchedules = async (req, res) => {
+    try {
+        const itemId = req.query?.itemId != null ? Number(req.query.itemId) : null;
+        const limit = req.query?.limit != null ? Number(req.query.limit) : 200;
+
+        if (itemId != null && Number.isNaN(itemId)) {
+            return res.status(400).json({ error: 'Invalid itemId value.' });
+        }
+
+        const schedules = await getPendingPriceSchedules({
+            queryRunner: db,
+            itemId,
+            limit
+        });
+
+        res.json({
+            count: schedules.length,
+            schedules
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Cancel one pending price schedule (admin)
+exports.cancelPendingPriceSchedule = async (req, res) => {
+    const scheduleId = Number(req.params?.id);
+    if (Number.isNaN(scheduleId)) {
+        return res.status(400).json({ error: 'Invalid schedule id.' });
+    }
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const result = await cancelPendingPriceSchedule({
+            connection,
+            scheduleId,
+            actorUserId: getActorUserIdFromRequest(req),
+            reason: req.body?.reason || null
+        });
+
+        if (!result.cancelled) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Pending schedule not found.' });
+        }
+
+        await connection.commit();
+
+        await safeLogAuditEvent({
+            action: 'price_update_cancelled',
+            actorUserId: getActorUserIdFromRequest(req),
+            targetType: 'item_price_schedule',
+            targetId: scheduleId,
+            details: {
+                schedule_id: scheduleId,
+                item_id: Number(result.schedule?.item_id),
+                price_scope: result.schedule?.price_scope,
+                effective_at: result.schedule?.effective_at,
+                cancelled_at: result.cancelled_at,
+                reason: req.body?.reason || null
+            },
+            ipAddress: req.ip
+        });
+
+        res.json({
+            message: 'Pending price schedule cancelled successfully.',
+            result
+        });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+// Replace one pending price schedule (admin)
+exports.replacePendingPriceSchedule = async (req, res) => {
+    const scheduleId = Number(req.params?.id);
+    const newPrice = Number(req.body?.scheduled_price);
+
+    if (Number.isNaN(scheduleId)) {
+        return res.status(400).json({ error: 'Invalid schedule id.' });
+    }
+
+    if (Number.isNaN(newPrice)) {
+        return res.status(400).json({ error: 'Invalid scheduled_price value.' });
+    }
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const result = await replacePendingPriceSchedule({
+            connection,
+            scheduleId,
+            newPrice,
+            actorUserId: getActorUserIdFromRequest(req),
+            notes: req.body?.notes || 'Replaced from pending schedules manager'
+        });
+
+        if (!result.replaced) {
+            await connection.rollback();
+            if (result.reason === 'not_found_or_not_pending') {
+                return res.status(404).json({ error: 'Pending schedule not found.' });
+            }
+            return res.status(400).json({
+                error: result.reason === 'unchanged'
+                    ? 'New price is unchanged from the currently effective price.'
+                    : 'Unable to replace pending schedule.'
+            });
+        }
+
+        await connection.commit();
+
+        await safeLogAuditEvent({
+            action: 'price_update_replaced',
+            actorUserId: getActorUserIdFromRequest(req),
+            targetType: 'item_price_schedule',
+            targetId: Number(result.new_schedule_id),
+            details: {
+                old_schedule_id: Number(result.old_schedule_id),
+                new_schedule_id: Number(result.new_schedule_id),
+                item_id: Number(result.old_schedule?.item_id),
+                price_scope: result.old_schedule?.price_scope,
+                old_scheduled_price: Number(result.old_schedule?.scheduled_price),
+                new_scheduled_price: Number(result.result?.scheduled_price),
+                effective_at: result.effective_at,
+                delay_days: result.delay_days,
+                timezone: result.timezone
+            },
+            ipAddress: req.ip
+        });
+
+        res.json({
+            message: 'Pending price schedule replaced successfully.',
+            result
+        });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+// Cashier/admin notice for upcoming effective price updates
+exports.getPriceUpdateNotices = async (req, res) => {
+    try {
+        const windowHours = req.query?.windowHours != null ? Number(req.query.windowHours) : 24;
+        const maxItems = req.query?.maxItems != null ? Number(req.query.maxItems) : 20;
+
+        const payload = await getPriceUpdateNotices({
+            queryRunner: db,
+            windowHours,
+            maxItems
+        });
+
+        res.json(payload);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -316,14 +545,41 @@ exports.getItems = async (req, res) => {
             else if (s === 'large') sizeId = branch.large;
         }
 
+        const pendingByItem = new Map();
+        try {
+            const [pendingRows] = await db.query(
+                `
+                SELECT item_id, COUNT(*) AS pending_count, MIN(effective_at) AS next_effective_at
+                FROM item_price_schedules
+                WHERE status = 'pending'
+                AND item_id IN (?)
+                GROUP BY item_id
+                `,
+                [itemIds]
+            );
+
+            for (const row of pendingRows) {
+                pendingByItem.set(Number(row.item_id), {
+                    pending_count: Number(row.pending_count || 0),
+                    next_effective_at: row.next_effective_at || null
+                });
+            }
+        } catch (_error) {
+            // If the schedule table is not available yet, skip metadata without failing the endpoint.
+        }
+
         const enriched = rows.map((item) => {
             const vars = byItem[item.item_id] || [];
             const p = computeMenuCardPricing(item, vars, tempId, sizeId);
+            const pending = pendingByItem.get(Number(item.item_id)) || null;
             return {
                 ...item,
                 menu_price: p.menu_price,
                 menu_price_kind: p.menu_price_kind,
                 menu_price_label: p.menu_price_label,
+                has_pending_price_update: !!(pending && pending.pending_count > 0),
+                pending_price_update_count: pending ? pending.pending_count : 0,
+                next_price_effective_at: pending ? pending.next_effective_at : null
             };
         });
 
@@ -367,16 +623,159 @@ exports.createItem = async (req, res) => {
 // Update Item
 exports.updateItem = async (req, res) => {
     const { id } = req.params;
-    const { category_id, name, description, price, station, status, image, is_customizable } = req.body;
+    const {
+        category_id,
+        name,
+        description,
+        price,
+        station,
+        status,
+        image,
+        is_customizable,
+        apply_price_immediately
+    } = req.body;
 
+    const requestedPrice = Number(price);
+    if (Number.isNaN(requestedPrice)) {
+        return res.status(400).json({ error: 'Invalid price value.' });
+    }
+
+    const applyPriceImmediately =
+        apply_price_immediately === true ||
+        String(apply_price_immediately || '').toLowerCase() === 'true';
+
+    let connection;
     try {
-        await db.query(
-            'UPDATE items SET category_id = ?, name = ?, description = ?, price = ?, station = ?, status = ?, image = ?, is_customizable = ? WHERE item_id = ?',
-            [category_id, name, description, price, station, status, image, is_customizable || false, id]
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [itemRows] = await connection.query(
+            'SELECT item_id, price FROM items WHERE item_id = ? LIMIT 1 FOR UPDATE',
+            [id]
         );
-        res.json({ message: 'Item updated successfully' });
+
+        if (itemRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        const currentPrice = Number(itemRows[0].price || 0);
+        const normalizedCurrent = Number(currentPrice.toFixed(2));
+        const normalizedRequested = Number(requestedPrice.toFixed(2));
+        const priceChanged = normalizedCurrent !== normalizedRequested;
+
+        let persistedPrice = normalizedRequested;
+        let priceUpdate = {
+            mode: priceChanged ? 'immediate' : 'unchanged',
+            current_price: normalizedCurrent,
+            scheduled_price: priceChanged ? normalizedRequested : null,
+            effective_at: null,
+            delay_days: null,
+            timezone: null
+        };
+
+        if (!applyPriceImmediately && priceChanged) {
+            const scheduleResult = await scheduleBasePriceUpdate({
+                connection,
+                itemId: Number(id),
+                newPrice: normalizedRequested,
+                actorUserId: getActorUserIdFromRequest(req),
+                notes: 'Scheduled from menu item update',
+                settings: null
+            });
+
+            if (scheduleResult.scheduled) {
+                persistedPrice = normalizedCurrent;
+                priceUpdate = {
+                    mode: 'scheduled',
+                    current_price: scheduleResult.current_price,
+                    scheduled_price: scheduleResult.scheduled_price,
+                    effective_at: scheduleResult.effective_at,
+                    delay_days: scheduleResult.delay_days,
+                    timezone: scheduleResult.timezone,
+                    schedule_id: scheduleResult.schedule_id,
+                    replaced_count: Number(scheduleResult.replaced_count || 0)
+                };
+            } else {
+                priceUpdate = {
+                    mode: 'unchanged',
+                    current_price: normalizedCurrent,
+                    scheduled_price: null,
+                    effective_at: null,
+                    delay_days: null,
+                    timezone: null
+                };
+            }
+        }
+
+        await connection.query(
+            `
+            UPDATE items
+            SET category_id = ?,
+                name = ?,
+                description = ?,
+                price = ?,
+                station = ?,
+                status = ?,
+                image = ?,
+                is_customizable = ?
+            WHERE item_id = ?
+            `,
+            [
+                category_id,
+                name,
+                description,
+                persistedPrice,
+                station,
+                status,
+                image,
+                is_customizable || false,
+                id
+            ]
+        );
+
+        const [pendingCountRows] = await connection.query(
+            `
+            SELECT COUNT(*) AS pending_count
+            FROM item_price_schedules
+            WHERE item_id = ?
+            AND status = 'pending'
+            `,
+            [id]
+        );
+
+        await connection.commit();
+
+        if (priceUpdate.mode === 'scheduled') {
+            await safeLogAuditEvent({
+                action: 'price_update_scheduled',
+                actorUserId: getActorUserIdFromRequest(req),
+                targetType: 'item',
+                targetId: Number(id),
+                details: {
+                    item_id: Number(id),
+                    current_price: Number(priceUpdate.current_price),
+                    scheduled_price: Number(priceUpdate.scheduled_price),
+                    effective_at: priceUpdate.effective_at,
+                    delay_days: Number(priceUpdate.delay_days),
+                    timezone: priceUpdate.timezone,
+                    replaced_count: Number(priceUpdate.replaced_count || 0),
+                    schedule_id: priceUpdate.schedule_id != null ? Number(priceUpdate.schedule_id) : null
+                },
+                ipAddress: req.ip
+            });
+        }
+
+        res.json({
+            message: 'Item updated successfully',
+            price_update: priceUpdate,
+            pending_price_update_count: Number(pendingCountRows?.[0]?.pending_count || 0)
+        });
     } catch (error) {
+        if (connection) await connection.rollback();
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
