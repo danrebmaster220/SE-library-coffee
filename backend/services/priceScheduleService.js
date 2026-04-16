@@ -143,6 +143,37 @@ const ensureSystemSettingsTable = async (queryRunner = db) => {
     `);
 };
 
+const ensurePriceSchedulesTable = async (queryRunner = db) => {
+    await queryRunner.query(`
+        CREATE TABLE IF NOT EXISTS item_price_schedules (
+            schedule_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            item_id INT NOT NULL,
+            price_scope ENUM('base','variant') NOT NULL DEFAULT 'base',
+            size_option_id INT NULL,
+            temp_option_id INT NULL,
+            current_price DECIMAL(10,2) NULL,
+            scheduled_price DECIMAL(10,2) NOT NULL,
+            status ENUM('pending','applied','cancelled','replaced','failed') NOT NULL DEFAULT 'pending',
+            effective_at DATETIME NOT NULL,
+            applied_at DATETIME NULL,
+            cancelled_at DATETIME NULL,
+            replaced_by_schedule_id BIGINT NULL,
+            timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Manila',
+            notes VARCHAR(255) NULL,
+            created_by INT NULL,
+            updated_by INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_price_sched_status_effective (status, effective_at),
+            INDEX idx_price_sched_item_scope_status (item_id, price_scope, status, effective_at),
+            INDEX idx_price_sched_variant_opts (size_option_id, temp_option_id),
+            INDEX idx_price_sched_created_by (created_by),
+            INDEX idx_price_sched_updated_by (updated_by),
+            INDEX idx_price_sched_replaced_by (replaced_by_schedule_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    `);
+};
+
 const getPriceUpdateSettings = async (queryRunner = db) => {
     await ensureSystemSettingsTable(queryRunner);
 
@@ -337,6 +368,7 @@ const scheduleBasePriceUpdate = async ({
     notes = null,
     settings = null
 }) => {
+    await ensurePriceSchedulesTable(connection);
     const effectiveSettings = settings || (await getPriceUpdateSettings(connection));
 
     const [rows] = await connection.query(
@@ -385,6 +417,8 @@ const getPendingPriceSchedules = async ({
     itemId = null,
     limit = 200
 } = {}) => {
+    await ensurePriceSchedulesTable(queryRunner);
+
     const params = [];
     const where = [`s.status = 'pending'`];
 
@@ -438,6 +472,8 @@ const cancelPendingPriceSchedule = async ({
     actorUserId = null,
     reason = null
 }) => {
+    await ensurePriceSchedulesTable(connection);
+
     const [rows] = await connection.query(
         `
         SELECT *
@@ -485,6 +521,8 @@ const replacePendingPriceSchedule = async ({
     actorUserId = null,
     notes = null
 }) => {
+    await ensurePriceSchedulesTable(connection);
+
     const [rows] = await connection.query(
         `
         SELECT *
@@ -573,6 +611,8 @@ const scheduleVariantPriceUpdates = async ({
     notes = null,
     settings = null
 }) => {
+    await ensurePriceSchedulesTable(connection);
+
     const effectiveSettings = settings || (await getPriceUpdateSettings(connection));
 
     const [activeRows] = await connection.query(
@@ -642,6 +682,8 @@ const scheduleVariantPriceUpdates = async ({
 };
 
 const applyDuePriceSchedules = async ({ limit = 250 } = {}) => {
+    await ensurePriceSchedulesTable(db);
+
     const settings = await getPriceUpdateSettings(db);
     const nowManila = nowInTimezoneMysql(settings.timezone);
 
@@ -826,6 +868,8 @@ const applyDuePriceSchedules = async ({ limit = 250 } = {}) => {
 };
 
 const getPendingPriceSchedulesByItem = async (itemId, queryRunner = db) => {
+    await ensurePriceSchedulesTable(queryRunner);
+
     const [rows] = await queryRunner.query(
         `
         SELECT
@@ -856,6 +900,8 @@ const getPriceUpdateNotices = async ({
     windowHours = 24,
     maxItems = 20
 } = {}) => {
+    await ensurePriceSchedulesTable(queryRunner);
+
     const settings = await getPriceUpdateSettings(queryRunner);
     const nowManila = nowInTimezoneMysql(settings.timezone);
     const horizon = addHoursToTimezoneMysqlDateTime({
