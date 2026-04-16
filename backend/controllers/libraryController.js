@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { resolveDisplayName } = require('../utils/userName');
+const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
 const { printLibraryCheckinReceipt, printLibraryExtensionReceipt } = require('../services/printerService');
 
 // Pricing configuration
@@ -839,11 +840,13 @@ exports.getSessionHistory = async (req, res) => {
 
 
 // VOID A LIBRARY SESSION
-// - Admin can void directly (no extra auth needed)
-// - Cashier needs admin credentials to void any session
+// - All sensitive void actions require a valid admin PIN authorization.
 
 exports.voidSession = async (req, res) => {
-    const { session_id, reason, admin_credentials } = req.body;
+    const { session_id, reason } = req.body;
+    const adminPin = normalizeAdminPin(
+        req.body?.admin_pin || req.body?.adminPin || req.body?.pin || req.body?.admin_credentials?.pin
+    );
 
     try {
         // Get session
@@ -860,41 +863,20 @@ exports.voidSession = async (req, res) => {
             return res.status(400).json({ error: 'Session has already been voided' });
         }
 
-        // Get user info and role
-        const userId = req.user?.user_id || null;
+        // Get user role
         const userRole = req.user?.role?.toLowerCase() || null;
-        let authorizedById = userId;
 
-        // CASHIER AUTHORIZATION: Requires admin credentials
-        if (userRole === 'cashier') {
-            if (!admin_credentials || !admin_credentials.username || !admin_credentials.password) {
-                return res.status(403).json({ 
-                    error: 'Admin authorization required. Please provide admin credentials.' 
-                });
-            }
+        const pinAuth = await verifyAdminPinAgainstAdmins({
+            queryRunner: db,
+            bcryptLib: bcrypt,
+            pin: adminPin
+        });
 
-            // Verify admin credentials
-            const [adminUser] = await db.query(
-                'SELECT user_id, password_hash, role FROM users WHERE username = ?',
-                [admin_credentials.username]
-            );
-
-            if (adminUser.length === 0) {
-                return res.status(403).json({ error: 'Invalid admin credentials.' });
-            }
-
-            if (adminUser[0].role.toLowerCase() !== 'admin') {
-                return res.status(403).json({ error: 'The provided credentials are not for an admin account.' });
-            }
-
-            const isValidPassword = await bcrypt.compare(admin_credentials.password, adminUser[0].password_hash);
-            if (!isValidPassword) {
-                return res.status(403).json({ error: 'Invalid admin password.' });
-            }
-
-            // Use the admin's ID as the authorizer
-            authorizedById = adminUser[0].user_id;
+        if (!pinAuth.valid) {
+            return res.status(pinAuth.status).json({ error: pinAuth.error });
         }
+
+        const authorizedById = pinAuth.admin.id;
 
         // PERMISSION CHECK: Cashiers can only void ACTIVE sessions even with admin auth
         if (userRole === 'cashier' && session[0].status === 'completed') {

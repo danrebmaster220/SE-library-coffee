@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const { buildFullName, resolveDisplayName } = require('../utils/userName');
+const { normalizeAdminPin, isValidAdminPinFormat } = require('../utils/adminPin');
 
 const userSelectCols = `
     u.user_id, u.username, u.full_name, u.first_name, u.middle_name, u.last_name,
@@ -345,9 +346,81 @@ exports.changeMyPassword = async (req, res) => {
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(new_password, saltRounds);
 
-        await db.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [password_hash, userId]);
+        try {
+            await db.query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE user_id = ?', [password_hash, userId]);
+        } catch (updateError) {
+            // Backward compatibility for databases that do not yet have must_change_password.
+            await db.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [password_hash, userId]);
+            if (updateError?.code !== 'ER_BAD_FIELD_ERROR') {
+                throw updateError;
+            }
+        }
 
         res.json({ message: 'Password changed successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+// CHANGE CURRENT ADMIN PIN
+
+exports.changeMyPin = async (req, res) => {
+    try {
+        const userId = req.user.user_id;
+        const currentPin = normalizeAdminPin(req.body?.current_pin);
+        const newPin = normalizeAdminPin(req.body?.new_pin);
+
+        if (!isValidAdminPinFormat(newPin)) {
+            return res.status(400).json({ error: 'New PIN must be exactly 6 digits.' });
+        }
+
+        const [users] = await db.query(
+            `SELECT u.admin_pin_hash, r.role_name
+             FROM users u
+             JOIN roles r ON r.role_id = u.role_id
+             WHERE u.user_id = ?
+             LIMIT 1`,
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const roleName = String(users[0].role_name || '').toLowerCase();
+        if (roleName !== 'admin') {
+            return res.status(403).json({ error: 'Only admin users can change authorization PIN.' });
+        }
+
+        const existingHash = users[0].admin_pin_hash;
+        if (existingHash) {
+            if (!isValidAdminPinFormat(currentPin)) {
+                return res.status(400).json({ error: 'Current PIN is required and must be 6 digits.' });
+            }
+
+            const currentMatches = await bcrypt.compare(currentPin, existingHash);
+            if (!currentMatches) {
+                return res.status(401).json({ error: 'Current PIN is incorrect.' });
+            }
+        }
+
+        const pinHash = await bcrypt.hash(newPin, 10);
+
+        try {
+            await db.query(
+                'UPDATE users SET admin_pin_hash = ?, must_change_pin = 0 WHERE user_id = ?',
+                [pinHash, userId]
+            );
+        } catch (updateError) {
+            // Backward compatibility for databases that do not yet have must_change_pin.
+            await db.query('UPDATE users SET admin_pin_hash = ? WHERE user_id = ?', [pinHash, userId]);
+            if (updateError?.code !== 'ER_BAD_FIELD_ERROR') {
+                throw updateError;
+            }
+        }
+
+        res.json({ message: 'Authorization PIN updated successfully.' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

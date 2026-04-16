@@ -103,7 +103,6 @@ const buildBranchPrefillSelections = (groups, menuBranch) => {
 };
 
 export default function POS() {
-  const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasActiveShift, setHasActiveShift] = useState(true);
   const [shiftChecking, setShiftChecking] = useState(true);
@@ -138,7 +137,7 @@ export default function POS() {
   const [voidingOrder, setVoidingOrder] = useState(null);
   const [voidReasonType, setVoidReasonType] = useState('');
   const [voidOtherReason, setVoidOtherReason] = useState('');
-  const [adminCredentials, setAdminCredentials] = useState({ username: '', password: '' });
+  const [adminPin, setAdminPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -151,7 +150,7 @@ export default function POS() {
   // Item removal modal state (for kiosk orders)
   const [showItemRemovalModal, setShowItemRemovalModal] = useState(false);
   const [removingItem, setRemovingItem] = useState(null); // { itemId, action: 'remove' | 'decrease', itemName }
-  const [itemRemovalCredentials, setItemRemovalCredentials] = useState({ username: '', password: '' });
+  const [itemRemovalPin, setItemRemovalPin] = useState('');
   const [itemRemovalReasonType, setItemRemovalReasonType] = useState('');
   const [itemRemovalOtherReason, setItemRemovalOtherReason] = useState('');
   
@@ -259,7 +258,6 @@ export default function POS() {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-    setCurrentUser(user);
     // Check if user is admin
     setIsAdmin(user?.role_id === 1 || user?.role?.toLowerCase() === 'admin');
 
@@ -768,7 +766,7 @@ export default function POS() {
   // Handle quantity decrease — same line-item modal as kiosk (reason + admin when kiosk)
   const handleDecreaseQuantity = (item) => {
     setRemovingItem({ itemId: item.id, action: 'decrease', name: item.name, size: item.size, quantity: item.quantity });
-    setItemRemovalCredentials({ username: '', password: '' });
+    setItemRemovalPin('');
     setItemRemovalReasonType('');
     setItemRemovalOtherReason('');
     setShowItemRemovalModal(true);
@@ -788,7 +786,7 @@ export default function POS() {
   const closeItemRemovalModal = () => {
     setShowItemRemovalModal(false);
     setRemovingItem(null);
-    setItemRemovalCredentials({ username: '', password: '' });
+    setItemRemovalPin('');
     setItemRemovalReasonType('');
     setItemRemovalOtherReason('');
   };
@@ -820,21 +818,20 @@ export default function POS() {
       return;
     }
 
-    if (!itemRemovalCredentials.username || !itemRemovalCredentials.password) {
-      showToast('Please enter admin credentials', 'warning');
+    if (!/^\d{6}$/.test(itemRemovalPin)) {
+      showToast('Please enter a valid 6-digit admin PIN', 'warning');
       return;
     }
 
     try {
-      const response = await api.post('/auth/verify-admin', {
-        username: itemRemovalCredentials.username,
-        password: itemRemovalCredentials.password
+      const response = await api.post('/auth/verify-admin-pin', {
+        admin_pin: itemRemovalPin
       });
 
       if (response.data.valid) {
         applyRemoval();
       } else {
-        showToast('Invalid admin credentials', 'error');
+        showToast('Invalid admin PIN', 'error');
       }
     } catch {
       showToast('Authentication failed', 'error');
@@ -863,7 +860,7 @@ export default function POS() {
     return Number(computedAmt.toFixed(2));
   }, [selectedDiscount, subtotal]);
 
-  const handleBulkVoidConfirm = async ({ itemIds, voidLibrary, reason, adminUsername }) => {
+  const handleBulkVoidConfirm = async ({ itemIds, voidLibrary, reason, adminPin }) => {
     if (pendingOrderId) {
       // --- PENDING ORDER: call backend ---
       const allItemsSelected = itemIds.length === cart.length;
@@ -874,7 +871,7 @@ export default function POS() {
           // Full void — void the entire transaction
           await api.post(`/pos/transactions/${pendingOrderId}/void`, {
             reason: reason || 'Voided from cart panel',
-            voided_by: adminUsername || null
+            admin_pin: adminPin || null
           });
           showToast('Order voided successfully', 'success');
           resetOrder();
@@ -889,7 +886,7 @@ export default function POS() {
             transaction_item_ids: transactionItemIds,
             void_library: voidLibrary,
             reason: reason || 'Partial void from cart panel',
-            admin_username: adminUsername || null
+            admin_pin: adminPin || null
           });
 
           if (result.data.fully_voided) {
@@ -1209,7 +1206,7 @@ export default function POS() {
     setVoidingOrder(order);
     setVoidReasonType('');
     setVoidOtherReason('');
-    setAdminCredentials({ username: '', password: '' });
+    setAdminPin('');
     setShowVoidModal(true);
   };
 
@@ -1220,31 +1217,29 @@ export default function POS() {
       setError('Please select a reason for voiding this order');
       return;
     }
+
+    if (!/^\d{6}$/.test(adminPin)) {
+      setError('A valid 6-digit admin PIN is required.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const voidData = { reason: finalReason.trim() };
-      
-      if (currentUser?.role === 'admin') {
-        await api.post(`/pos/transactions/${voidingOrder.id}/void`, voidData);
-      } else {
-        const authRes = await api.post('/auth/verify-admin', adminCredentials);
-        if (authRes.data.valid) {
-          await api.post(`/pos/transactions/${voidingOrder.id}/void`, {
-            ...voidData,
-            adminUsername: adminCredentials.username
-          });
-        } else {
-          throw new Error('Invalid admin credentials');
-        }
-      }
+
+      await api.post(`/pos/transactions/${voidingOrder.id}/void`, {
+        ...voidData,
+        admin_pin: adminPin
+      });
+
       showToast('Order voided successfully', 'success');
       setShowVoidModal(false);
       setVoidingOrder(null);
       setVoidReasonType('');
       setVoidOtherReason('');
-      setAdminCredentials({ username: '', password: '' });
+      setAdminPin('');
       fetchOrders();
       fetchBeepers();
     } catch (err) {
@@ -1993,28 +1988,21 @@ export default function POS() {
                 )}
               </div>
               
-              {currentUser?.role !== 'admin' && (
-                <div style={{ width: '80%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-                  <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization Required</h4>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Admin Username" 
-                      value={adminCredentials.username}
-                      onChange={e => setAdminCredentials(prev => ({ ...prev, username: e.target.value }))}
-                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
-                    />
-                    <input 
-                      type="password" 
-                      placeholder="Admin Password" 
-                      value={adminCredentials.password}
-                      onChange={e => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
-                      style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
-                    />
-                  </div>
+              <div style={{ width: '80%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization PIN Required</h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="password"
+                    placeholder="Enter 6-digit PIN"
+                    value={adminPin}
+                    onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    inputMode="numeric"
+                    maxLength={6}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
+                  />
                 </div>
-              )}
+              </div>
               {error && <div className="error-message">{error}</div>}
             </div>
             <div className="modal-footer">
@@ -2199,23 +2187,18 @@ export default function POS() {
 
               {pendingOrderId && (
               <div style={{ width: '90%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization Required</h4>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin PIN Required</h4>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <input 
-                    type="text" 
-                    value={itemRemovalCredentials.username}
-                    onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, username: e.target.value})}
-                    placeholder="Admin Username"
+                    type="password" 
+                    value={itemRemovalPin}
+                    onChange={(e) => setItemRemovalPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit PIN"
+                    inputMode="numeric"
+                    maxLength={6}
                     style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
                     autoFocus
-                  />
-                  <input 
-                    type="password" 
-                    value={itemRemovalCredentials.password}
-                    onChange={(e) => setItemRemovalCredentials({...itemRemovalCredentials, password: e.target.value})}
-                    placeholder="Admin Password"
-                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
@@ -2236,7 +2219,7 @@ export default function POS() {
                     const fr = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
                     if (!String(fr || '').trim()) return true;
                     if (pendingOrderId) {
-                      return !itemRemovalCredentials.username || !itemRemovalCredentials.password;
+                      return !/^\d{6}$/.test(itemRemovalPin);
                     }
                     return false;
                   })()

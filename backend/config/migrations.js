@@ -67,6 +67,9 @@ async function runMigrations() {
         // Migration 19: Seed default pricing schedule settings
         await ensurePriceScheduleSettings();
 
+        // Migration 20: Add admin PIN + first-change security flags on users
+        await addUsersSecurityColumns();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -1066,6 +1069,72 @@ async function ensurePriceScheduleSettings() {
         console.log('   ✅ Ensured pricing schedule default settings');
     } catch (error) {
         console.error('   ⚠️ ensurePriceScheduleSettings:', error.message);
+    }
+}
+
+async function addUsersSecurityColumns() {
+    try {
+        const columnExists = async (columnName) => {
+            const [rows] = await db.query(
+                `
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'users'
+                AND COLUMN_NAME = ?
+                `,
+                [columnName]
+            );
+            return rows.length > 0;
+        };
+
+        if (!(await columnExists('admin_pin_hash'))) {
+            await db.query('ALTER TABLE users ADD COLUMN admin_pin_hash VARCHAR(255) NULL');
+            console.log('   ✅ Added users.admin_pin_hash');
+        } else {
+            console.log('   ⏭️  users.admin_pin_hash already exists');
+        }
+
+        if (!(await columnExists('must_change_pin'))) {
+            await db.query('ALTER TABLE users ADD COLUMN must_change_pin TINYINT(1) NOT NULL DEFAULT 0');
+            console.log('   ✅ Added users.must_change_pin');
+        } else {
+            console.log('   ⏭️  users.must_change_pin already exists');
+        }
+
+        if (!(await columnExists('must_change_password'))) {
+            await db.query('ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0');
+            console.log('   ✅ Added users.must_change_password');
+        } else {
+            console.log('   ⏭️  users.must_change_password already exists');
+        }
+
+        const [adminNeedsPin] = await db.query(`
+            UPDATE users u
+            JOIN roles r ON r.role_id = u.role_id
+            SET u.must_change_pin = 1
+            WHERE LOWER(r.role_name) = 'admin'
+            AND (u.admin_pin_hash IS NULL OR TRIM(u.admin_pin_hash) = '')
+        `);
+
+        const [nonAdminPinFlag] = await db.query(`
+            UPDATE users u
+            JOIN roles r ON r.role_id = u.role_id
+            SET u.must_change_pin = 0
+            WHERE LOWER(r.role_name) <> 'admin'
+            AND u.must_change_pin <> 0
+        `);
+
+        const adminsFlagged = Number(adminNeedsPin?.affectedRows || 0);
+        const nonAdminReset = Number(nonAdminPinFlag?.affectedRows || 0);
+
+        if (adminsFlagged > 0 || nonAdminReset > 0) {
+            console.log(`   ✅ Updated PIN flags (admins needing setup: ${adminsFlagged}, non-admin reset: ${nonAdminReset})`);
+        } else {
+            console.log('   ⏭️  users PIN/password security flags already aligned');
+        }
+    } catch (error) {
+        console.error('   ⚠️ addUsersSecurityColumns:', error.message);
     }
 }
 

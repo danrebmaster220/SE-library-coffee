@@ -18,8 +18,7 @@ export default function ReturnRequestModal({
   const [refundMethod, setRefundMethod] = useState(''); // 'cash' or 'item'
   const [reasonType, setReasonType] = useState('');
   const [otherReason, setOtherReason] = useState('');
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPin, setAdminPin] = useState('');
   
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -48,8 +47,7 @@ export default function ReturnRequestModal({
       setRefundMethod('');
       setReasonType('');
       setOtherReason('');
-      setAdminUsername('');
-      setAdminPassword('');
+      setAdminPin('');
       setErrorMsg('');
       setLoading(true);
     }
@@ -86,21 +84,20 @@ export default function ReturnRequestModal({
       setErrorMsg('Please provide a reason for the refund.');
       return;
     }
-    if (!adminUsername || !adminPassword) {
-      setErrorMsg('Admin credentials are required to authorize a refund.');
+    if (!/^\d{6}$/.test(adminPin)) {
+      setErrorMsg('A valid 6-digit admin PIN is required to authorize a refund.');
       return;
     }
 
     setProcessing(true);
     try {
       // 1. Verify Admin
-      const authRes = await api.post('/auth/verify-admin', {
-        username: adminUsername,
-        password: adminPassword
+      const authRes = await api.post('/auth/verify-admin-pin', {
+        admin_pin: adminPin
       });
       
       if (!authRes.data.valid) {
-        setErrorMsg('Invalid admin credentials.');
+        setErrorMsg('Invalid admin PIN.');
         setProcessing(false);
         return;
       }
@@ -109,7 +106,7 @@ export default function ReturnRequestModal({
       await api.post(`/pos/transactions/${transactionId}/refund`, {
         reason: finalReason,
         refundMethod: refundMethod,
-        adminUsername,
+        admin_pin: adminPin,
         refundedItems: Array.from(selectedItemIds),
         refundLibrary
       });
@@ -270,21 +267,16 @@ export default function ReturnRequestModal({
                   </div>
 
                   <div style={{ width: '100%', maxWidth: '400px', backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #eee' }}>
-                    <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e67e22', textAlign: 'center' }}>Admin Credentials</h4>
+                    <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e67e22', textAlign: 'center' }}>Admin Authorization PIN</h4>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <input 
-                        type="text" 
-                        placeholder="Admin Username" 
-                        value={adminUsername}
-                        onChange={e => setAdminUsername(e.target.value)}
-                        style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
-                      />
-                      <input 
                         type="password" 
-                        placeholder="Admin Password" 
-                        value={adminPassword}
-                        onChange={e => setAdminPassword(e.target.value)}
+                        placeholder="Enter 6-digit PIN" 
+                        value={adminPin}
+                        onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        inputMode="numeric"
+                        maxLength={6}
                         style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
                       />
                     </div>

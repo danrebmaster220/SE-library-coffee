@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { verifyToken } = require('../middleware/auth');
 
 // POST /api/auth/login
 router.post('/login', authController.login);
@@ -12,6 +13,9 @@ router.post('/register', authController.register);
 router.get('/verify', authController.verify);
 
 // POST /api/auth/verify-admin (Verify admin credentials for void operations)
-router.post('/verify-admin', authController.verifyAdmin);
+router.post('/verify-admin', verifyToken, authController.verifyAdmin);
+
+// POST /api/auth/verify-admin-pin (Verify admin PIN for sensitive operations)
+router.post('/verify-admin-pin', verifyToken, authController.verifyAdminPin);
 
 module.exports = router;

@@ -7,6 +7,7 @@ const { verifyToken, isAdmin } = require('../middleware/auth');
 router.get('/me/profile', verifyToken, userController.getMyProfile);
 router.put('/me/profile', verifyToken, userController.updateMyProfile);
 router.put('/me/password', verifyToken, userController.changeMyPassword);
+router.put('/me/pin', verifyToken, userController.changeMyPin);
 
 // Get all roles (for dropdown) - must be before /:id
 router.get('/meta/roles', verifyToken, isAdmin, userController.getRoles);

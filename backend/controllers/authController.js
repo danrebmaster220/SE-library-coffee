@@ -2,6 +2,7 @@ const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { resolveDisplayName } = require('../utils/userName');
+const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
 
 // JWT Secret Key (In production, store this in .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'secret-key';
@@ -150,6 +151,39 @@ exports.verifyAdmin = async (req, res) => {
 
     } catch (error) {
         console.error('Admin verification error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+
+// VERIFY ADMIN PIN (For sensitive actions by all roles)
+
+exports.verifyAdminPin = async (req, res) => {
+    const adminPin = normalizeAdminPin(req.body?.admin_pin || req.body?.adminPin || req.body?.pin);
+
+    try {
+        const verification = await verifyAdminPinAgainstAdmins({
+            queryRunner: db,
+            bcryptLib: bcrypt,
+            pin: adminPin
+        });
+
+        if (!verification.valid) {
+            return res.status(verification.status).json({
+                success: false,
+                valid: false,
+                error: verification.error
+            });
+        }
+
+        res.json({
+            success: true,
+            valid: true,
+            admin_id: verification.admin.id,
+            admin: verification.admin
+        });
+    } catch (error) {
+        console.error('Admin PIN verification error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 };

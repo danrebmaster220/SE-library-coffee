@@ -13,8 +13,7 @@ export default function VoidTransactionModal({
   const [step, setStep] = useState(1);
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
   const [voidLibrary, setVoidLibrary] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPin, setAdminPin] = useState('');
   const [reasonType, setReasonType] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -60,19 +59,18 @@ export default function VoidTransactionModal({
       return;
     }
 
-    if (!adminUsername || !adminPassword) {
-      setErrorMsg('Admin credentials are required to void items.');
+    if (!/^\d{6}$/.test(adminPin)) {
+      setErrorMsg('A valid 6-digit admin PIN is required to void items.');
       return;
     }
     
     setProcessing(true);
     try {
-      const response = await api.post('/auth/verify-admin', {
-        username: adminUsername,
-        password: adminPassword
+      const response = await api.post('/auth/verify-admin-pin', {
+        admin_pin: adminPin
       });
       if (!response.data.valid) {
-        setErrorMsg('Invalid admin credentials.');
+        setErrorMsg('Invalid admin PIN.');
         setProcessing(false);
         return;
       }
@@ -87,7 +85,7 @@ export default function VoidTransactionModal({
       itemIds: Array.from(selectedItemIds),
       voidLibrary,
       reason: finalReason,
-      adminUsername: adminUsername
+      adminPin
     });
     setProcessing(false);
   };
@@ -212,21 +210,16 @@ export default function VoidTransactionModal({
               </div>
 
               <div style={{ width: '80%', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Credentials</h4>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization PIN</h4>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <input 
-                    type="text" 
-                    placeholder="Admin Username" 
-                    value={adminUsername}
-                    onChange={e => setAdminUsername(e.target.value)}
-                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
-                  />
-                  <input 
                     type="password" 
-                    placeholder="Admin Password" 
-                    value={adminPassword}
-                    onChange={e => setAdminPassword(e.target.value)}
+                    placeholder="Enter 6-digit PIN" 
+                    value={adminPin}
+                    onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    inputMode="numeric"
+                    maxLength={6}
                     style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
                   />
                 </div>

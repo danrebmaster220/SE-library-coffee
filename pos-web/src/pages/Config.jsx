@@ -60,6 +60,7 @@ const getScopeLabel = (schedule) => {
 
 export default function Config() {
   const [showPasswordPanel, setShowPasswordPanel] = useState(false);
+  const [showPinPanel, setShowPinPanel] = useState(false);
   const [printers, setPrinters] = useState([]);
   const [printerConfig, setPrinterConfig] = useState({ printerName: '' });
   const [testResult, setTestResult] = useState(null);
@@ -69,6 +70,8 @@ export default function Config() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileSnapshot, setProfileSnapshot] = useState(null);
   const [passwordMessage, setPasswordMessage] = useState(null);
+  const [pinMessage, setPinMessage] = useState(null);
+  const [pinLoading, setPinLoading] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [priceDelayDays, setPriceDelayDays] = useState('3');
   const [priceDelayLoading, setPriceDelayLoading] = useState(false);
@@ -97,6 +100,11 @@ export default function Config() {
     oldPassword: '',
     newPassword: '',
     confirmPassword: ''
+  });
+  const [pins, setPins] = useState({
+    currentPin: '',
+    newPin: '',
+    confirmPin: ''
   });
 
   useEffect(() => {
@@ -385,6 +393,51 @@ export default function Config() {
         success: false, 
         message: err.response?.data?.error || 'Failed to change password' 
       });
+    }
+  };
+
+  const handlePinChange = async () => {
+    setPinMessage(null);
+
+    if (!pins.newPin || !pins.confirmPin) {
+      setPinMessage({ success: false, message: 'New PIN and confirm PIN are required' });
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pins.newPin)) {
+      setPinMessage({ success: false, message: 'New PIN must be exactly 6 digits' });
+      return;
+    }
+
+    if (pins.newPin !== pins.confirmPin) {
+      setPinMessage({ success: false, message: 'PIN confirmation does not match' });
+      return;
+    }
+
+    if (pins.currentPin && !/^\d{6}$/.test(pins.currentPin)) {
+      setPinMessage({ success: false, message: 'Current PIN must be exactly 6 digits' });
+      return;
+    }
+
+    setPinLoading(true);
+    try {
+      await api.put('/users/me/pin', {
+        current_pin: pins.currentPin,
+        new_pin: pins.newPin
+      });
+      setPinMessage({ success: true, message: 'Authorization PIN updated successfully!' });
+      setTimeout(() => {
+        setShowPinPanel(false);
+        setPins({ currentPin: '', newPin: '', confirmPin: '' });
+        setPinMessage(null);
+      }, 1500);
+    } catch (err) {
+      setPinMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to update authorization PIN'
+      });
+    } finally {
+      setPinLoading(false);
     }
   };
 
@@ -921,6 +974,21 @@ export default function Config() {
               </button>
             </div>
           </div>
+
+          {isAdminUser && (
+            <div className="settings-form-group">
+              <label>Authorization PIN (6-digit)</label>
+              <div className="password-change-row">
+                <input type="password" value="******" readOnly />
+                <button
+                  className="settings-btn settings-btn-secondary"
+                  onClick={() => setShowPinPanel(true)}
+                >
+                  Change PIN
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1045,6 +1113,81 @@ export default function Config() {
                   setPasswords({ oldPassword: '', newPassword: '', confirmPassword: '' });
                   setPasswordMessage(null);
                 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {showPinPanel && (
+        <>
+          <div
+            className="settings-panel-overlay"
+            onClick={() => setShowPinPanel(false)}
+          />
+          <div className="settings-side-panel">
+            <h2>Change Authorization PIN</h2>
+            <p className="subtitle">Use a 6-digit PIN for void and refund approvals</p>
+
+            <div className="settings-form-group">
+              <label>Current PIN (optional for first setup)</label>
+              <input
+                type="password"
+                placeholder="Enter current 6-digit PIN"
+                value={pins.currentPin}
+                onChange={(e) => setPins({ ...pins, currentPin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                inputMode="numeric"
+                maxLength={6}
+              />
+            </div>
+            <div className="settings-form-group">
+              <label>New PIN</label>
+              <input
+                type="password"
+                placeholder="Enter new 6-digit PIN"
+                value={pins.newPin}
+                onChange={(e) => setPins({ ...pins, newPin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                inputMode="numeric"
+                maxLength={6}
+              />
+            </div>
+            <div className="settings-form-group">
+              <label>Confirm New PIN</label>
+              <input
+                type="password"
+                placeholder="Confirm new 6-digit PIN"
+                value={pins.confirmPin}
+                onChange={(e) => setPins({ ...pins, confirmPin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                inputMode="numeric"
+                maxLength={6}
+              />
+            </div>
+
+            {pinMessage && (
+              <div className={`settings-status ${pinMessage.success ? 'success' : 'error'}`}>
+                <span className="icon">{pinMessage.success ? '✅' : '❌'}</span>
+                {pinMessage.message}
+              </div>
+            )}
+
+            <div className="settings-panel-actions">
+              <button
+                className="settings-btn settings-btn-primary"
+                onClick={handlePinChange}
+                disabled={pinLoading}
+              >
+                {pinLoading ? '⏳ Saving...' : '💾 Save PIN'}
+              </button>
+              <button
+                className="settings-btn settings-btn-secondary"
+                onClick={() => {
+                  setShowPinPanel(false);
+                  setPins({ currentPin: '', newPin: '', confirmPin: '' });
+                  setPinMessage(null);
+                }}
+                disabled={pinLoading}
               >
                 Cancel
               </button>

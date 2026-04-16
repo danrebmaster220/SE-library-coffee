@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const bcrypt = require('bcrypt');
+const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
 
 
 // BEEPER MANAGEMENT
@@ -75,6 +77,23 @@ const canAccessTransaction = ({ req, transaction, allowUnassigned = false }) => 
 
 const denyOwnership = (res) =>
     res.status(403).json({ error: 'Access denied. You can only modify your own transactions.' });
+
+const authorizeSensitiveActionByPin = async ({ queryRunner, adminPin }) => {
+    const verification = await verifyAdminPinAgainstAdmins({
+        queryRunner,
+        bcryptLib: bcrypt,
+        pin: normalizeAdminPin(adminPin)
+    });
+
+    if (!verification.valid) {
+        return { authorized: false, status: verification.status, error: verification.error };
+    }
+
+    return {
+        authorized: true,
+        authorizedById: verification.admin.id
+    };
+};
 
 
 // QUICK CASH AMOUNTS
@@ -611,11 +630,14 @@ exports.voidTransaction = async (req, res) => {
     try {
         const { id } = req.params;
         const reason = req.body?.reason || 'No reason provided';
-        const actorUserId = getRequestUserId(req);
-        const overrideVoidedBy = Number(req.body?.voided_by);
-        const userId = isAdminUser(req.user) && !Number.isNaN(overrideVoidedBy)
-            ? overrideVoidedBy
-            : actorUserId;
+        const adminPin = req.body?.admin_pin || req.body?.adminPin || req.body?.pin;
+
+        const pinAuth = await authorizeSensitiveActionByPin({ queryRunner: db, adminPin });
+        if (!pinAuth.authorized) {
+            return res.status(pinAuth.status).json({ error: pinAuth.error });
+        }
+
+        const authorizedById = pinAuth.authorizedById;
 
         // Get original transaction
         const [orders] = await db.query(
@@ -647,14 +669,14 @@ exports.voidTransaction = async (req, res) => {
                 void_reason = ?,
                 voided_at = NOW()
             WHERE transaction_id = ?
-        `, [userId, reason, id]);
+        `, [authorizedById, reason, id]);
 
         // Log the void (wrap in try-catch)
         try {
             await db.query(`
                 INSERT INTO void_log (transaction_id, beeper_number, voided_by, void_reason, original_amount)
                 VALUES (?, ?, ?, ?, ?)
-            `, [id, beeper_number, userId, reason, total_amount]);
+            `, [id, beeper_number, authorizedById, reason, total_amount]);
         } catch (logError) {
             console.log('Void log insert skipped:', logError.message);
         }
@@ -684,8 +706,17 @@ exports.removeItemsFromPending = async (req, res) => {
         await connection.beginTransaction();
         
         const { id } = req.params;
-        const { transaction_item_ids, void_library, reason, admin_username } = req.body;
+        const { transaction_item_ids, void_library, reason } = req.body;
+        const adminPin = req.body?.admin_pin || req.body?.adminPin || req.body?.pin;
         const userId = getRequestUserId(req);
+
+        const pinAuth = await authorizeSensitiveActionByPin({ queryRunner: connection, adminPin });
+        if (!pinAuth.authorized) {
+            await connection.rollback();
+            return res.status(pinAuth.status).json({ error: pinAuth.error });
+        }
+
+        const authorizedById = pinAuth.authorizedById;
 
         // Get the transaction
         const [orders] = await connection.query(
@@ -779,7 +810,7 @@ exports.removeItemsFromPending = async (req, res) => {
                     void_reason = ?,
                     voided_at = NOW()
                 WHERE transaction_id = ?
-            `, [userId, reason || 'All items removed', id]);
+            `, [authorizedById, reason || 'All items removed', id]);
 
             // Release beeper
             if (order.beeper_number) {
@@ -798,7 +829,7 @@ exports.removeItemsFromPending = async (req, res) => {
                 await connection.query(`
                     INSERT INTO void_log (transaction_id, beeper_number, voided_by, void_reason, original_amount)
                     VALUES (?, ?, ?, ?, ?)
-                `, [id, order.beeper_number, userId, reason || 'All items removed', order.total_amount]);
+                `, [id, order.beeper_number, authorizedById, reason || 'All items removed', order.total_amount]);
             } catch(logErr) { /* ignore */ }
 
             await connection.commit();
@@ -1418,8 +1449,16 @@ exports.refundTransaction = async (req, res) => {
     try {
         await connection.beginTransaction();
         const { id } = req.params;
-        const { reason, adminUsername, refundedItems, refundLibrary, refundMethod } = req.body;
-        const processed_by = getRequestUserId(req); // Current logged in user (requires auth)
+        const { reason, refundedItems, refundLibrary, refundMethod } = req.body;
+        const adminPin = req.body?.admin_pin || req.body?.adminPin || req.body?.pin;
+
+        const pinAuth = await authorizeSensitiveActionByPin({ queryRunner: connection, adminPin });
+        if (!pinAuth.authorized) {
+            await connection.rollback();
+            return res.status(pinAuth.status).json({ error: pinAuth.error });
+        }
+
+        const authorizedById = pinAuth.authorizedById;
 
         // Find transaction
         const [transactions] = await connection.query(
@@ -1443,12 +1482,6 @@ exports.refundTransaction = async (req, res) => {
         if (transaction.status === 'voided' || transaction.status === 'refunded') {
             await connection.rollback();
             return res.status(400).json({ error: 'Transaction is already voided or refunded' });
-        }
-
-        // Check if admin credentials were provided and are valid (if required)
-        if (adminUsername) {
-            // Wait, auth is handled by frontend calling /auth/verify-admin first
-            // but we could also double check it here if needed.
         }
 
         const normalizedRefundMethod = String(refundMethod || 'cash').toLowerCase() === 'item' ? 'item' : 'cash';
@@ -1500,7 +1533,7 @@ exports.refundTransaction = async (req, res) => {
                 reason || 'Customer requested refund',
                 normalizedRefundMethod,
                 cashRefundAmount.toFixed(2),
-                processed_by,
+                authorizedById,
                 transaction.transaction_id
             ]
         );
@@ -1521,7 +1554,7 @@ exports.refundTransaction = async (req, res) => {
                 [
                     transaction.transaction_id,
                     transaction.beeper_number || 0,
-                    processed_by,
+                    authorizedById,
                     reason || 'Customer requested refund',
                     parseFloat(transaction.total_amount || 0),
                     cashRefundAmount
@@ -1542,7 +1575,7 @@ exports.refundTransaction = async (req, res) => {
                 [
                     transaction.transaction_id,
                     transaction.beeper_number || 0,
-                    processed_by,
+                    authorizedById,
                     reason || 'Customer requested refund',
                     parseFloat(transaction.total_amount || 0)
                 ]

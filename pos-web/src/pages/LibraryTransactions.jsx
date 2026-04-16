@@ -339,13 +339,13 @@ export default function LibraryTransactions() {
     }
   };
 
-  const handleVoidSession = async (sessionId, reason, adminCredentials = null) => {
+  const handleVoidSession = async (sessionId, reason, adminPin = '') => {
     if (!voidingSession) return false;
     try {
       await api.post('/library/void', {
         session_id: sessionId,
         reason: reason,
-        admin_credentials: adminCredentials
+        admin_pin: adminPin
       });
       showToast('Session voided successfully', 'success');
       setShowVoidModal(false);
@@ -1032,12 +1032,9 @@ function VoidSessionModal(props) {
   var _loadingState = useState(false);
   var isVoiding = _loadingState[0];
   var setIsVoiding = _loadingState[1];
-  var _usernameState = useState('');
-  var adminUsername = _usernameState[0];
-  var setAdminUsername = _usernameState[1];
-  var _passwordState = useState('');
-  var adminPassword = _passwordState[0];
-  var setAdminPassword = _passwordState[1];
+  var _pinState = useState('');
+  var adminPin = _pinState[0];
+  var setAdminPin = _pinState[1];
   var _errorState = useState('');
   var errorMessage = _errorState[0];
   var setErrorMessage = _errorState[1];
@@ -1045,7 +1042,7 @@ function VoidSessionModal(props) {
   // Handle both active sessions (session_id) and history sessions (id)
   var sessionId = session.session_id || session.id;
   
-  // Always require admin credentials when voiding active sessions
+  // Always require admin PIN when voiding active sessions
   var needsAdminAuth = true;
 
   async function handleSubmit() {
@@ -1060,13 +1057,13 @@ function VoidSessionModal(props) {
       setErrorMessage('Please enter a reason for voiding this session.');
       return;
     }
-    if (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim())) {
-      setErrorMessage('Please enter admin credentials to authorize this void.');
+    if (needsAdminAuth && !/^\d{6}$/.test(adminPin)) {
+      setErrorMessage('Please enter a valid 6-digit admin PIN to authorize this void.');
       return;
     }
     setIsVoiding(true);
-    var adminCredentials = needsAdminAuth ? { username: adminUsername, password: adminPassword } : null;
-    var success = await onSubmit(sessionId, finalReason, adminCredentials);
+    var pinValue = needsAdminAuth ? adminPin : '';
+    var success = await onSubmit(sessionId, finalReason, pinValue);
     if (!success) {
       setIsVoiding(false);
     }
@@ -1115,21 +1112,16 @@ function VoidSessionModal(props) {
 
           {needsAdminAuth && (
             <div style={{ width: '80%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-              <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Credentials</h4>
+              <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin Authorization PIN</h4>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <input 
-                  type="text" 
-                  placeholder="Admin Username" 
-                  value={adminUsername}
-                  onChange={e => setAdminUsername(e.target.value)}
-                  style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-                <input 
                   type="password" 
-                  placeholder="Admin Password" 
-                  value={adminPassword}
-                  onChange={e => setAdminPassword(e.target.value)}
+                  placeholder="Enter 6-digit PIN" 
+                  value={adminPin}
+                  onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  maxLength={6}
                   style={{ width: '100%', padding: '12px 16px', border: '2px solid var(--latte)', borderRadius: '10px', boxSizing: 'border-box' }}
                 />
               </div>
@@ -1154,7 +1146,7 @@ function VoidSessionModal(props) {
           <button 
             className="btn-primary"
             onClick={handleSubmit} 
-            disabled={isVoiding || !voidReasonType || (voidReasonType === 'Other - Please specify' && !voidOtherReason.trim()) || (needsAdminAuth && (!adminUsername.trim() || !adminPassword.trim()))}
+            disabled={isVoiding || !voidReasonType || (voidReasonType === 'Other - Please specify' && !voidOtherReason.trim()) || (needsAdminAuth && !/^\d{6}$/.test(adminPin))}
             style={{ 
               background: '#e65100', 
               color: 'white', 
