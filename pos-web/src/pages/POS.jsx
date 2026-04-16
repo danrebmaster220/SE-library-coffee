@@ -791,6 +791,14 @@ export default function POS() {
     setItemRemovalOtherReason('');
   };
 
+  const requiresPinForItemRemoval = (item = removingItem) => {
+    if (!item) return false;
+    if (pendingOrderId) return true;
+
+    // Qty 1 decrease is effectively a void/removal and must require PIN.
+    return item.action === 'decrease' && Number(item.quantity || 0) <= 1;
+  };
+
   // Process line-item adjustment: reason required; kiosk orders also require admin verification
   const processItemRemovalWithAuth = async () => {
     const finalReason = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
@@ -813,7 +821,7 @@ export default function POS() {
       closeItemRemovalModal();
     };
 
-    if (!pendingOrderId) {
+    if (!requiresPinForItemRemoval(removingItem)) {
       applyRemoval();
       return;
     }
@@ -2185,7 +2193,7 @@ export default function POS() {
                 )}
               </div>
 
-              {pendingOrderId && (
+              {requiresPinForItemRemoval(removingItem) && (
               <div style={{ width: '90%', margin: '0 auto', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
                 <h4 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#e74c3c', textAlign: 'center' }}>Admin PIN Required</h4>
                 
@@ -2218,7 +2226,7 @@ export default function POS() {
                   (() => {
                     const fr = itemRemovalReasonType === 'Other - Please specify' ? itemRemovalOtherReason : itemRemovalReasonType;
                     if (!String(fr || '').trim()) return true;
-                    if (pendingOrderId) {
+                    if (requiresPinForItemRemoval(removingItem)) {
                       return !/^\d{6}$/.test(itemRemovalPin);
                     }
                     return false;
@@ -2274,14 +2282,16 @@ export default function POS() {
       )}
 
       {/* Bulk Void Transaction Modal */}
-      <VoidTransactionModal 
-        isOpen={showBulkVoidModal}
-        onClose={() => setShowBulkVoidModal(false)}
-        cartItems={cart}
-        libraryBooking={pendingLibraryBooking}
-        onConfirmVoid={handleBulkVoidConfirm}
-        isKioskOrder={!!pendingOrderId}
-      />
+      {showBulkVoidModal && (
+        <VoidTransactionModal 
+          isOpen={showBulkVoidModal}
+          onClose={() => setShowBulkVoidModal(false)}
+          cartItems={cart}
+          libraryBooking={pendingLibraryBooking}
+          onConfirmVoid={handleBulkVoidConfirm}
+          isKioskOrder={!!pendingOrderId}
+        />
+      )}
     </div>
   );
 }
