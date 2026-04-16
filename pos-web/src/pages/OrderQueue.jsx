@@ -51,6 +51,12 @@ export default function OrderQueue() {
     return statusMap[status] || { label: status, class: '' };
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   if (loading) {
     return <div className="loading-state">Loading orders...</div>;
   }
@@ -111,14 +117,14 @@ export default function OrderQueue() {
                     <div key={idx} className="order-item-row">
                       <span className="item-qty">{item.quantity}x</span>
                       <span className="item-name">{item.item_name}</span>
-                      <span className="item-price">₱{parseFloat(item.total_price).toFixed(2)}</span>
+                      <span className="item-price">{formatMoney(item.total_price)}</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="order-total-row">
                   <span>Total</span>
-                  <span className="order-total-amount">₱{parseFloat(order.total_amount).toFixed(2)}</span>
+                  <span className="order-total-amount">{formatMoney(order.total_amount)}</span>
                 </div>
 
                 <div className="order-actions">

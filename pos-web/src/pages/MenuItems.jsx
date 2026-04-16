@@ -25,12 +25,57 @@ const filterTempsByCategory = (tempOptions, flags) =>
     return true;
   });
 
+const parseScheduleDateValue = (value) => {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Treat schedule strings as PH wall-clock values, even when they arrive as ISO-like (e.g. ...Z).
+  const strippedTimezone = raw
+    .replace(/Z$/i, '')
+    .replace(/([+-]\d{2}:\d{2})$/, '');
+  const normalizedWallClock = strippedTimezone.includes('T')
+    ? strippedTimezone
+    : strippedTimezone.replace(' ', 'T');
+
+  const manilaDate = new Date(`${normalizedWallClock}+08:00`);
+  if (!Number.isNaN(manilaDate.getTime())) return manilaDate;
+
+  const fallbackDate = new Date(raw);
+  if (!Number.isNaN(fallbackDate.getTime())) return fallbackDate;
+
+  return null;
+};
+
+const formatScheduleDateTime = (value, timezone = 'Asia/Manila') => {
+  const date = parseScheduleDateValue(value);
+  if (!date) return '-';
+
+  return new Intl.DateTimeFormat('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: timezone || 'Asia/Manila'
+  }).format(date);
+};
+
+const formatMoney = (value) => {
+  const numeric = Number(value || 0);
+  const amount = Number.isNaN(numeric) ? 0 : numeric;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export default function MenuItems() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [customizationGroups, setCustomizationGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showClearMatrixModal, setShowClearMatrixModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [filterSearch, setFilterSearch] = useState("");
@@ -57,6 +102,11 @@ export default function MenuItems() {
   const [variantPricing, setVariantPricing] = useState([]);
   const [isVariantMatrixCleared, setIsVariantMatrixCleared] = useState(false);
   const [priceUpdateSettings, setPriceUpdateSettings] = useState({ delay_days: 3, timezone: 'Asia/Manila' });
+  const [noticeModal, setNoticeModal] = useState({
+    open: false,
+    title: 'Notice',
+    messages: []
+  });
 
   const isSizeGroup = (name) => String(name || "").toLowerCase().includes("size");
   const isTempGroup = (name) => String(name || "").toLowerCase().includes("temperature");
@@ -317,14 +367,14 @@ export default function MenuItems() {
         const basePriceUpdate = itemUpdateRes?.data?.price_update;
         if (editingItem && basePriceUpdate?.mode === 'scheduled') {
           notices.push(
-            `Base price update is scheduled for ${basePriceUpdate.effective_at} (${basePriceUpdate.timezone || 'Asia/Manila'}).`
+            `Base price update is scheduled for ${formatScheduleDateTime(basePriceUpdate.effective_at, basePriceUpdate.timezone || 'Asia/Manila')} (${basePriceUpdate.timezone || 'Asia/Manila'}).`
           );
         }
 
         const variantPriceUpdate = vRes?.data?.price_update;
         if (editingItem && variantPriceUpdate?.mode === 'scheduled' && Number(variantPriceUpdate?.scheduled_count || 0) > 0) {
           notices.push(
-            `Variant price updates are scheduled for ${variantPriceUpdate.effective_at} (${variantPriceUpdate.timezone || 'Asia/Manila'}) across ${variantPriceUpdate.scheduled_count} row(s).`
+            `Variant price updates are scheduled for ${formatScheduleDateTime(variantPriceUpdate.effective_at, variantPriceUpdate.timezone || 'Asia/Manila')} (${variantPriceUpdate.timezone || 'Asia/Manila'}) across ${variantPriceUpdate.scheduled_count} row(s).`
           );
         }
 
@@ -341,7 +391,11 @@ export default function MenuItems() {
         }
 
         if (notices.length > 0) {
-          window.alert(notices.join('\n\n'));
+          setNoticeModal({
+            open: true,
+            title: 'Price Update Summary',
+            messages: notices
+          });
         }
       }
 
@@ -350,7 +404,11 @@ export default function MenuItems() {
     } catch (error) {
       const backendMessage = error?.response?.data?.error;
       console.error("Error saving item:", error?.response?.data || error);
-      alert(backendMessage || "Failed to save item. Please check all fields are filled correctly.");
+      setNoticeModal({
+        open: true,
+        title: 'Unable to Save Item',
+        messages: [backendMessage || "Failed to save item. Please check all fields are filled correctly."]
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -375,7 +433,11 @@ export default function MenuItems() {
       closeDeleteModal();
     } catch (error) {
       console.error("Error deleting item:", error);
-      alert("Failed to delete item");
+      setNoticeModal({
+        open: true,
+        title: 'Delete Failed',
+        messages: ['Failed to delete item. Please try again.']
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -462,13 +524,22 @@ export default function MenuItems() {
   };
 
   const handleClearVariantMatrix = () => {
-    const confirmed = window.confirm(
-      "Clear all variant pricing for this item? After saving, this item will use Base Price until matrix prices are entered again."
-    );
-    if (!confirmed) return;
+    setShowClearMatrixModal(true);
+  };
+
+  const confirmClearVariantMatrix = () => {
+    setShowClearMatrixModal(false);
 
     setVariantPricing([]);
     setIsVariantMatrixCleared(true);
+  };
+
+  const closeNoticeModal = () => {
+    setNoticeModal({
+      open: false,
+      title: 'Notice',
+      messages: []
+    });
   };
 
   const handleGroupToggle = (groupId) => {
@@ -705,7 +776,7 @@ export default function MenuItems() {
                           }}
                           title={
                             item.next_price_effective_at
-                              ? `Pending price update: effective ${item.next_price_effective_at}`
+                              ? `Pending price update: effective ${formatScheduleDateTime(item.next_price_effective_at, priceUpdateSettings.timezone || 'Asia/Manila')}`
                               : 'Pending price update'
                           }
                         >
@@ -714,7 +785,7 @@ export default function MenuItems() {
                       )}
                     </td>
                     <td>{getCategoryName(item.category_id)}</td>
-                    <td className="price-cell">P{parseFloat(item.price).toFixed(2)}</td>
+                    <td className="price-cell">{formatMoney(item.price)}</td>
                     <td>
                       <span className={`station-badge station-${item.station}`}>
                         {item.station}
@@ -815,7 +886,7 @@ export default function MenuItems() {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span>{lockBasePriceInput ? "Base Price (Reference)" : "Price (PHP)"}</span>
+                    <span>{lockBasePriceInput ? "Base Price (Reference)" : "Price (₱)"}</span>
                     {showVariantPricingEditor && (
                       <span
                         style={{
@@ -953,8 +1024,8 @@ export default function MenuItems() {
 
               {/* Customization Section */}
               <div className="customization-form-section">
-                <div className="form-group checkbox-group">
-                  <label className="checkbox-label">
+                <div className="groups-checkbox-list groups-checkbox-list--single" style={{ marginBottom: '2px' }}>
+                  <label className="group-checkbox-item">
                     <input
                       type="checkbox"
                       checked={formData.is_customizable}
@@ -964,8 +1035,10 @@ export default function MenuItems() {
                         selected_groups: e.target.checked ? formData.selected_groups : []
                       })}
                     />
-                    <span>This item is customizable</span>
-                    <small className="form-hint-inline">(drinks with size, temperature, add-ons, etc.)</small>
+                    <span className="group-checkbox-label">
+                      <strong>This item is customizable</strong>
+                      <small>(drinks with size, temperature, add-ons, etc.)</small>
+                    </span>
                   </label>
                 </div>
 
@@ -976,8 +1049,9 @@ export default function MenuItems() {
                     
                     {customizationGroups.filter(g => g.status === 'active').length > 0 && (
                       <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #eee' }}>
-                        <label className="checkbox-label" style={{ fontWeight: '600', color: '#5d4037', cursor: 'pointer' }}>
+                        <label className="checkbox-label checkbox-label--compact" style={{ fontWeight: '600', color: '#5d4037', cursor: 'pointer' }}>
                           <input
+                            className="checkbox-input"
                             type="checkbox"
                             checked={
                               customizationGroups.filter(g => g.status === 'active').length > 0 &&
@@ -997,7 +1071,7 @@ export default function MenuItems() {
                               }
                             }}
                           />
-                          <span>Select All Groups</span>
+                          <span className="checkbox-main-text">Select All Groups</span>
                         </label>
                       </div>
                     )}
@@ -1006,6 +1080,7 @@ export default function MenuItems() {
                       {customizationGroups.filter(g => g.status === 'active').map((group) => (
                         <label key={group.group_id} className="group-checkbox-item">
                           <input
+                            className="checkbox-input"
                             type="checkbox"
                             checked={formData.selected_groups.includes(group.group_id)}
                             onChange={() => handleGroupToggle(group.group_id)}
@@ -1194,6 +1269,54 @@ export default function MenuItems() {
       )}
 
       {/* Delete Confirmation Modal */}
+      {showClearMatrixModal && (
+        <div className="modal-overlay" onClick={() => setShowClearMatrixModal(false)}>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: '#333' }}>Clear Variant Matrix</h3>
+              <button className="modal-close" onClick={() => setShowClearMatrixModal(false)} style={{ color: '#666' }}>×</button>
+            </div>
+            <div className="delete-modal-body">
+              <p className="delete-message">
+                Clear all variant pricing for this item?
+              </p>
+              <p className="delete-warning">After saving, this item will use Base Price until matrix prices are entered again.</p>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-cancel" onClick={() => setShowClearMatrixModal(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn-danger" onClick={confirmClearVariantMatrix}>
+                Clear Matrix
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {noticeModal.open && (
+        <div className="modal-overlay" onClick={closeNoticeModal}>
+          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: '#333' }}>{noticeModal.title}</h3>
+              <button className="modal-close" onClick={closeNoticeModal} style={{ color: '#666' }}>×</button>
+            </div>
+            <div className="delete-modal-body" style={{ textAlign: 'left' }}>
+              {(noticeModal.messages || []).map((message, index) => (
+                <p key={index} className="delete-message" style={{ marginBottom: index === noticeModal.messages.length - 1 ? 0 : 10 }}>
+                  {message}
+                </p>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-confirm" onClick={closeNoticeModal}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteModal && deleteTarget && (
         <div className="modal-overlay" onClick={closeDeleteModal}>
           <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>

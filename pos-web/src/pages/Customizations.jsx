@@ -299,6 +299,12 @@ export default function Customizations() {
     }
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
     <div className="main-content">
       <div className="page-header-section">
@@ -439,10 +445,10 @@ export default function Customizations() {
                             <div key={option.option_id} className="options-table-row">
                               <span className="option-name">{option.name}</span>
                               <span className="option-price">
-                                {option.price > 0 ? `₱${parseFloat(option.price).toFixed(2)}` : 'Free'}
+                                {option.price > 0 ? formatMoney(option.price) : 'Free'}
                               </span>
                               <span className="option-per-unit">
-                                {option.price_per_unit > 0 ? `₱${parseFloat(option.price_per_unit).toFixed(2)}` : '-'}
+                                {option.price_per_unit > 0 ? formatMoney(option.price_per_unit) : '-'}
                               </span>
                               <span className="option-max-qty">{option.max_quantity}</span>
                               <span className={`status-badge small ${option.status}`}>{option.status}</span>

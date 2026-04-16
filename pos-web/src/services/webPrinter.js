@@ -47,7 +47,7 @@ const RECEIPT_STYLES = `
 // ============================================
 
 function formatCurrency(amount) {
-  return `₱${parseFloat(amount || 0).toFixed(2)}`;
+  return `${parseFloat(amount || 0).toFixed(2)}`;
 }
 
 function formatDateTime(dateStr) {
@@ -60,6 +60,11 @@ function formatDateTime(dateStr) {
     minute: '2-digit',
     hour12: true
   });
+}
+
+function getFirstName(name) {
+  if (!name) return '';
+  return String(name).trim().split(/\s+/)[0] || '';
 }
 
 /** Safe text for HTML receipt templates (names from DB / API). */
@@ -114,8 +119,9 @@ const SEP = '--------------------------------';
 // Receipt Builders (return HTML strings)
 // ============================================
 
-function buildCustomerReceiptHTML(data) {
+function buildCustomerReceiptHTML(data, copyLabel = 'CUSTOMER RECEIPT') {
   const transactionNum = 'ORD-' + String(data.transaction_id).padStart(6, '0');
+  const cashierFirstName = getFirstName(data.cashier_name);
   
   let itemsHTML = '';
   (data.items || []).forEach(item => {
@@ -173,10 +179,11 @@ function buildCustomerReceiptHTML(data) {
         <div class="store-sub">Zamboanga City</div>
       </div>
       <div class="separator">${SEP}</div>
+      <div class="section-title" style="text-align:center;">${escapeHtml(copyLabel)}</div>
       <div class="info-row"><span>Date:</span><span>${formatDateTime(data.created_at)}</span></div>
-      <div class="info-row"><span>Transaction #:</span><span>${transactionNum}</span></div>
-      <div class="info-row"><span>Order #:</span><span>${data.beeper_number}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
+      <div class="info-row"><span>Order #:</span><span>${transactionNum}</span></div>
+      <div class="info-row"><span>Beeper #:</span><span>${data.beeper_number}</span></div>
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">ITEMS:</div>
       ${itemsHTML}
@@ -195,6 +202,7 @@ function buildCustomerReceiptHTML(data) {
         <p>Please wait for your order</p>
         <p>number to be called.</p>
         <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
         <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
       </div>
     </div>
@@ -202,6 +210,7 @@ function buildCustomerReceiptHTML(data) {
 }
 
 function buildBaristaTicketHTML(data) {
+  const cashierFirstName = getFirstName(data.cashier_name);
   const baristaItems = (data.items || []).filter(item => 
     item.station === 'barista' || !item.station
   );
@@ -241,9 +250,9 @@ function buildBaristaTicketHTML(data) {
   return `
     <div class="receipt">
       <div class="ticket-header">*** BARISTA ***</div>
-      <div class="order-number">ORDER #${data.beeper_number}</div>
+      <div class="order-number">BEEPER #${data.beeper_number}</div>
       <div class="info-row"><span>Time:</span><span>${formatDateTime(data.created_at)}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       ${itemsHTML}
       ${bookingHTML}
@@ -253,6 +262,7 @@ function buildBaristaTicketHTML(data) {
 }
 
 function buildKitchenTicketHTML(data) {
+  const cashierFirstName = getFirstName(data.cashier_name);
   const kitchenItems = (data.items || []).filter(item => item.station === 'kitchen');
   
   if (kitchenItems.length === 0) return '';
@@ -274,9 +284,9 @@ function buildKitchenTicketHTML(data) {
   return `
     <div class="receipt">
       <div class="ticket-header">*** KITCHEN ***</div>
-      <div class="order-number">ORDER #${data.beeper_number}</div>
+      <div class="order-number">BEEPER #${data.beeper_number}</div>
       <div class="info-row"><span>Time:</span><span>${formatDateTime(data.created_at)}</span></div>
-      ${data.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(data.cashier_name)}</span></div>` : ''}
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       ${itemsHTML}
       <div class="separator">${SEP}</div>
@@ -285,6 +295,7 @@ function buildKitchenTicketHTML(data) {
 }
 
 function buildLibraryCheckinReceiptHTML(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
   const durationMins = session.paid_minutes || session.duration_minutes || 120;
   const hours = Math.floor(durationMins / 60);
   const mins = durationMins % 60;
@@ -304,7 +315,7 @@ function buildLibraryCheckinReceiptHTML(session) {
       <div class="info-row"><span>Seat:</span><span>${session.seat_number}</span></div>
       <div class="separator">${SEP}</div>
       <div class="info-row"><span>Customer:</span><span>${escapeHtml(session.customer_name)}</span></div>
-      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(session.cashier_name)}</span></div>` : ''}
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">SESSION DETAILS:</div>
       <div class="info-row"><span>Start Time:</span><span>${formatDateTime()}</span></div>
@@ -317,11 +328,12 @@ function buildLibraryCheckinReceiptHTML(session) {
       </div>
       <div class="separator">${SEP}</div>
       <div class="footer">
-        <p>Extension: ₱50.00 per 30 mins</p>
+        <p>Extension: 50.00 per 30 mins</p>
         <p class="separator">${SEP}</p>
         <p>Thank you!</p>
         <p>Enjoy your study session.</p>
         <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
         <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
       </div>
     </div>
@@ -329,6 +341,7 @@ function buildLibraryCheckinReceiptHTML(session) {
 }
 
 function buildLibraryExtensionReceiptHTML(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
   return `
     <div class="receipt">
       <div class="receipt-header">
@@ -341,7 +354,7 @@ function buildLibraryExtensionReceiptHTML(session) {
       <div class="info-row"><span>Table:</span><span>${session.table_number}</span></div>
       <div class="info-row"><span>Seat:</span><span>${session.seat_number}</span></div>
       <div class="info-row"><span>Customer:</span><span>${escapeHtml(session.customer_name)}</span></div>
-      ${session.cashier_name ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(session.cashier_name)}</span></div>` : ''}
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
       <div class="section-title">EXTENSION:</div>
       <div class="info-row"><span>Added Time:</span><span>+${session.added_minutes} minutes</span></div>
@@ -360,6 +373,7 @@ function buildLibraryExtensionReceiptHTML(session) {
       <div class="footer">
         <p>Thank you for extending!</p>
         <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
         <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
       </div>
     </div>
@@ -561,23 +575,26 @@ function txtLR(left, right) {
 }
 
 function txtMoney(amount) {
-  return 'P' + parseFloat(amount || 0).toFixed(2);
+  return parseFloat(amount || 0).toFixed(2);
 }
 
-function buildPlainTextCustomerReceipt(data) {
+function buildPlainTextCustomerReceipt(data, copyLabel = 'CUSTOMER RECEIPT') {
+  const cashierFirstName = getFirstName(data.cashier_name);
   const lines = [];
   lines.push(txtCenter('THE LIBRARY'));
   lines.push(txtCenter('Coffee + Study'));
   lines.push(txtCenter('Pavilion, Nunez St.'));
   lines.push(txtCenter('Zamboanga City'));
   lines.push(TXT_SEP);
+  lines.push(txtCenter(copyLabel));
+  lines.push(TXT_SEP);
 
   const txnId = 'ORD-' + String(data.transaction_id).padStart(6, '0');
   const dateStr = formatDateTime(data.created_at);
   lines.push(txtLR('Date:', dateStr));
-  lines.push(txtLR('Txn #:', txnId));
-  if (data.beeper_number) lines.push(txtLR('Order #:', String(data.beeper_number)));
-  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  lines.push(txtLR('Order #:', txnId));
+  if (data.beeper_number) lines.push(txtLR('Beeper #:', String(data.beeper_number)));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
 
   lines.push('ITEMS:');
@@ -627,21 +644,23 @@ function buildPlainTextCustomerReceipt(data) {
   lines.push(txtCenter('Please wait for your order'));
   lines.push(txtCenter('number to be called.'));
   lines.push(TXT_SEP);
+  lines.push(txtCenter('Powered by Spavion'));
   lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
 
   return lines.join('\n');
 }
 
 function buildPlainTextBaristaTicket(data) {
+  const cashierFirstName = getFirstName(data.cashier_name);
   const baristaItems = (data.items || []).filter(i => i.station === 'barista' || !i.station);
   if (baristaItems.length === 0) return '';
 
   const lines = [];
   lines.push(txtCenter('*** BARISTA ***'));
   lines.push(TXT_SEP);
-  lines.push(txtCenter(`ORDER #${data.beeper_number}`));
+  lines.push(txtCenter(`BEEPER #${data.beeper_number}`));
   lines.push(txtLR('Time:', formatDateTime(data.created_at)));
-  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
 
   baristaItems.forEach(item => {
@@ -668,15 +687,16 @@ function buildPlainTextBaristaTicket(data) {
 }
 
 function buildPlainTextKitchenTicket(data) {
+  const cashierFirstName = getFirstName(data.cashier_name);
   const kitchenItems = (data.items || []).filter(i => i.station === 'kitchen');
   if (kitchenItems.length === 0) return '';
 
   const lines = [];
   lines.push(txtCenter('*** KITCHEN ***'));
   lines.push(TXT_SEP);
-  lines.push(txtCenter(`ORDER #${data.beeper_number}`));
+  lines.push(txtCenter(`BEEPER #${data.beeper_number}`));
   lines.push(txtLR('Time:', formatDateTime(data.created_at)));
-  if (data.cashier_name) lines.push(txtLR('Cashier:', data.cashier_name));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
 
   kitchenItems.forEach(item => {
@@ -694,6 +714,7 @@ function buildPlainTextKitchenTicket(data) {
 }
 
 function buildPlainTextLibraryCheckin(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
   const durationMins = session.paid_minutes || session.duration_minutes || 120;
   const hours = Math.floor(durationMins / 60);
   const mins = durationMins % 60;
@@ -710,7 +731,7 @@ function buildPlainTextLibraryCheckin(session) {
   lines.push(txtLR('Seat:', String(session.seat_number)));
   lines.push(TXT_SEP);
   lines.push(txtLR('Customer:', session.customer_name));
-  if (session.cashier_name) lines.push(txtLR('Cashier:', session.cashier_name));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
   lines.push('SESSION DETAILS:');
   lines.push(txtLR('Start Time:', formatDateTime()));
@@ -722,17 +743,19 @@ function buildPlainTextLibraryCheckin(session) {
     lines.push(txtLR('Change:', txtMoney(session.change_due || 0)));
   }
   lines.push(TXT_SEP);
-  lines.push(txtCenter('Extension: P50.00 per 30 mins'));
+  lines.push(txtCenter('Extension: 50.00 per 30 mins'));
   lines.push(TXT_SEP);
   lines.push(txtCenter('Thank you!'));
   lines.push(txtCenter('Enjoy your study session.'));
   lines.push(TXT_SEP);
+  lines.push(txtCenter('Powered by Spavion'));
   lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
 
   return lines.join('\n');
 }
 
 function buildPlainTextLibraryExtension(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
   const lines = [];
   lines.push(txtCenter('THE LIBRARY'));
   lines.push(txtCenter('Session Extension'));
@@ -742,7 +765,7 @@ function buildPlainTextLibraryExtension(session) {
   lines.push(txtLR('Table:', String(session.table_number)));
   lines.push(txtLR('Seat:', String(session.seat_number)));
   lines.push(txtLR('Customer:', session.customer_name));
-  if (session.cashier_name) lines.push(txtLR('Cashier:', session.cashier_name));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
   lines.push('EXTENSION:');
   lines.push(txtLR('Added Time:', `+${session.added_minutes} minutes`));
@@ -760,6 +783,7 @@ function buildPlainTextLibraryExtension(session) {
   lines.push(TXT_SEP);
   lines.push(txtCenter('Thank you for extending!'));
   lines.push(TXT_SEP);
+  lines.push(txtCenter('Powered by Spavion'));
   lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
 
   return lines.join('\n');
@@ -797,7 +821,7 @@ function buildRefundReceiptHTML(data) {
       <div class="separator">${SEP}</div>
       <div class="info-row"><span>Date:</span><span>${formatDateTime(data.refunded_at || new Date())}</span></div>
       <div class="info-row"><span>Original Order:</span><span>${transactionNum}</span></div>
-      <div class="info-row"><span>Order #:</span><span>${data.beeper_number || '-'}</span></div>
+      <div class="info-row"><span>Beeper #:</span><span>${data.beeper_number || '-'}</span></div>
       <div class="info-row"><span>Original Date:</span><span>${formatDateTime(data.created_at)}</span></div>
       ${data.refunded_by ? `<div class="info-row"><span>Authorized By:</span><span>${escapeHtml(data.refunded_by)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
@@ -815,6 +839,7 @@ function buildRefundReceiptHTML(data) {
         <p>This is a refund confirmation.</p>
         <p>Please keep this for your records.</p>
         <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
         <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
       </div>
     </div>
@@ -832,7 +857,7 @@ function buildPlainTextRefundReceipt(data) {
   lines.push(TXT_SEP);
   lines.push(txtLR('Date:', formatDateTime(data.refunded_at || new Date())));
   lines.push(txtLR('Orig Order:', 'ORD-' + String(data.transaction_id).padStart(6, '0')));
-  lines.push(txtLR('Order #:', String(data.beeper_number || '-')));
+  lines.push(txtLR('Beeper #:', String(data.beeper_number || '-')));
   lines.push(txtLR('Orig Date:', formatDateTime(data.created_at)));
   if (data.refunded_by) {
     lines.push(txtLR('Auth By:', data.refunded_by));
@@ -863,6 +888,7 @@ function buildPlainTextRefundReceipt(data) {
   lines.push(txtCenter('Refund confirmation.'));
   lines.push(txtCenter('Keep for your records.'));
   lines.push(TXT_SEP);
+  lines.push(txtCenter('Powered by Spavion'));
   lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
 
   return lines.join('\n');
@@ -884,8 +910,9 @@ function openThermalPrint(receiptData, printEndpoint) {
   } else if (printEndpoint === '/refund') {
     plainText = buildPlainTextRefundReceipt(receiptData);
   } else {
-    // Order receipt — customer + barista + kitchen
-    plainText = buildPlainTextCustomerReceipt(receiptData);
+    // Order receipt — customer receipt + store receipt + barista + kitchen
+    plainText = buildPlainTextCustomerReceipt(receiptData, 'CUSTOMER RECEIPT');
+    plainText += '\n\n' + buildPlainTextCustomerReceipt(receiptData, 'STORE RECEIPT');
     const baristaText = buildPlainTextBaristaTicket(receiptData);
     if (baristaText) plainText += '\n\n' + baristaText;
     const kitchenText = buildPlainTextKitchenTicket(receiptData);
@@ -952,7 +979,8 @@ function openThermalPrint(receiptData, printEndpoint) {
  */
 export async function printOrderReceipt(receiptData) {
   let html = '';
-  html += buildCustomerReceiptHTML(receiptData);
+  html += buildCustomerReceiptHTML(receiptData, 'CUSTOMER RECEIPT');
+  html += buildCustomerReceiptHTML(receiptData, 'STORE RECEIPT');
   
   const baristaHTML = buildBaristaTicketHTML(receiptData);
   if (baristaHTML) html += baristaHTML;
@@ -967,7 +995,7 @@ export async function printOrderReceipt(receiptData) {
  * Show customer receipt preview only (for reprints)
  */
 export async function printCustomerReceipt(receiptData) {
-  const html = buildCustomerReceiptHTML(receiptData);
+  const html = buildCustomerReceiptHTML(receiptData, 'CUSTOMER RECEIPT') + buildCustomerReceiptHTML(receiptData, 'STORE RECEIPT');
   return showReceiptModal(html, 'Customer Receipt', receiptData);
 }
 

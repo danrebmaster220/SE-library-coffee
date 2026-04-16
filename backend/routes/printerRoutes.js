@@ -5,16 +5,26 @@ const db = require('../config/db');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const { resolveDisplayName } = require('../utils/userName');
 
+function toFirstName(name) {
+    if (!name) return null;
+    const first = String(name).trim().split(/\s+/)[0];
+    return first || null;
+}
+
 /** Same display logic as auth/UI: prefer first/middle/last, else legacy full_name. */
 function cashierNameFromUserJoin(row) {
     if (!row) return null;
+    if (row.cashier_first_name) {
+        return toFirstName(row.cashier_first_name);
+    }
+
     const name = resolveDisplayName({
         first_name: row.cashier_first_name,
         middle_name: row.cashier_middle_name,
         last_name: row.cashier_last_name,
         full_name: row.cashier_full_name
     });
-    return name || null;
+    return toFirstName(name);
 }
 
 // Get available printers
@@ -265,9 +275,12 @@ router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
             }))
         };
         
-        // Print customer receipt only
-        const receiptData = printerService.buildCustomerReceipt(order);
-        await printerService.printRaw(receiptData);
+        // Print customer + client copies
+        const customerCopy = printerService.buildCustomerReceipt(order, 'CUSTOMER RECEIPT');
+        await printerService.printRaw(customerCopy);
+
+        const clientCopy = printerService.buildCustomerReceipt(order, 'STORE RECEIPT');
+        await printerService.printRaw(clientCopy);
         
         res.json({ success: true, message: 'Receipt reprinted successfully' });
     } catch (error) {

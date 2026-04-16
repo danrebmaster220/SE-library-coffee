@@ -15,6 +15,12 @@ const formatTime = (minutes) => {
   return `${mins}m`;
 };
 
+const formatMoney = (value) => {
+  const numeric = Number(value || 0);
+  const amount = Number.isNaN(numeric) ? 0 : numeric;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export default function Library() {
   const [seats, setSeats] = useState([]);
   const [tables, setTables] = useState([]);
@@ -323,14 +329,14 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
                     checked={selectedPackage === key}
                     onChange={() => setSelectedPackage(key)}
                   />
-                  {pkg.label} - ₱{pkg.price}
+                  {pkg.label} - {formatMoney(pkg.price)}
                 </label>
               ))}
             </div>
           </div>
 
           <div className="payment-section">
-            <p className="total-due"><strong>Amount Due: ₱{selectedPrice}.00</strong></p>
+            <p className="total-due"><strong>Amount Due: {formatMoney(selectedPrice)}</strong></p>
             
             <div className="form-group">
               <label>Cash Tendered:</label>
@@ -344,7 +350,7 @@ function CheckinModal({ seat, onClose, onSuccess, showToast }) {
               />
             </div>
             
-            <p className="change-display"><strong>Change: ₱{change.toFixed(2)}</strong></p>
+            <p className="change-display"><strong>Change: {formatMoney(change)}</strong></p>
           </div>
 
           <hr />
@@ -429,13 +435,13 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
                   checked={extendMinutes === parseInt(mins)}
                   onChange={() => setExtendMinutes(parseInt(mins))}
                 />
-                {opt.label} - ₱{opt.price}
+                {opt.label} - {formatMoney(opt.price)}
               </label>
             ))}
           </div>
 
           <div className="payment-section">
-            <p className="total-due"><strong>Extension Fee: ₱{extensionPrice}.00</strong></p>
+            <p className="total-due"><strong>Extension Fee: {formatMoney(extensionPrice)}</strong></p>
             
             <div className="form-group">
               <label>Cash Tendered:</label>
@@ -448,7 +454,7 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
               />
             </div>
             
-            <p className="change-display"><strong>Change: ₱{change.toFixed(2)}</strong></p>
+            <p className="change-display"><strong>Change: {formatMoney(change)}</strong></p>
           </div>
 
           <hr />
@@ -480,7 +486,7 @@ function ExtendOptionsModal({ seat, onClose, onCheckout, onRefresh, showToast })
         <p className={`remaining-time ${(seat.remaining_minutes || 0) <= 10 ? 'warning' : ''}`}>
           <strong>⏱ Time Remaining:</strong> {seat.remaining_minutes || 0} mins
         </p>
-        <p><strong>Total Paid:</strong> ₱{parseFloat(seat.amount_paid || 0).toFixed(2)}</p>
+        <p><strong>Total Paid:</strong> {formatMoney(seat.amount_paid || 0)}</p>
 
         <hr />
 
@@ -536,7 +542,7 @@ function CheckoutModal({ seat, onClose, onSuccess, showToast }) {
           
           <p><strong>Paid Minutes:</strong> {seat.paid_minutes || 0} mins</p>
           <p><strong>Total Used:</strong> {seat.elapsed_minutes || 0} mins</p>
-          <p><strong>Amount Already Paid:</strong> ₱{parseFloat(seat.amount_paid || 0).toFixed(2)}</p>
+          <p><strong>Amount Already Paid:</strong> {formatMoney(seat.amount_paid || 0)}</p>
         </div>
 
         <div className="checkout-notice">

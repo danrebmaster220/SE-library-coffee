@@ -17,6 +17,12 @@ const getCategoryColor = (name, index) => {
   return `hsl(${hue}, 56%, 44%)`;
 };
 
+const formatMoney = (value) => {
+  const numeric = Number(value || 0);
+  const amount = Number.isNaN(numeric) ? 0 : numeric;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export default function Dashboard() {
   const getInitialCompactChart = () => {
     if (typeof window === 'undefined') return false;
@@ -157,7 +163,7 @@ export default function Dashboard() {
   };
 
   // Format currency for tooltip
-  const formatCurrency = (value) => `₱${Number(value).toLocaleString()}`;
+  const formatCurrency = (value) => formatMoney(value);
 
   // Calculate total for category percentages
   const totalCategorySales = categorySales.reduce((sum, cat) => sum + cat.sales, 0);
@@ -205,7 +211,7 @@ export default function Dashboard() {
           <div className="stat-icon sales">P</div>
           <div className="stat-info">
             <span className="stat-label">Today's Sales</span>
-            <span className="stat-value">P{stats.todaySales.toLocaleString()}</span>
+            <span className="stat-value">{formatMoney(stats.todaySales)}</span>
           </div>
         </div>
 
@@ -236,7 +242,7 @@ export default function Dashboard() {
           <div className="stat-info">
             <span className="stat-label">Customers</span>
             <span className="stat-value">{stats.customers}</span>
-            <span className="stat-sub">Avg: P{stats.avgOrderValue.toFixed(2)}</span>
+            <span className="stat-sub">Avg: {formatMoney(stats.avgOrderValue)}</span>
           </div>
         </div>
       </div>
@@ -381,7 +387,7 @@ export default function Dashboard() {
               <div key={index} className="legend-item">
                 <span className="legend-dot" style={{ background: cat.color }}></span>
                 <span className="legend-name">{cat.name}</span>
-                <span className="legend-value">₱{cat.sales.toLocaleString()}</span>
+                <span className="legend-value">{formatMoney(cat.sales)}</span>
                 <span className="legend-percent">
                   {totalCategorySales > 0 ? ((cat.sales / totalCategorySales) * 100).toFixed(0) : 0}%
                 </span>

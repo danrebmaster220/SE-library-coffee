@@ -6,6 +6,12 @@ import Toast from '../components/Toast';
 import FilterSelectWrap from '../components/FilterSelectWrap';
 import '../styles/library.css';
 
+const formatMoney = (value) => {
+  const numeric = Number(value || 0);
+  const amount = Number.isNaN(numeric) ? 0 : numeric;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export default function LibraryTransactions() {
   const [seats, setSeats] = useState([]);
   const [tables, setTables] = useState([]);
@@ -462,7 +468,7 @@ export default function LibraryTransactions() {
           </div>
         )}
         <div className="stat-card stat-revenue">
-          <div className="stat-value">P{activeRevenue.toFixed(2)}</div>
+          <div className="stat-value">{formatMoney(activeRevenue)}</div>
           <div className="stat-label">Active Revenue</div>
         </div>
       </div>
@@ -591,7 +597,7 @@ export default function LibraryTransactions() {
                         <td>{formatTime(session.start_time)}</td>
                         <td>{formatDuration(session.elapsed_minutes)}</td>
                         <td><span className={session.remaining_minutes <= 5 ? 'time-warning' : ''}>{formatDuration(session.remaining_minutes)}</span></td>
-                        <td>P{calculateFee(session.elapsed_minutes).toFixed(2)}</td>
+                        <td>{formatMoney(calculateFee(session.elapsed_minutes))}</td>
                         <td className="actions-cell">
                           <button className="btn-action" onClick={function() { setSelectedSession(session); setShowSessionModal(true); }}>Manage</button>
                         </td>
@@ -656,7 +662,7 @@ export default function LibraryTransactions() {
                           <td>{session.table_name || `Table ${session.table_number}`}, Seat {session.seat_number}</td>
                           <td>{session.customer_name || '-'}</td>
                           <td>{formatDuration(session.total_minutes)}</td>
-                          <td>₱{parseFloat(session.amount_paid || 0).toFixed(2)}</td>
+                          <td>{formatMoney(session.amount_paid || 0)}</td>
                           <td>
                             <span className={'status-badge status-' + session.status}>
                               {session.status === 'voided' ? 'Voided' : 'Completed'}
@@ -817,7 +823,7 @@ function CheckinModal(props) {
             />
           </div>
           
-          <div className="checkout-total"><span>Initial Fee (2 hours):</span><span className="total-amount">P{fee.toFixed(2)}</span></div>
+          <div className="checkout-total"><span>Initial Fee (2 hours):</span><span className="total-amount">{formatMoney(fee)}</span></div>
           
           <div className="form-group">
             <label>Cash Tendered:</label>
@@ -833,19 +839,19 @@ function CheckinModal(props) {
           
           <div className="quick-cash-buttons">
             <button type="button" className="quick-cash-btn exact-btn" onClick={() => handleQuickCash(fee)}>Exact</button>
-            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(200)}>₱200</button>
-            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(500)}>₱500</button>
-            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(1000)}>₱1000</button>
+            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(200)}>{formatMoney(200)}</button>
+            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(500)}>{formatMoney(500)}</button>
+            <button type="button" className="quick-cash-btn" onClick={() => handleQuickCash(1000)}>{formatMoney(1000)}</button>
           </div>
           
           {parseFloat(cashTendered) >= fee && (
             <div className="change-display">
               <span>Change:</span>
-              <span className="change-amount">P{change.toFixed(2)}</span>
+              <span className="change-amount">{formatMoney(change)}</span>
             </div>
           )}
           
-          <div className="fee-info-box"><p><strong>Extension:</strong> P50.00 per 30 minutes</p></div>
+          <div className="fee-info-box"><p><strong>Extension:</strong> ₱50.00 per 30 minutes</p></div>
           <div className="modal-divider"></div>
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
@@ -896,9 +902,9 @@ function SessionModal(props) {
           </div>
           <div className="fee-breakdown" style={{padding: '0 20px'}}>
             <h4>Fee Calculation</h4>
-            <div className="fee-row"><span>Base (first 2 hours):</span><span>P100.00</span></div>
-            {session.elapsed_minutes > 120 && (<div className="fee-row"><span>Extension ({Math.ceil((session.elapsed_minutes - 120) / 30)} x 30min):</span><span>P{(Math.ceil((session.elapsed_minutes - 120) / 30) * 50).toFixed(2)}</span></div>)}
-            <div className="fee-row total"><span>Total:</span><span>P{fee.toFixed(2)}</span></div>
+            <div className="fee-row"><span>Base (first 2 hours):</span><span>{formatMoney(100)}</span></div>
+            {session.elapsed_minutes > 120 && (<div className="fee-row"><span>Extension ({Math.ceil((session.elapsed_minutes - 120) / 30)} x 30min):</span><span>{formatMoney(Math.ceil((session.elapsed_minutes - 120) / 30) * 50)}</span></div>)}
+            <div className="fee-row total"><span>Total:</span><span>{formatMoney(fee)}</span></div>
           </div>
           <div className="extend-section" style={{padding: '0 20px'}}>
             <h4>Extend Session:</h4>
@@ -914,7 +920,7 @@ function SessionModal(props) {
                     </svg>
                     Processing...
                   </span>
-                ) : '+30 min (P50)'}
+                ) : `+30 min (${formatMoney(50)})`}
               </button>
               {/* <button className="btn-extend" onClick={function() { handleExtendClick(60); }} disabled={extendingMinutes !== null}>
                 {extendingMinutes === 60 ? (
@@ -927,7 +933,7 @@ function SessionModal(props) {
                     </svg>
                     Processing...
                   </span>
-                ) : '+60 min (P100)'}
+                ) : `+60 min (${formatMoney(100)})`}
               </button> */}
             </div>
           </div>

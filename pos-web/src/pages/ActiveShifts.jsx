@@ -6,13 +6,8 @@ import "../styles/cash-management.css";
 export default function ActiveShifts() {
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForceCloseModal, setShowForceCloseModal] = useState(false);
-  const [selectedShift, setSelectedShift] = useState(null);
-  const [forceCloseNotes, setForceCloseNotes] = useState('');
-  const [forceClosing, setForceClosing] = useState(false);
   const [shiftPage, setShiftPage] = useState(1);
   const rowsPerPage = 10;
-  const forceCloseReason = forceCloseNotes.trim();
 
   useEffect(() => {
     fetchActiveShifts();
@@ -58,34 +53,10 @@ export default function ActiveShifts() {
     return `${hours}h ${minutes}m`;
   };
 
-  const openForceClose = (shift) => {
-    setSelectedShift(shift);
-    setForceCloseNotes('');
-    setShowForceCloseModal(true);
-  };
-
-  const handleForceClose = async () => {
-    if (!selectedShift || forceClosing) return;
-    if (!forceCloseReason) {
-      alert('Please provide a reason before force-closing this shift.');
-      return;
-    }
-
-    try {
-      setForceClosing(true);
-      await api.post(`/shifts/${selectedShift.shift_id}/force-close`, {
-        notes: forceCloseReason
-      });
-      setShowForceCloseModal(false);
-      setSelectedShift(null);
-      fetchActiveShifts();
-      window.dispatchEvent(new Event('shiftUpdated'));
-    } catch (error) {
-      console.error("Error force-closing shift:", error);
-      alert(error.response?.data?.error || 'Failed to force-close shift');
-    } finally {
-      setForceClosing(false);
-    }
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const totalPages = Math.ceil(shifts.length / rowsPerPage);
@@ -139,8 +110,7 @@ export default function ActiveShifts() {
                   <th>Starting Cash</th>
                   <th>Running Sales</th>
                   <th>Transactions</th>
-                  <th>Voids</th>
-                  <th>Actions</th>
+                  <th>Voided Orders</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,15 +129,10 @@ export default function ActiveShifts() {
                     <td>
                       <span className="duration-badge">{formatDuration(shift.start_time)}</span>
                     </td>
-                    <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
-                    <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
+                    <td>{formatMoney(shift.starting_cash)}</td>
+                    <td className="sales-amount">{formatMoney(shift.total_sales)}</td>
                     <td>{shift.total_transactions || 0}</td>
                     <td>{shift.total_voids || 0}</td>
-                    <td>
-                      <button className="btn-force-close" onClick={() => openForceClose(shift)}>
-                        Force Close
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -195,57 +160,6 @@ export default function ActiveShifts() {
         </>
       )}
 
-      {/* Force Close Modal */}
-      {showForceCloseModal && selectedShift && (
-        <div className="modal-overlay" onClick={forceClosing ? undefined : () => setShowForceCloseModal(false)}>
-          <div className="modal-content force-close-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Force Close Shift</h3>
-              <button className="modal-close" onClick={() => setShowForceCloseModal(false)} disabled={forceClosing}>×</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '12px' }}>
-                Force-close the shift for <strong>{selectedShift.full_name}</strong>?
-              </p>
-              <p style={{ fontSize: '13px', color: '#888', marginBottom: '16px' }}>
-                Started: {new Date(selectedShift.start_time).toLocaleString()} ({formatDuration(selectedShift.start_time)})
-              </p>
-              <div className="form-group">
-                <label>Reason / Notes</label>
-                <textarea
-                  value={forceCloseNotes}
-                  onChange={(e) => setForceCloseNotes(e.target.value)}
-                  placeholder="e.g., Power outage, cashier absent..."
-                  rows={3}
-                  maxLength={500}
-                  disabled={forceClosing}
-                />
-                <small style={{ color: '#666', display: 'block', marginTop: '6px' }}>
-                  Reason is required for audit accountability.
-                </small>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowForceCloseModal(false)} disabled={forceClosing}>Cancel</button>
-              <button className="btn-danger" onClick={handleForceClose} disabled={forceClosing || !forceCloseReason}>
-                {forceClosing ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
-                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" fill="none">
-                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
-                      </path>
-                    </svg>
-                    Force Closing...
-                  </span>
-                ) : (
-                  'Force Close Shift'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

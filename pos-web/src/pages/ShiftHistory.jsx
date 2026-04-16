@@ -90,20 +90,17 @@ export default function ShiftHistory() {
     return 'diff-shortage';
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const getDifferenceLabel = (diff) => {
     const val = parseFloat(diff);
     if (val === 0) return 'Exact';
-    if (val > 0) return `+₱${val.toFixed(2)}`;
-    return `-₱${Math.abs(val).toFixed(2)}`;
-  };
-
-  const isForceClosedShift = (shift) => {
-    if (Number(shift?.is_force_closed) === 1) return true;
-
-    const notes = String(shift?.notes || '').toLowerCase();
-    const hasNoRemittance = shift?.actual_cash == null && shift?.cash_difference == null;
-    const closedByDifferentUser = shift?.closed_by != null && Number(shift.closed_by) !== Number(shift.user_id);
-    return hasNoRemittance && (closedByDifferentUser || notes.includes('force-closed') || notes.includes('force closed') || notes.includes('forceclose'));
+    if (val > 0) return `+${formatMoney(val)}`;
+    return `-${formatMoney(Math.abs(val))}`;
   };
 
   const formatShiftDuration = (startTime, endTime) => {
@@ -220,15 +217,13 @@ export default function ShiftHistory() {
                       </div>
                     </td>
                     <td>{formatShiftDuration(shift.start_time, shift.end_time)}</td>
-                    <td>₱{(parseFloat(shift.starting_cash) || 0).toFixed(2)}</td>
-                    <td className="sales-amount">₱{(parseFloat(shift.total_sales) || 0).toFixed(2)}</td>
-                    <td>₱{(parseFloat(shift.expected_cash) || 0).toFixed(2)}</td>
+                    <td>{formatMoney(shift.starting_cash)}</td>
+                    <td className="sales-amount">{formatMoney(shift.total_sales)}</td>
+                    <td>{formatMoney(shift.expected_cash)}</td>
                     <td>
                       {shift.actual_cash != null 
-                        ? `₱${parseFloat(shift.actual_cash).toFixed(2)}`
-                        : isForceClosedShift(shift)
-                          ? <span className="diff-badge diff-na">Force-Closed</span>
-                          : <span style={{ color: '#999' }}>N/A</span>
+                        ? formatMoney(shift.actual_cash)
+                        : <span style={{ color: '#999' }}>N/A</span>
                       }
                     </td>
                     <td>
@@ -236,8 +231,6 @@ export default function ShiftHistory() {
                         <span className={`diff-badge ${getDifferenceClass(shift.cash_difference)}`}>
                           {getDifferenceLabel(shift.cash_difference)}
                         </span>
-                      ) : isForceClosedShift(shift) ? (
-                        <span className="diff-badge diff-na">Force-Closed</span>
                       ) : (
                         <span className="diff-badge diff-na">N/A</span>
                       )}
@@ -303,11 +296,11 @@ export default function ShiftHistory() {
                 <hr />
                 <div className="detail-row">
                   <span className="detail-label">Starting Cash</span>
-                  <span className="detail-value">₱{(parseFloat(selectedShift.starting_cash) || 0).toFixed(2)}</span>
+                  <span className="detail-value">{formatMoney(selectedShift.starting_cash)}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Total Sales</span>
-                  <span className="detail-value" style={{ color: '#2e7d32', fontWeight: '700' }}>₱{(parseFloat(selectedShift.total_sales) || 0).toFixed(2)}</span>
+                  <span className="detail-value" style={{ color: '#2e7d32', fontWeight: '700' }}>{formatMoney(selectedShift.total_sales)}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Transactions</span>
@@ -319,21 +312,19 @@ export default function ShiftHistory() {
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Refunds</span>
-                  <span className="detail-value" style={{ color: '#c62828' }}>₱{(parseFloat(selectedShift.total_refunds) || 0).toFixed(2)}</span>
+                  <span className="detail-value" style={{ color: '#c62828' }}>{formatMoney(selectedShift.total_refunds)}</span>
                 </div>
                 <hr />
                 <div className="detail-row">
                   <span className="detail-label">Expected Cash</span>
-                  <span className="detail-value" style={{ fontWeight: '700' }}>₱{(parseFloat(selectedShift.expected_cash) || 0).toFixed(2)}</span>
+                  <span className="detail-value" style={{ fontWeight: '700' }}>{formatMoney(selectedShift.expected_cash)}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Actual Cash</span>
                   <span className="detail-value" style={{ fontWeight: '700' }}>
                     {selectedShift.actual_cash != null
-                      ? `₱${parseFloat(selectedShift.actual_cash).toFixed(2)}`
-                      : isForceClosedShift(selectedShift)
-                        ? 'Force-Closed'
-                        : 'N/A'}
+                      ? formatMoney(selectedShift.actual_cash)
+                      : 'N/A'}
                   </span>
                 </div>
                 <div className="detail-row">
@@ -341,9 +332,7 @@ export default function ShiftHistory() {
                   <span className={`detail-value diff-badge ${selectedShift.cash_difference != null ? getDifferenceClass(selectedShift.cash_difference) : 'diff-na'}`}>
                     {selectedShift.cash_difference != null
                       ? getDifferenceLabel(selectedShift.cash_difference)
-                      : isForceClosedShift(selectedShift)
-                        ? 'Force-Closed'
-                        : 'N/A'}
+                      : 'N/A'}
                   </span>
                 </div>
                 {selectedShift.notes && (

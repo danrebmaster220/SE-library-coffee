@@ -4,11 +4,32 @@ import api from '../api';
 import '../styles/login.css';
 import logoImg from '../assets/logo.png';
 
+const parseScheduleDateValue = (value) => {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Treat schedule strings as PH wall-clock values, even when they arrive as ISO-like (e.g. ...Z).
+  const strippedTimezone = raw
+    .replace(/Z$/i, '')
+    .replace(/([+-]\d{2}:\d{2})$/, '');
+  const normalizedWallClock = strippedTimezone.includes('T')
+    ? strippedTimezone
+    : strippedTimezone.replace(' ', 'T');
+
+  const manilaDate = new Date(`${normalizedWallClock}+08:00`);
+  if (!Number.isNaN(manilaDate.getTime())) return manilaDate;
+
+  const fallbackDate = new Date(raw);
+  if (!Number.isNaN(fallbackDate.getTime())) return fallbackDate;
+
+  return null;
+};
+
 const formatNoticeDateTime = (value, timezone = 'Asia/Manila') => {
-  if (!value) return '-';
-  const normalized = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
-  const dt = new Date(`${normalized}+08:00`);
-  if (Number.isNaN(dt.getTime())) return String(value);
+  const dt = parseScheduleDateValue(value);
+  if (!dt) return '-';
 
   return new Intl.DateTimeFormat('en-PH', {
     year: 'numeric',
@@ -23,7 +44,9 @@ const formatNoticeDateTime = (value, timezone = 'Asia/Manila') => {
 
 const toMoney = (value) => {
   const parsed = Number(value);
-  return Number.isNaN(parsed) ? '0.00' : parsed.toFixed(2);
+  return Number.isNaN(parsed)
+    ? '0.00'
+    : parsed.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const getNoticeScope = (schedule) => {
@@ -186,7 +209,7 @@ export default function Login() {
                     <span>{getNoticeScope(row)}</span>
                   </div>
                   <div className="price-notice-item-body">
-                    PHP {toMoney(row.current_price)} → PHP {toMoney(row.scheduled_price)}
+                    ₱{toMoney(row.current_price)} → ₱{toMoney(row.scheduled_price)}
                   </div>
                   <div className="price-notice-item-time">
                     Effective: {formatNoticeDateTime(row.effective_at, row.timezone || 'Asia/Manila')}

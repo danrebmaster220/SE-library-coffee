@@ -73,6 +73,12 @@ export default function ManageMenu() {
     return category ? category.name : "Unknown";
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(filterSearch.toLowerCase());
     const matchesCategory = !filterCategory || item.category_id === parseInt(filterCategory, 10);
@@ -212,7 +218,7 @@ export default function ManageMenu() {
                     </td>
                     <td><span className="item-name-text">{item.name}</span></td>
                     <td>{getCategoryName(item.category_id)}</td>
-                    <td className="price-cell">P{parseFloat(item.price).toFixed(2)}</td>
+                    <td className="price-cell">{formatMoney(item.price)}</td>
                     <td>
                       <span className={`station-badge station-${item.station}`}>
                         {item.station}

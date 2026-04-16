@@ -369,24 +369,25 @@ export default function MenuCategories() {
                   </select>
                 </FilterSelectWrap>
               </div>
-              <div className="form-group checkbox-group" style={{ marginTop: '10px' }}>
-                <label className="checkbox-label">
+              <div className="category-temp-toggle-list">
+                <label className="checkbox-label checkbox-label--tile checkbox-label--compact category-temp-toggle-label">
                   <input
+                    className="checkbox-input"
                     type="checkbox"
                     checked={!!formData.allow_hot}
                     onChange={(e) => setFormData({ ...formData, allow_hot: e.target.checked })}
                   />
-                  <span>Allow Hot in this category</span>
+                  <span className="checkbox-main-text">Allow Hot in this category</span>
                 </label>
-              </div>
-              <div className="form-group checkbox-group" style={{ marginTop: '4px' }}>
-                <label className="checkbox-label">
+
+                <label className="checkbox-label checkbox-label--tile checkbox-label--compact category-temp-toggle-label">
                   <input
+                    className="checkbox-input"
                     type="checkbox"
                     checked={!!formData.allow_iced}
                     onChange={(e) => setFormData({ ...formData, allow_iced: e.target.checked })}
                   />
-                  <span>Allow Iced in this category</span>
+                  <span className="checkbox-main-text">Allow Iced in this category</span>
                 </label>
               </div>
               <small className="form-hint" style={{ display: 'block', marginTop: '6px' }}>

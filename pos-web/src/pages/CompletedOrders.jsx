@@ -74,6 +74,12 @@ export default function CompletedOrders() {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const handleReprintReceipt = async (transactionId) => {
     try {
       setPrinting(transactionId);
@@ -178,9 +184,9 @@ export default function CompletedOrders() {
                           {order.order_type}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 20px', fontWeight: '700', color: '#a1887f' }}>₱{parseFloat(order.total_amount).toFixed(2)}</td>
-                      <td style={{ padding: '16px 20px', color: '#5d4037' }}>₱{parseFloat(order.cash_tendered || 0).toFixed(2)}</td>
-                      <td style={{ padding: '16px 20px', color: '#5d4037' }}>₱{parseFloat(order.change_due || 0).toFixed(2)}</td>
+                      <td style={{ padding: '16px 20px', fontWeight: '700', color: '#a1887f' }}>{formatMoney(order.total_amount)}</td>
+                      <td style={{ padding: '16px 20px', color: '#5d4037' }}>{formatMoney(order.cash_tendered || 0)}</td>
+                      <td style={{ padding: '16px 20px', color: '#5d4037' }}>{formatMoney(order.change_due || 0)}</td>
                       <td style={{ padding: '16px 20px', color: '#8d6e63' }}>{formatTime(order.completed_at)}</td>
                       <td style={{ padding: '16px 20px', color: '#5d4037' }}>{order.processed_by_name || '-'}</td>
                       <td style={{ padding: '16px 20px', textAlign: 'center' }}>
@@ -283,7 +289,7 @@ export default function CompletedOrders() {
             <strong>Total Transactions:</strong> {completedOrders.length}
           </div>
           <div style={{ fontSize: '20px', fontWeight: '700', color: '#3e2723' }}>
-            Total Sales: <span style={{ color: '#a1887f' }}>₱{completedOrders.reduce((sum, o) => sum + parseFloat(o.total_amount), 0).toFixed(2)}</span>
+            Total Sales: <span style={{ color: '#a1887f' }}>{formatMoney(completedOrders.reduce((sum, o) => sum + parseFloat(o.total_amount), 0))}</span>
           </div>
         </div>
       )}

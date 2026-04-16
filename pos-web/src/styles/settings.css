@@ -172,6 +172,14 @@
   background: var(--latte);
 }
 
+.pending-schedule-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Status Messages */
 .settings-status {
   margin-top: 16px;
@@ -198,6 +206,56 @@
 
 .settings-status .icon {
   font-size: 18px;
+}
+
+.settings-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.settings-dialog {
+  width: min(460px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  padding: 18px;
+}
+
+.settings-dialog h3 {
+  margin: 0 0 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  color: var(--coffee-dark);
+}
+
+.settings-dialog-subtitle {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #6b5a4d;
+  line-height: 1.45;
+}
+
+.settings-dialog-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-btn-danger {
+  background: #c44734;
+  color: #fff;
+}
+
+.settings-btn-danger:hover {
+  background: #a53c2d;
 }
 
 /* Section Divider */

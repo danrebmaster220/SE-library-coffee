@@ -78,7 +78,7 @@ function centerText(text) {
  * Format currency
  */
 function formatCurrency(amount) {
-    return `₱${parseFloat(amount).toFixed(2)}`;
+    return `${parseFloat(amount || 0).toFixed(2)}`;
 }
 
 /**
@@ -93,6 +93,11 @@ function formatDateTime(date = new Date()) {
         minute: '2-digit',
         hour12: true
     });
+}
+
+function getFirstName(name) {
+    if (!name) return '';
+    return String(name).trim().split(/\s+/)[0] || '';
 }
 
 /**
@@ -143,8 +148,9 @@ function formatCustomizations(customizations) {
 
  // Build Customer Receipt
 
-function buildCustomerReceipt(order) {
+function buildCustomerReceipt(order, copyLabel = 'CUSTOMER RECEIPT') {
     let receipt = '';
+    const cashierFirstName = getFirstName(order.cashier_name);
     
     receipt += COMMANDS.INIT;
     receipt += COMMANDS.ALIGN_CENTER;
@@ -161,12 +167,14 @@ function buildCustomerReceipt(order) {
     // Pad transaction number with leading zeros (6 digits) and add ORD prefix
     const transactionNum = 'ORD-' + String(order.transaction_id || order.order_id || order.id).padStart(6, '0');
     
+    receipt += COMMANDS.ALIGN_CENTER;
+    receipt += `${copyLabel}\n`;
     receipt += COMMANDS.ALIGN_LEFT;
     receipt += `Date: ${formatDateTime()}\n`;
-    receipt += `Transaction #: ${transactionNum}\n`;
-    receipt += `Order #: ${order.beeper_number}\n`;
-    if (order.cashier_name) {
-        receipt += `Cashier: ${order.cashier_name}\n`;
+    receipt += `Order #: ${transactionNum}\n`;
+    receipt += `Beeper #: ${order.beeper_number}\n`;
+    if (cashierFirstName) {
+        receipt += `Cashier: ${cashierFirstName}\n`;
     }
     receipt += separator() + '\n';
     
@@ -271,12 +279,13 @@ function buildCustomerReceipt(order) {
     receipt += 'Please wait for your order\n';
     receipt += 'number to be called.\n';
     receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
     receipt += '\n';
     receipt += 'NOT AN OFFICIAL RECEIPT\n';
     receipt += '\n';
     
     // Barista copy section
-    receipt += COMMANDS.FEED_LINES(2);
+    receipt += COMMANDS.FEED_LINES(1);
     receipt += COMMANDS.PARTIAL_CUT;
     
     return receipt;
@@ -287,6 +296,7 @@ function buildCustomerReceipt(order) {
 
 function buildBaristaTicket(order) {
     let ticket = '';
+    const cashierFirstName = getFirstName(order.cashier_name);
     
     ticket += COMMANDS.INIT;
     ticket += COMMANDS.ALIGN_CENTER;
@@ -299,12 +309,12 @@ function buildBaristaTicket(order) {
     
     // Order number - normal size with bold for better fit on 58mm
     ticket += COMMANDS.BOLD_ON;
-    ticket += `ORDER #${order.beeper_number}\n`;
+    ticket += `BEEPER #${order.beeper_number}\n`;
     ticket += COMMANDS.BOLD_OFF;
     
     ticket += `Time: ${formatDateTime()}\n`;
-    if (order.cashier_name) {
-        ticket += `Cashier: ${order.cashier_name}\n`;
+    if (cashierFirstName) {
+        ticket += `Cashier: ${cashierFirstName}\n`;
     }
     ticket += separator() + '\n';
     
@@ -370,7 +380,7 @@ function buildBaristaTicket(order) {
     }
     
     ticket += separator() + '\n';
-    ticket += COMMANDS.FEED_LINES(2);
+    ticket += COMMANDS.FEED_LINES(1);
     ticket += COMMANDS.PARTIAL_CUT;
     
     return ticket;
@@ -381,6 +391,7 @@ function buildBaristaTicket(order) {
  
 function buildKitchenTicket(order) {
     let ticket = '';
+    const cashierFirstName = getFirstName(order.cashier_name);
     
     ticket += COMMANDS.INIT;
     ticket += COMMANDS.ALIGN_CENTER;
@@ -393,12 +404,12 @@ function buildKitchenTicket(order) {
     
     // Order number - normal size with bold (matching barista style)
     ticket += COMMANDS.BOLD_ON;
-    ticket += `ORDER #${order.beeper_number}\n`;
+    ticket += `BEEPER #${order.beeper_number}\n`;
     ticket += COMMANDS.BOLD_OFF;
     
     ticket += `Time: ${formatDateTime()}\n`;
-    if (order.cashier_name) {
-        ticket += `Cashier: ${order.cashier_name}\n`;
+    if (cashierFirstName) {
+        ticket += `Cashier: ${cashierFirstName}\n`;
     }
     ticket += separator() + '\n';
     
@@ -436,7 +447,7 @@ function buildKitchenTicket(order) {
     }
     
     ticket += separator() + '\n';
-    ticket += COMMANDS.FEED_LINES(2);
+    ticket += COMMANDS.FEED_LINES(1);
     ticket += COMMANDS.PARTIAL_CUT;
     
     return ticket;
@@ -446,6 +457,7 @@ function buildKitchenTicket(order) {
 // Build Library Check-in Receipt (after initial payment)
 function buildLibraryCheckinReceipt(session) {
     let receipt = '';
+    const cashierFirstName = getFirstName(session.cashier_name);
     
     receipt += COMMANDS.INIT;
     receipt += COMMANDS.ALIGN_CENTER;
@@ -471,8 +483,8 @@ function buildLibraryCheckinReceipt(session) {
     receipt += COMMANDS.BOLD_ON;
     receipt += `Customer: ${session.customer_name}\n`;
     receipt += COMMANDS.BOLD_OFF;
-    if (session.cashier_name) {
-        receipt += `Cashier: ${session.cashier_name}\n`;
+    if (cashierFirstName) {
+        receipt += `Cashier: ${cashierFirstName}\n`;
     }
     receipt += separator() + '\n';
     
@@ -502,16 +514,17 @@ function buildLibraryCheckinReceipt(session) {
     receipt += '\n';
     receipt += COMMANDS.ALIGN_CENTER;
     receipt += separator() + '\n';
-    receipt += 'Extension: P50.00 per 30 mins\n';
+    receipt += 'Extension: 50.00 per 30 mins\n';
     receipt += separator() + '\n';
     receipt += 'Thank you!\n';
     receipt += 'Enjoy your study session.\n';
     receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
     receipt += '\n';
     receipt += 'NOT AN OFFICIAL RECEIPT\n';
     receipt += '\n';
     
-    receipt += COMMANDS.FEED_LINES(3);
+    receipt += COMMANDS.FEED_LINES(1);
     receipt += COMMANDS.PARTIAL_CUT;
     
     return receipt;
@@ -521,6 +534,7 @@ function buildLibraryCheckinReceipt(session) {
 // Build Library Extension Receipt (after extending time)
 function buildLibraryExtensionReceipt(session) {
     let receipt = '';
+    const cashierFirstName = getFirstName(session.cashier_name);
     
     receipt += COMMANDS.INIT;
     receipt += COMMANDS.ALIGN_CENTER;
@@ -541,8 +555,8 @@ function buildLibraryExtensionReceipt(session) {
     receipt += `Table: ${session.table_number}\n`;
     receipt += `Seat: ${session.seat_number}\n`;
     receipt += `Customer: ${session.customer_name}\n`;
-    if (session.cashier_name) {
-        receipt += `Cashier: ${session.cashier_name}\n`;
+    if (cashierFirstName) {
+        receipt += `Cashier: ${cashierFirstName}\n`;
     }
     receipt += separator() + '\n';
     
@@ -576,11 +590,12 @@ function buildLibraryExtensionReceipt(session) {
     receipt += separator() + '\n';
     receipt += 'Thank you for extending!\n';
     receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
     receipt += '\n';
     receipt += 'NOT AN OFFICIAL RECEIPT\n';
     receipt += '\n';
     
-    receipt += COMMANDS.FEED_LINES(3);
+    receipt += COMMANDS.FEED_LINES(1);
     receipt += COMMANDS.PARTIAL_CUT;
     
     return receipt;
@@ -634,11 +649,12 @@ function buildLibraryReceipt(session) {
     receipt += COMMANDS.ALIGN_CENTER;
     receipt += 'Thank you for studying with us!\n';
     receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
     receipt += '\n';
     receipt += 'NOT AN OFFICIAL RECEIPT\n';
     receipt += '\n';
     
-    receipt += COMMANDS.FEED_LINES(3);
+    receipt += COMMANDS.FEED_LINES(1);
     receipt += COMMANDS.PARTIAL_CUT;
     
     return receipt;
@@ -657,14 +673,10 @@ async function printWithESCPOS(order) {
         try {
             const device = new USB();
             const printer = new escpos.Printer(device);
+            const transactionNum = 'ORD-' + String(order.transaction_id || order.order_id || order.id).padStart(6, '0');
+            const cashierFirstName = getFirstName(order.cashier_name);
 
-            device.open(function(err) {
-                if (err) {
-                    console.error('USB device open error:', err);
-                    reject(err);
-                    return;
-                }
-
+            const printEscposCustomerCopy = (label) => {
                 printer
                     .font('a')
                     .align('ct')
@@ -675,46 +687,49 @@ async function printWithESCPOS(order) {
                     .style('normal')
                     .text('Coffee + Study Hub')
                     .text('--------------------------------')
+                    .style('b')
+                    .text(label)
+                    .style('normal')
                     .align('lt')
                     .text(`Date: ${formatDateTime()}`)
-                    .text(`Transaction #: ${order.order_id || order.id}`)
+                    .text(`Order #: ${transactionNum}`)
                     .style('b')
-                    .text(`Order #: ${order.beeper_number}`)
+                    .text(`Beeper #: ${order.beeper_number}`)
                     .style('normal')
+                    .text(cashierFirstName ? `Cashier: ${cashierFirstName}` : '')
                     .text('--------------------------------')
                     .text('ITEMS:');
 
-                // Print items
                 if (order.items && order.items.length > 0) {
                     order.items.forEach(item => {
                         const itemName = item.name || item.item_name;
                         const qty = item.quantity;
                         const price = parseFloat(item.price);
                         const subtotal = qty * price;
-                        
+
                         printer.text(`${qty}x ${itemName}`);
-                        printer.text(`   @ P${price.toFixed(2)} = P${subtotal.toFixed(2)}`);
+                        printer.text(`   @ ${price.toFixed(2)} = ${subtotal.toFixed(2)}`);
                     });
                 }
 
                 printer
                     .text('--------------------------------')
                     .align('rt')
-                    .text(`Subtotal: P${parseFloat(order.total_amount).toFixed(2)}`);
+                    .text(`Subtotal: ${parseFloat(order.total_amount).toFixed(2)}`);
 
                 if (order.discount_amount && order.discount_amount > 0) {
-                    printer.text(`Discount: -P${parseFloat(order.discount_amount).toFixed(2)}`);
+                    printer.text(`Discount: -${parseFloat(order.discount_amount).toFixed(2)}`);
                 }
 
                 printer
                     .style('b')
-                    .text(`TOTAL: P${parseFloat(order.final_amount || order.total_amount).toFixed(2)}`)
+                    .text(`TOTAL: ${parseFloat(order.final_amount || order.total_amount).toFixed(2)}`)
                     .style('normal');
 
                 if (order.cash_tendered) {
                     printer
-                        .text(`Cash: P${parseFloat(order.cash_tendered).toFixed(2)}`)
-                        .text(`Change: P${parseFloat(order.change_due || 0).toFixed(2)}`);
+                        .text(`Cash: ${parseFloat(order.cash_tendered).toFixed(2)}`)
+                        .text(`Change: ${parseFloat(order.change_due || 0).toFixed(2)}`);
                 }
 
                 printer
@@ -724,13 +739,26 @@ async function printWithESCPOS(order) {
                     .text('Thank you for visiting!')
                     .text('Please wait for your order')
                     .text('number to be called.')
+                    .text('Powered by Spavion')
                     .text('--------------------------------')
-                    .feed(3)
-                    .cut()
-                    .close(function() {
+                    .feed(1)
+                    .cut();
+            };
+
+            device.open(function(err) {
+                if (err) {
+                    console.error('USB device open error:', err);
+                    reject(err);
+                    return;
+                }
+
+                printEscposCustomerCopy('CUSTOMER RECEIPT');
+                printEscposCustomerCopy('STORE RECEIPT');
+
+                printer.close(function() {
                         console.log('Receipt printed successfully via ESC/POS USB');
                         resolve(true);
-                    });
+                });
             });
         } catch (error) {
             console.error('ESC/POS print error:', error);
@@ -882,6 +910,7 @@ async function printWithPowerShell(data, printerName = PRINTER_CONFIG.windowsPri
 async function printOrderReceipts(order) {
     const results = {
         customerReceipt: false,
+        clientReceipt: false,
         baristaTicket: false,
         kitchenTicket: false,
         errors: []
@@ -904,9 +933,14 @@ async function printOrderReceipts(order) {
     // Fallback to Windows printing
     try {
         // Print customer receipt
-        const customerData = buildCustomerReceipt(order);
+        const customerData = buildCustomerReceipt(order, 'CUSTOMER RECEIPT');
         await printRaw(customerData);
         results.customerReceipt = true;
+
+        // Print additional store receipt copy
+        const clientData = buildCustomerReceipt(order, 'STORE RECEIPT');
+        await printRaw(clientData);
+        results.clientReceipt = true;
     } catch (error) {
         results.errors.push(`Customer receipt: ${error.message}`);
     }

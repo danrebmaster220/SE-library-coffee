@@ -942,6 +942,12 @@ export default function POS() {
   const calculateTotal = useCallback(() => total, [total]);
   const calculateChange = useCallback(() => change, [change]);
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const posMenuBranchForModal = useMemo(() => {
     const cat = categories.find((c) => c.category_id === selectedCategory);
     if (!cat) return null;
@@ -963,9 +969,9 @@ export default function POS() {
     const k = item.menu_price_kind;
     const p = item.menu_price;
     if (k === 'unavailable') return '—';
-    if (k === 'from') return item.menu_price_label || `From ₱${Number(p).toFixed(2)}`;
+    if (k === 'from') return item.menu_price_label || `From ${formatMoney(p)}`;
     const n = p != null && !Number.isNaN(Number(p)) ? Number(p) : parseFloat(item.price || 0);
-    return `₱${n.toFixed(2)}`;
+    return formatMoney(n);
   };
 
   const currentPosCategory = categories.find((c) => c.category_id === selectedCategory);
@@ -1354,7 +1360,7 @@ export default function POS() {
                     >
                       <span className="dropdown-order-num">#{order.beeper_number || order.order_number}</span>
                       <span className="dropdown-order-type">{order.order_type}</span>
-                      <span className="dropdown-order-total">₱{parseFloat(order.total_amount).toFixed(2)}</span>
+                      <span className="dropdown-order-total">{formatMoney(order.total_amount)}</span>
                     </div>
                   ))
                 ) : (
@@ -1406,7 +1412,7 @@ export default function POS() {
                     <div className="more-items">+{order.items.length - 3} more items</div>
                   )}
                 </div>
-                <div className="order-total">P{parseFloat(order.total_amount).toFixed(2)}</div>
+                <div className="order-total">{formatMoney(order.total_amount)}</div>
                 <div className="order-actions">
                   <button onClick={(e) => { e.stopPropagation(); loadPendingOrder(order); }} className="btn-select">Select for Payment</button>
                   <button onClick={(e) => { e.stopPropagation(); openVoidModal(order); }} className="btn-void">Void</button>
@@ -1426,7 +1432,7 @@ export default function POS() {
                   <div className="processed-by-label">By: {order.processed_by_name}</div>
                 )}
                 <div className="order-info">
-                  <span className="order-total">₱{parseFloat(order.total_amount).toFixed(2)}</span>
+                  <span className="order-total">{formatMoney(order.total_amount)}</span>
                   <span className="order-type">{order.order_type}</span>
                 </div>
                 <div className="order-actions">
@@ -1447,7 +1453,7 @@ export default function POS() {
                   <div className="processed-by-label">By: {order.processed_by_name}</div>
                 )}
                 <div className="order-info">
-                  <span className="order-total">₱{parseFloat(order.total_amount).toFixed(2)}</span>
+                  <span className="order-total">{formatMoney(order.total_amount)}</span>
                   <span className="order-type">{order.order_type}</span>
                 </div>
                 <div className="order-actions">
@@ -1669,7 +1675,7 @@ export default function POS() {
                 <p><strong>Duration:</strong> {Math.floor(pendingLibraryBooking.duration_minutes / 60)}h {pendingLibraryBooking.duration_minutes % 60}m</p>
               </div>
               <div className="library-booking-price">
-                ₱{pendingLibraryBooking.amount.toFixed(2)}
+                {formatMoney(pendingLibraryBooking.amount)}
               </div>
             </div>
           )}
@@ -1688,7 +1694,7 @@ export default function POS() {
                   <div className="cart-item-customizations">
                     {item.customizations.map((c, i) => (
                       <span key={i} className="customization-tag">
-                        {c.option_name} {c.price > 0 && `+₱${c.price.toFixed(2)}`}
+                        {c.option_name} {c.price > 0 && `+${formatMoney(c.price)}`}
                       </span>
                     ))}
                   </div>
@@ -1707,7 +1713,7 @@ export default function POS() {
                       className={pendingOrderId ? 'qty-btn-disabled' : ''}
                     >+</button>
                   </div>
-                  <span className="cart-item-total">₱{(item.total_price * item.quantity).toFixed(2)}</span>
+                  <span className="cart-item-total">{formatMoney(item.total_price * item.quantity)}</span>
                 </div>
               </div>
             ))
@@ -1739,15 +1745,15 @@ export default function POS() {
         <div className="cart-totals">
           <div className="total-row">
             <span>Subtotal:</span>
-            <span>₱{calculateSubtotal().toFixed(2)}</span>
+            <span>{formatMoney(calculateSubtotal())}</span>
           </div>
           <div className="total-row discount">
             <span>Discount:</span>
-            <span>{selectedDiscount ? `-₱${calculateDiscount().toFixed(2)}` : '₱0.00'}</span>
+            <span>{selectedDiscount ? `-${formatMoney(calculateDiscount())}` : formatMoney(0)}</span>
           </div>
           <div className="total-row grand-total">
             <span>Total:</span>
-            <span>₱{calculateTotal().toFixed(2)}</span>
+            <span>{formatMoney(calculateTotal())}</span>
           </div>
         </div>
 
@@ -1837,7 +1843,7 @@ export default function POS() {
                                   />
                                   <span className="chip-content">
                                     <span className="option-name">{option.name}</span>
-                                    {optPrice > 0 && !isVariantDriverGroup && <span className="option-price">+₱{optPrice.toFixed(2)}</span>}
+                                    {optPrice > 0 && !isVariantDriverGroup && <span className="option-price">+{formatMoney(optPrice)}</span>}
                                   </span>
                                 </label>
                               );
@@ -1884,7 +1890,7 @@ export default function POS() {
                                     <div className="quantity-option-info">
                                       <span className="quantity-option-name">{option.name}</span>
                                       <span className="quantity-option-price">
-                                        ₱{optPrice.toFixed(2)}/{currentAddonGroup.unit_label || 'qty'}
+                                        {formatMoney(optPrice)}/{currentAddonGroup.unit_label || 'qty'}
                                       </span>
                                     </div>
                                     <div className="quantity-controls">
@@ -1919,7 +1925,7 @@ export default function POS() {
                                     />
                                     <span className="addon-option-name">{option.name}</span>
                                     {optPrice > 0 && (
-                                      <span className="addon-option-price">+₱{optPrice.toFixed(2)}</span>
+                                      <span className="addon-option-price">+{formatMoney(optPrice)}</span>
                                     )}
                                   </label>
                                 );
@@ -1955,7 +1961,7 @@ export default function POS() {
               <p className="void-question">Are you sure you want to void this order?</p>
               <div className="void-order-info">
                 <p>Order Type: {voidingOrder.order_type}</p>
-                <p>Total: ₱{parseFloat(voidingOrder.total_amount).toFixed(2)}</p>
+                <p>Total: {formatMoney(voidingOrder.total_amount)}</p>
               </div>
               
               <div style={{ width: '80%', margin: '0 auto' }}>
@@ -2093,7 +2099,7 @@ export default function POS() {
             <div className="modal-body">
               <div className="payment-total-display">
                 <span className="payment-total-label">Total:</span>
-                <span className="payment-total-amount">₱{calculateTotal().toFixed(2)}</span>
+                <span className="payment-total-amount">{formatMoney(calculateTotal())}</span>
               </div>
 
               <div className="payment-cash-section">
@@ -2117,14 +2123,14 @@ export default function POS() {
                   </button>
                   {[100, 200, 500, 1000].map(amount => (
                     <button key={amount} onClick={() => setCashAmount(String(amount))} className="quick-cash-btn">
-                      ₱{amount}
+                      {formatMoney(amount)}
                     </button>
                   ))}
                 </div>
 
                 <div className="payment-change-display">
                   <span className="change-label">Change:</span>
-                  <span className="change-amount">₱{parseFloat(cashAmount) > 0 ? calculateChange().toFixed(2) : '0.00'}</span>
+                  <span className="change-amount">{parseFloat(cashAmount) > 0 ? formatMoney(calculateChange()) : formatMoney(0)}</span>
                 </div>
               </div>
             </div>

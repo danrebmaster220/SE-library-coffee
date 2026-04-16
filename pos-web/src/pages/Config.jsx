@@ -8,14 +8,35 @@ import '../styles/menu.css';
 const toMoney = (value) => {
   const numeric = Number(value);
   if (Number.isNaN(numeric)) return '0.00';
-  return numeric.toFixed(2);
+  return numeric.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseScheduleDateValue = (value) => {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Treat schedule strings as PH wall-clock values, even when they arrive as ISO-like (e.g. ...Z).
+  const strippedTimezone = raw
+    .replace(/Z$/i, '')
+    .replace(/([+-]\d{2}:\d{2})$/, '');
+  const normalizedWallClock = strippedTimezone.includes('T')
+    ? strippedTimezone
+    : strippedTimezone.replace(' ', 'T');
+
+  const manilaDate = new Date(`${normalizedWallClock}+08:00`);
+  if (!Number.isNaN(manilaDate.getTime())) return manilaDate;
+
+  const fallbackDate = new Date(raw);
+  if (!Number.isNaN(fallbackDate.getTime())) return fallbackDate;
+
+  return null;
 };
 
 const formatScheduleDateTime = (value, timezone = 'Asia/Manila') => {
-  if (!value) return '-';
-  const normalized = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
-  const dt = new Date(`${normalized}+08:00`);
-  if (Number.isNaN(dt.getTime())) return String(value);
+  const dt = parseScheduleDateValue(value);
+  if (!dt) return '-';
 
   return new Intl.DateTimeFormat('en-PH', {
     year: 'numeric',
@@ -55,6 +76,14 @@ export default function Config() {
   const [pendingSchedules, setPendingSchedules] = useState([]);
   const [pendingSchedulesLoading, setPendingSchedulesLoading] = useState(false);
   const [pendingSchedulesMessage, setPendingSchedulesMessage] = useState(null);
+  const [pendingActionModal, setPendingActionModal] = useState({
+    open: false,
+    mode: '',
+    schedule: null,
+    priceValue: '',
+    loading: false,
+    error: ''
+  });
   const profileFileRef = useRef(null);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -394,61 +423,93 @@ export default function Config() {
     }
   };
 
-  const handleCancelPendingSchedule = async (schedule) => {
+  const openCancelPendingScheduleModal = (schedule) => {
     if (!schedule?.schedule_id) return;
+    setPendingActionModal({
+      open: true,
+      mode: 'cancel',
+      schedule,
+      priceValue: '',
+      loading: false,
+      error: ''
+    });
+  };
 
-    const confirmCancel = window.confirm('Cancel this pending price update?');
-    if (!confirmCancel) return;
+  const openReplacePendingScheduleModal = (schedule) => {
+    if (!schedule?.schedule_id) return;
+    setPendingActionModal({
+      open: true,
+      mode: 'replace',
+      schedule,
+      priceValue: String(schedule.scheduled_price ?? ''),
+      loading: false,
+      error: ''
+    });
+  };
+
+  const closePendingActionModal = (forceClose = false) => {
+    if (!forceClose && pendingActionModal.loading) return;
+    setPendingActionModal({
+      open: false,
+      mode: '',
+      schedule: null,
+      priceValue: '',
+      loading: false,
+      error: ''
+    });
+  };
+
+  const submitPendingActionModal = async () => {
+    const schedule = pendingActionModal.schedule;
+    if (!schedule?.schedule_id || pendingActionModal.loading) return;
 
     setPendingSchedulesMessage(null);
+
+    if (pendingActionModal.mode === 'replace') {
+      const newPrice = Number(pendingActionModal.priceValue);
+      if (Number.isNaN(newPrice)) {
+        setPendingActionModal((prev) => ({ ...prev, error: 'Invalid price value.' }));
+        return;
+      }
+
+      setPendingActionModal((prev) => ({ ...prev, loading: true, error: '' }));
+      try {
+        await api.put(`/menu/price-schedules/${schedule.schedule_id}/replace`, {
+          scheduled_price: Number(newPrice.toFixed(2)),
+          notes: 'Replaced from Config pending schedules manager'
+        });
+
+        setPendingSchedulesMessage({
+          success: true,
+          message: 'Pending schedule replaced. Effective date restarted based on current delay setting.'
+        });
+        closePendingActionModal(true);
+        await refreshPendingSchedules();
+      } catch (err) {
+        setPendingActionModal((prev) => ({
+          ...prev,
+          loading: false,
+          error: err.response?.data?.error || 'Failed to replace pending schedule'
+        }));
+      }
+      return;
+    }
+
+    setPendingActionModal((prev) => ({ ...prev, loading: true, error: '' }));
     try {
       await api.put(`/menu/price-schedules/${schedule.schedule_id}/cancel`, {
         reason: 'Cancelled from Config pending schedules manager'
       });
 
       setPendingSchedulesMessage({ success: true, message: 'Pending schedule cancelled.' });
+      closePendingActionModal(true);
       await refreshPendingSchedules();
     } catch (err) {
-      setPendingSchedulesMessage({
-        success: false,
-        message: err.response?.data?.error || 'Failed to cancel pending schedule'
-      });
-    }
-  };
-
-  const handleReplacePendingSchedule = async (schedule) => {
-    if (!schedule?.schedule_id) return;
-
-    const input = window.prompt(
-      `Enter new scheduled price for ${schedule.item_name}:`,
-      String(schedule.scheduled_price ?? '')
-    );
-
-    if (input == null) return;
-
-    const newPrice = Number(input);
-    if (Number.isNaN(newPrice)) {
-      setPendingSchedulesMessage({ success: false, message: 'Invalid price value.' });
-      return;
-    }
-
-    setPendingSchedulesMessage(null);
-    try {
-      await api.put(`/menu/price-schedules/${schedule.schedule_id}/replace`, {
-        scheduled_price: Number(newPrice.toFixed(2)),
-        notes: 'Replaced from Config pending schedules manager'
-      });
-
-      setPendingSchedulesMessage({
-        success: true,
-        message: 'Pending schedule replaced. Effective date restarted based on current delay setting.'
-      });
-      await refreshPendingSchedules();
-    } catch (err) {
-      setPendingSchedulesMessage({
-        success: false,
-        message: err.response?.data?.error || 'Failed to replace pending schedule'
-      });
+      setPendingActionModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: err.response?.data?.error || 'Failed to cancel pending schedule'
+      }));
     }
   };
 
@@ -644,20 +705,20 @@ export default function Config() {
                       <tr key={schedule.schedule_id}>
                         <td>{schedule.item_name}</td>
                         <td>{getScopeLabel(schedule)}</td>
-                        <td>PHP {toMoney(schedule.current_price)}</td>
-                        <td>PHP {toMoney(schedule.scheduled_price)}</td>
+                        <td>₱{toMoney(schedule.current_price)}</td>
+                        <td>₱{toMoney(schedule.scheduled_price)}</td>
                         <td>{formatScheduleDateTime(schedule.effective_at, schedule.timezone || 'Asia/Manila')}</td>
                         <td>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <div className="pending-schedule-actions">
                             <button
                               className="btn btn-secondary"
-                              onClick={() => handleReplacePendingSchedule(schedule)}
+                              onClick={() => openReplacePendingScheduleModal(schedule)}
                             >
                               Replace
                             </button>
                             <button
                               className="btn btn-danger"
-                              onClick={() => handleCancelPendingSchedule(schedule)}
+                              onClick={() => openCancelPendingScheduleModal(schedule)}
                             >
                               Cancel
                             </button>
@@ -864,6 +925,67 @@ export default function Config() {
       </div>
 
       {/* Password Change Side Panel */}
+      {pendingActionModal.open && (
+        <div className="settings-dialog-overlay" onClick={closePendingActionModal}>
+          <div className="settings-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>
+              {pendingActionModal.mode === 'replace' ? 'Replace Pending Price' : 'Cancel Pending Price'}
+            </h3>
+
+            <p className="settings-dialog-subtitle">
+              {pendingActionModal.mode === 'replace'
+                ? `Enter a new scheduled price for ${pendingActionModal.schedule?.item_name || 'this item'}.`
+                : 'This pending price update will be cancelled and removed from the queue.'}
+            </p>
+
+            {pendingActionModal.mode === 'replace' && (
+              <div className="settings-form-group" style={{ marginBottom: 10 }}>
+                <label>New Scheduled Price (₱)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={pendingActionModal.priceValue}
+                  onChange={(e) => {
+                    if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) {
+                      setPendingActionModal((prev) => ({ ...prev, priceValue: e.target.value, error: '' }));
+                    }
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+
+            {pendingActionModal.error && (
+              <div className="settings-status error" style={{ marginTop: 8 }}>
+                <span className="icon">❌</span>
+                {pendingActionModal.error}
+              </div>
+            )}
+
+            <div className="settings-dialog-actions">
+              <button
+                type="button"
+                className="settings-btn settings-btn-secondary"
+                onClick={closePendingActionModal}
+                disabled={pendingActionModal.loading}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className={`settings-btn ${pendingActionModal.mode === 'replace' ? 'settings-btn-primary' : 'settings-btn-danger'}`}
+                onClick={submitPendingActionModal}
+                disabled={pendingActionModal.loading}
+              >
+                {pendingActionModal.loading
+                  ? (pendingActionModal.mode === 'replace' ? 'Saving...' : 'Cancelling...')
+                  : (pendingActionModal.mode === 'replace' ? 'Save Replacement' : 'Confirm Cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPasswordPanel && (
         <>
           <div 

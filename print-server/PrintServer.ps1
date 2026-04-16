@@ -130,12 +130,16 @@ function Str-LR([string]$l, [string]$r) {
     $s = [Math]::Max(1, $script:WIDTH - $l.Length - $r.Length)
     return $l + (' ' * $s) + $r
 }
-function Fmt-Money([double]$a) { return 'P' + $a.ToString('F2') }
+function Fmt-Money([double]$a) { return $a.ToString('F2') }
+function Get-FirstName([string]$name) {
+    if ([string]::IsNullOrWhiteSpace($name)) { return $null }
+    return ($name.Trim() -split '\s+')[0]
+}
 
 # ============================================
 # Receipt Builders
 # ============================================
-function Build-Receipt($data) {
+function Build-Receipt($data, [string]$copyLabel = 'CUSTOMER RECEIPT') {
     $b = New-Object System.Collections.Generic.List[byte]
     $SEP = '-' * $script:WIDTH
 
@@ -156,15 +160,24 @@ function Build-Receipt($data) {
     Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
     Add-Str $b "$SEP`n"
 
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "$copyLabel`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
+
     # Transaction info
     $txnId = 'ORD-' + ([string]($data.transaction_id)).PadLeft(6, [char]'0')
     $dateStr = try { ([DateTime]$data.created_at).ToString('MM/dd/yyyy hh:mm tt') } catch { (Get-Date).ToString('MM/dd/yyyy hh:mm tt') }
 
     Add-Str $b "$(Str-LR 'Date:' $dateStr)`n"
-    Add-Str $b "$(Str-LR 'Txn #:' $txnId)`n"
-    if ($data.beeper_number) { Add-Str $b "$(Str-LR 'Order #:' ([string]$data.beeper_number))`n" }
+    Add-Str $b "$(Str-LR 'Order #:' $txnId)`n"
+    if ($data.beeper_number) { Add-Str $b "$(Str-LR 'Beeper #:' ([string]$data.beeper_number))`n" }
     # cashier_name: same display as app (first/middle/last from API JSON; not layout-specific)
-    if ($data.cashier_name)  { Add-Str $b "$(Str-LR 'Cashier:' $data.cashier_name)`n" }
+    if ($data.cashier_name)  {
+        $cashierFirstName = Get-FirstName([string]$data.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
     Add-Str $b "$SEP`n"
 
     # ITEMS
@@ -243,9 +256,10 @@ function Build-Receipt($data) {
     Add-Str $b "Please wait for your order`n"
     Add-Str $b "number to be called.`n"
     Add-Str $b "$SEP`n"
+    Add-Str $b "Powered by Spavion`n"
     Add-Str $b "NOT AN OFFICIAL RECEIPT`n"
 
-    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]4)
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
     Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
 
     return ,$b.ToArray()
@@ -298,14 +312,17 @@ function Build-BaristaTicket($data) {
     # Order number — double-height so it stands out
     Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0x10)
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
-    Add-Str $b "ORDER #$($data.beeper_number)`n"
+    Add-Str $b "BEEPER #$($data.beeper_number)`n"
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
     Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0)
 
     $dateStr = try { ([DateTime]$data.created_at).ToString('MM/dd/yyyy hh:mm tt') } catch { (Get-Date).ToString('MM/dd/yyyy hh:mm tt') }
     Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
     Add-Str $b "$(Str-LR 'Time:' $dateStr)`n"
-    if ($data.cashier_name) { Add-Str $b "$(Str-LR 'Cashier:' $data.cashier_name)`n" }
+    if ($data.cashier_name) {
+        $cashierFirstName = Get-FirstName([string]$data.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
     Add-Str $b "$SEP`n"
 
     # Barista items
@@ -345,7 +362,7 @@ function Build-BaristaTicket($data) {
     }
 
     Add-Str $b "$SEP`n"
-    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]3)
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
     Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
 
     return ,$b.ToArray()
@@ -374,14 +391,17 @@ function Build-KitchenTicket($data) {
     # Order number — double-height so it stands out
     Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0x10)
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
-    Add-Str $b "ORDER #$($data.beeper_number)`n"
+    Add-Str $b "BEEPER #$($data.beeper_number)`n"
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
     Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0)
 
     $dateStr = try { ([DateTime]$data.created_at).ToString('MM/dd/yyyy hh:mm tt') } catch { (Get-Date).ToString('MM/dd/yyyy hh:mm tt') }
     Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
     Add-Str $b "$(Str-LR 'Time:' $dateStr)`n"
-    if ($data.cashier_name) { Add-Str $b "$(Str-LR 'Cashier:' $data.cashier_name)`n" }
+    if ($data.cashier_name) {
+        $cashierFirstName = Get-FirstName([string]$data.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
     Add-Str $b "$SEP`n"
 
     # Kitchen items
@@ -405,7 +425,7 @@ function Build-KitchenTicket($data) {
     }
 
     Add-Str $b "$SEP`n"
-    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]3)
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
     Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
 
     return ,$b.ToArray()
@@ -443,7 +463,10 @@ function Build-LibraryCheckin($session) {
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
     Add-Str $b "Customer: $($session.customer_name)`n"
     Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
-    if ($session.cashier_name) { Add-Str $b "$(Str-LR 'Cashier:' $session.cashier_name)`n" }
+    if ($session.cashier_name) {
+        $cashierFirstName = Get-FirstName([string]$session.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
     Add-Str $b "$SEP`n"
 
     # Session details
@@ -478,14 +501,15 @@ function Build-LibraryCheckin($session) {
 
     # Footer
     Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
-    Add-Str $b "Extension: P50.00 per 30 mins`n"
+    Add-Str $b "Extension: 50.00 per 30 mins`n"
     Add-Str $b "$SEP`n"
     Add-Str $b "Thank you!`n"
     Add-Str $b "Enjoy your study session.`n"
     Add-Str $b "$SEP`n"
+    Add-Str $b "Powered by Spavion`n"
     Add-Str $b "NOT AN OFFICIAL RECEIPT`n"
 
-    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]4)
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
     Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
 
     return ,$b.ToArray()
@@ -518,7 +542,10 @@ function Build-LibraryExtension($session) {
     Add-Str $b "$(Str-LR 'Table:' ([string]$session.table_number))`n"
     Add-Str $b "$(Str-LR 'Seat:' ([string]$session.seat_number))`n"
     Add-Str $b "$(Str-LR 'Customer:' $session.customer_name)`n"
-    if ($session.cashier_name) { Add-Str $b "$(Str-LR 'Cashier:' $session.cashier_name)`n" }
+    if ($session.cashier_name) {
+        $cashierFirstName = Get-FirstName([string]$session.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
     Add-Str $b "$SEP`n"
 
     # Extension details
@@ -558,9 +585,10 @@ function Build-LibraryExtension($session) {
     Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
     Add-Str $b "Thank you for extending!`n"
     Add-Str $b "$SEP`n"
+    Add-Str $b "Powered by Spavion`n"
     Add-Str $b "NOT AN OFFICIAL RECEIPT`n"
 
-    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]4)
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
     Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
 
     return ,$b.ToArray()
@@ -659,12 +687,26 @@ while ($listener.IsListening) {
                 $allOk = $true
 
                 # 1. Customer receipt (always)
-                $d = Build-Receipt $rd
+                $d = Build-Receipt $rd 'CUSTOMER RECEIPT'
                 $w = [USBPrinter]::SendData($pp, $d)
                 if ($w -gt 0) {
                     Write-Host "  [$ts] Customer receipt$orderLabel OK ($w bytes)" -ForegroundColor Green
                 } else {
                     Write-Host "  [$ts] Customer receipt FAILED" -ForegroundColor Red
+                    $allOk = $false
+                }
+
+                # 1b. Store receipt copy (always)
+                Start-Sleep -Milliseconds 300
+                $ppc = [USBPrinter]::FindPrinter()
+                $cd = Build-Receipt $rd 'STORE RECEIPT'
+                if ($ppc) {
+                    $wc = [USBPrinter]::SendData($ppc, $cd)
+                } else { $wc = -1 }
+                if ($wc -gt 0) {
+                    Write-Host "  [$ts] Store receipt$orderLabel OK ($wc bytes)" -ForegroundColor Green
+                } else {
+                    Write-Host "  [$ts] Store receipt FAILED" -ForegroundColor Red
                     $allOk = $false
                 }
 

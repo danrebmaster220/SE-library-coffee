@@ -160,6 +160,12 @@ export default function VoidTransactions() {
     return pages;
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   if (loading) {
     return <div className="loading-state">Loading...</div>;
   }
@@ -268,7 +274,7 @@ export default function VoidTransactions() {
                             {item.quantity}x {item.item_name || item.name}
                           </span>
                           <span className="refund-item-price">
-                            P{parseFloat(item.total_price || item.unit_price * item.quantity || 0).toFixed(2)}
+                            {formatMoney(item.total_price || item.unit_price * item.quantity || 0)}
                           </span>
                         </div>
                       ))}
@@ -280,12 +286,12 @@ export default function VoidTransactions() {
                   {searchResult.discount_amount > 0 && (
                     <div className="preview-row">
                       <span>Discount:</span>
-                      <span className="discount-text">-P{parseFloat(searchResult.discount_amount).toFixed(2)}</span>
+                      <span className="discount-text">-{formatMoney(searchResult.discount_amount)}</span>
                     </div>
                   )}
                   <div className="preview-row total refund-total">
                     <span>Refund Amount:</span>
-                    <span>P{parseFloat(searchResult.total_amount || searchResult.total || 0).toFixed(2)}</span>
+                    <span>{formatMoney(searchResult.total_amount || searchResult.total || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -357,7 +363,7 @@ export default function VoidTransactions() {
                             ) : '-'}
                           </td>
                           <td>{order.refunded_at ? new Date(order.refunded_at).toLocaleString() : '-'}</td>
-                          <td className="price-cell refund-amount">P{parseFloat(order.total_amount || order.total || 0).toFixed(2)}</td>
+                          <td className="price-cell refund-amount">{formatMoney(order.total_amount || order.total || 0)}</td>
                           <td>{order.refunded_by_name || order.refunded_by_username || 'Admin'}</td>
                           <td className="reason-cell">{order.refund_reason || '-'}</td>
                         </tr>

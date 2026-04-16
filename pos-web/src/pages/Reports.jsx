@@ -540,6 +540,7 @@ export default function Reports() {
   });
 
   const filteredAudit = auditData.filter((log) => {
+    if (String(log?.action || '').toLowerCase() === 'shift_force_closed') return false;
     if (!searchTerm) return true;
 
     const searchLower = searchTerm.toLowerCase();
@@ -838,7 +839,6 @@ export default function Reports() {
                   <option value="">All Actions</option>
                   <option value="shift_started">Shift Started</option>
                   <option value="shift_ended">Shift Ended</option>
-                  <option value="shift_force_closed">Shift Force Closed</option>
                   <option value="price_update_scheduled">Price Update Scheduled</option>
                   <option value="price_update_replaced">Price Update Replaced</option>
                   <option value="price_update_cancelled">Price Update Cancelled</option>
@@ -1012,15 +1012,18 @@ export default function Reports() {
             <div className="summary-card">
               <div className="summary-icon discount-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="8" y1="8" x2="16" y2="16"></line>
-                  <line x1="16" y1="8" x2="8" y2="16"></line>
+                  <path d="M3 7h18"></path>
+                  <path d="M8 7V5a4 4 0 0 1 8 0v2"></path>
+                  <rect x="4" y="7" width="16" height="14" rx="2"></rect>
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Force Closures</h4>
+                <h4>Shift Events</h4>
                 <p className="summary-value">
-                  {filteredAudit.filter((item) => item.action === 'shift_force_closed').length}
+                  {filteredAudit.filter((item) => {
+                    const action = String(item.action || '').toLowerCase();
+                    return action === 'shift_started' || action === 'shift_ended';
+                  }).length}
                 </p>
               </div>
             </div>
