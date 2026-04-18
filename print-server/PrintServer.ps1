@@ -594,6 +594,156 @@ function Build-LibraryExtension($session) {
     return ,$b.ToArray()
 }
 
+function Build-LibraryCheckout($session) {
+    $b = New-Object System.Collections.Generic.List[byte]
+    $SEP = '-' * $script:WIDTH
+
+    Add-Bytes $b @($script:ESC, [byte][char]'@')
+
+    # Header — double-height only
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0x10)
+    Add-Str $b "THE LIBRARY`n"
+    Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0)
+    Add-Str $b "Session Checkout`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
+    $dateStr = (Get-Date).ToString('MM/dd/yyyy hh:mm tt')
+    Add-Str $b "$(Str-LR 'Date:' $dateStr)`n"
+    if ($session.session_id) {
+        $sessionNum = 'LIB-' + ([string]$session.session_id).PadLeft(6, [char]'0')
+        Add-Str $b "$(Str-LR 'Session #:' $sessionNum)`n"
+    }
+    if ($session.table_number) { Add-Str $b "$(Str-LR 'Table:' ([string]$session.table_number))`n" }
+    if ($session.seat_number) { Add-Str $b "$(Str-LR 'Seat:' ([string]$session.seat_number))`n" }
+    if ($session.customer_name) { Add-Str $b "$(Str-LR 'Customer:' ([string]$session.customer_name))`n" }
+    if ($session.cashier_name) {
+        $cashierFirstName = Get-FirstName([string]$session.cashier_name)
+        if ($cashierFirstName) { Add-Str $b "$(Str-LR 'Cashier:' $cashierFirstName)`n" }
+    }
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "SESSION SUMMARY:`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+
+    if ($session.start_time) {
+        try { $startStr = ([DateTime]$session.start_time).ToString('MM/dd/yyyy hh:mm tt') } catch { $startStr = [string]$session.start_time }
+        Add-Str $b "$(Str-LR 'Start:' $startStr)`n"
+    }
+    if ($session.end_time) {
+        try { $endStr = ([DateTime]$session.end_time).ToString('MM/dd/yyyy hh:mm tt') } catch { $endStr = [string]$session.end_time }
+        Add-Str $b "$(Str-LR 'End:' $endStr)`n"
+    }
+
+    if ($session.total_minutes -ne $null) {
+        Add-Str $b "$(Str-LR 'Used Time:' "$([int]$session.total_minutes) mins")`n"
+    }
+    if ($session.paid_minutes -ne $null) {
+        Add-Str $b "$(Str-LR 'Paid Time:' "$([int]$session.paid_minutes) mins")`n"
+    }
+
+    Add-Str $b "$SEP`n"
+    $amountPaid = if ($session.amount_paid) { [double]$session.amount_paid } else { 0 }
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "$(Str-LR 'TOTAL PAID:' (Fmt-Money $amountPaid))`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
+    Add-Str $b "Thank you for studying with us!`n"
+    Add-Str $b "$SEP`n"
+    Add-Str $b "Powered by Spavion`n"
+    Add-Str $b "NOT AN OFFICIAL RECEIPT`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
+    Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
+
+    return ,$b.ToArray()
+}
+
+function Build-RefundReceipt($data) {
+    $b = New-Object System.Collections.Generic.List[byte]
+    $SEP = '-' * $script:WIDTH
+
+    Add-Bytes $b @($script:ESC, [byte][char]'@')
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0x10)
+    Add-Str $b "THE LIBRARY`n"
+    Add-Bytes $b @($script:GS,  [byte][char]'!', [byte]0)
+    Add-Str $b "Coffee + Study`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Str $b "Pavilion, Nunez St.`n"
+    Add-Str $b "Zamboanga City`n"
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "*** REFUND RECEIPT ***`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]0)
+    $dateStr = try { ([DateTime]$data.refunded_at).ToString('MM/dd/yyyy hh:mm tt') } catch { (Get-Date).ToString('MM/dd/yyyy hh:mm tt') }
+    $origDateStr = try { ([DateTime]$data.created_at).ToString('MM/dd/yyyy hh:mm tt') } catch { '' }
+    $txnId = 'ORD-' + ([string]($data.transaction_id)).PadLeft(6, [char]'0')
+
+    Add-Str $b "$(Str-LR 'Date:' $dateStr)`n"
+    Add-Str $b "$(Str-LR 'Orig Order:' $txnId)`n"
+    if ($data.beeper_number) { Add-Str $b "$(Str-LR 'Beeper #:' ([string]$data.beeper_number))`n" }
+    if ($origDateStr) { Add-Str $b "$(Str-LR 'Orig Date:' $origDateStr)`n" }
+    if ($data.refunded_by) { Add-Str $b "$(Str-LR 'Auth By:' ([string]$data.refunded_by))`n" }
+    Add-Str $b "$SEP`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "REFUNDED ITEMS:`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+
+    if ($data.items) {
+        foreach ($item in $data.items) {
+            $name = if ($item.item_name) { $item.item_name } elseif ($item.name) { $item.name } else { 'Item' }
+            $qty = if ($item.quantity) { [int]$item.quantity } else { 1 }
+            $price = 0.0
+            if ($item.total_price) { $price = [double]$item.total_price }
+            elseif ($item.unit_price) { $price = [double]$item.unit_price * $qty }
+            Add-Str $b "$(Str-LR "${qty}x ${name}" (Fmt-Money $price))`n"
+        }
+    }
+
+    Add-Str $b "$SEP`n"
+    $subtotal = if ($data.subtotal) { [double]$data.subtotal } else { [double]$data.total_amount }
+    $discAmt  = if ($data.discount_amount) { [double]$data.discount_amount } else { 0 }
+    $totalAmt = if ($data.total_amount) { [double]$data.total_amount } else { 0 }
+    Add-Str $b "$(Str-LR 'Subtotal:' (Fmt-Money $subtotal))`n"
+    if ($discAmt -gt 0) {
+        Add-Str $b "$(Str-LR 'Discount:' ('-' + (Fmt-Money $discAmt)))`n"
+    }
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]1)
+    Add-Str $b "$(Str-LR 'REFUND TOTAL:' (Fmt-Money $totalAmt))`n"
+    Add-Bytes $b @($script:ESC, [byte][char]'E', [byte]0)
+    Add-Str $b "$SEP`n"
+
+    if ($data.refund_reason) {
+        Add-Str $b "Reason: $([string]$data.refund_reason)`n"
+        Add-Str $b "$SEP`n"
+    }
+
+    Add-Bytes $b @($script:ESC, [byte][char]'a', [byte]1)
+    Add-Str $b "Refund confirmation.`n"
+    Add-Str $b "Keep for your records.`n"
+    Add-Str $b "$SEP`n"
+    Add-Str $b "Powered by Spavion`n"
+    Add-Str $b "NOT AN OFFICIAL RECEIPT`n"
+
+    Add-Bytes $b @($script:ESC, [byte][char]'d', [byte]1)
+    Add-Bytes $b @($script:GS,  [byte][char]'V', [byte]1)
+
+    return ,$b.ToArray()
+}
+
 # ============================================
 # HTTP Server
 # ============================================
@@ -791,6 +941,54 @@ while ($listener.IsListening) {
                 if ($w -gt 0) {
                     Send-Resp $ctx 200 '{"success":true,"message":"Extension receipt printed!"}'
                     Write-Host "  [$ts] Library extension OK ($w bytes)" -ForegroundColor Green
+                } else {
+                    Send-Resp $ctx 500 '{"success":false,"error":"Write failed"}'
+                    Write-Host "  [$ts] FAILED" -ForegroundColor Red
+                }
+            } catch {
+                Send-Resp $ctx 500 "{`"success`":false,`"error`":`"Parse error`"}"
+                Write-Host "  [$ts] ERROR: $_" -ForegroundColor Red
+            }
+            continue
+        }
+
+        if ($method -eq 'POST' -and $url -eq '/library-checkout') {
+            Write-Host "  [$ts] Library checkout receipt..." -ForegroundColor Yellow
+            $pp = [USBPrinter]::FindPrinter()
+            if (-not $pp) { Send-Resp $ctx 500 '{"success":false,"error":"Printer not found"}'; continue }
+            $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
+            $body = $reader.ReadToEnd(); $reader.Close()
+            try {
+                $sd = $body | ConvertFrom-Json
+                $d = Build-LibraryCheckout $sd
+                $w = [USBPrinter]::SendData($pp, $d)
+                if ($w -gt 0) {
+                    Send-Resp $ctx 200 '{"success":true,"message":"Checkout receipt printed!"}'
+                    Write-Host "  [$ts] Library checkout OK ($w bytes)" -ForegroundColor Green
+                } else {
+                    Send-Resp $ctx 500 '{"success":false,"error":"Write failed"}'
+                    Write-Host "  [$ts] FAILED" -ForegroundColor Red
+                }
+            } catch {
+                Send-Resp $ctx 500 "{`"success`":false,`"error`":`"Parse error`"}"
+                Write-Host "  [$ts] ERROR: $_" -ForegroundColor Red
+            }
+            continue
+        }
+
+        if ($method -eq 'POST' -and $url -eq '/refund') {
+            Write-Host "  [$ts] Refund receipt..." -ForegroundColor Yellow
+            $pp = [USBPrinter]::FindPrinter()
+            if (-not $pp) { Send-Resp $ctx 500 '{"success":false,"error":"Printer not found"}'; continue }
+            $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
+            $body = $reader.ReadToEnd(); $reader.Close()
+            try {
+                $rd = $body | ConvertFrom-Json
+                $d = Build-RefundReceipt $rd
+                $w = [USBPrinter]::SendData($pp, $d)
+                if ($w -gt 0) {
+                    Send-Resp $ctx 200 '{"success":true,"message":"Refund receipt printed!"}'
+                    Write-Host "  [$ts] Refund receipt OK ($w bytes)" -ForegroundColor Green
                 } else {
                     Send-Resp $ctx 500 '{"success":false,"error":"Write failed"}'
                     Write-Host "  [$ts] FAILED" -ForegroundColor Red

@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const posController = require('../controllers/posController');
-const { verifyToken, optionalAuth, requireActiveShiftForNonAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requireActiveShiftForNonAdmin } = require('../middleware/auth');
 
 // Quick cash amounts (public)
 router.get('/quick-cash', posController.getQuickCashAmounts);
+
+// Takeout cups stock
+router.get('/cups/status', posController.getTakeoutCupsStatus);
+router.put('/cups/stock', verifyToken, isAdmin, posController.updateTakeoutCupsStock);
 
 // Beepers status
 router.get('/beepers', verifyToken, posController.getBeepers);

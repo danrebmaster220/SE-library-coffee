@@ -2,7 +2,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { resolveDisplayName } = require('../utils/userName');
 const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
-const { printLibraryCheckinReceipt, printLibraryExtensionReceipt } = require('../services/printerService');
+const { printLibraryCheckinReceipt, printLibraryExtensionReceipt, printLibraryCheckoutReceipt } = require('../services/printerService');
 
 // Pricing configuration
 const LIBRARY_PRICING = {
@@ -370,8 +370,13 @@ exports.checkout = async (req, res) => {
     const { session_id } = req.body;
 
     try {
-        // Get session
-        const [session] = await db.query('SELECT * FROM library_sessions WHERE session_id = ? AND status = "active"', [session_id]);
+        // Get active session with seat details
+        const [session] = await db.query(`
+            SELECT s.*, ls.table_number, ls.seat_number
+            FROM library_sessions s
+            JOIN library_seats ls ON s.seat_id = ls.seat_id
+            WHERE s.session_id = ? AND s.status = 'active'
+        `, [session_id]);
 
         if (session.length === 0) {
             return res.status(404).json({ error: 'Active session not found' });
@@ -385,6 +390,18 @@ exports.checkout = async (req, res) => {
 
         const totalMinutes = result[0].total_minutes;
 
+        // Resolve cashier name from token for receipt display
+        let cashierName = null;
+        if (req.user?.user_id) {
+            const [userInfo] = await db.query(
+                'SELECT first_name, middle_name, last_name, full_name FROM users WHERE user_id = ?',
+                [req.user.user_id]
+            );
+            if (userInfo.length > 0) {
+                cashierName = resolveDisplayName(userInfo[0]) || null;
+            }
+        }
+
         // Update session as completed
         await db.query(`
             UPDATE library_sessions 
@@ -397,11 +414,32 @@ exports.checkout = async (req, res) => {
         // Update seat status back to available
         await db.query('UPDATE library_seats SET status = "available" WHERE seat_id = ?', [session[0].seat_id]);
 
+        const checkoutReceiptData = {
+            session_id: session[0].session_id,
+            table_number: session[0].table_number,
+            seat_number: session[0].seat_number,
+            customer_name: session[0].customer_name,
+            start_time: session[0].start_time,
+            end_time: new Date(),
+            total_minutes: totalMinutes,
+            paid_minutes: session[0].paid_minutes,
+            amount_paid: session[0].amount_paid,
+            cashier_name: cashierName
+        };
+
+        // Best-effort print: do not fail checkout if printer is unavailable
+        try {
+            await printLibraryCheckoutReceipt(checkoutReceiptData);
+        } catch (printError) {
+            console.log('Checkout receipt print failed:', printError.message);
+        }
+
         res.json({ 
             message: 'Checkout successful! Please return customer ID.',
             total_minutes_used: totalMinutes,
             paid_minutes: session[0].paid_minutes,
-            amount_paid: session[0].amount_paid
+            amount_paid: session[0].amount_paid,
+            receipt_data: checkoutReceiptData
         });
 
     } catch (error) {

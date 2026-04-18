@@ -68,10 +68,13 @@ async function runMigrations() {
         // Migration 19: Seed default pricing schedule settings
         await ensurePriceScheduleSettings();
 
-        // Migration 20: Add admin PIN + first-change security flags on users
+        // Migration 20: Add takeout cup tracking schema + defaults
+        await ensureTakeoutCupTracking();
+
+        // Migration 21: Add admin PIN + first-change security flags on users
         await addUsersSecurityColumns();
 
-        // Migration 21: Bootstrap default admin account on empty users table
+        // Migration 22: Bootstrap default admin account on empty users table
         await ensureDefaultAdminAccount();
 
         console.log('✅ All database migrations completed successfully.');
@@ -1073,6 +1076,55 @@ async function ensurePriceScheduleSettings() {
         console.log('   ✅ Ensured pricing schedule default settings');
     } catch (error) {
         console.error('   ⚠️ ensurePriceScheduleSettings:', error.message);
+    }
+}
+
+async function ensureTakeoutCupTracking() {
+    try {
+        const [categoryCol] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'categories'
+            AND COLUMN_NAME = 'requires_takeout_cup'
+        `);
+
+        if (categoryCol.length === 0) {
+            await db.query(`
+                ALTER TABLE categories
+                ADD COLUMN requires_takeout_cup TINYINT(1) NOT NULL DEFAULT 1
+            `);
+            console.log('   ✅ Added categories.requires_takeout_cup');
+        } else {
+            console.log('   ⏭️  categories.requires_takeout_cup already exists');
+        }
+
+        const [settingsTableRows] = await db.query(`
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'system_settings'
+        `);
+
+        if (settingsTableRows.length === 0) {
+            await db.query(`
+                CREATE TABLE system_settings (
+                    setting_key VARCHAR(50) NOT NULL,
+                    setting_value TEXT DEFAULT NULL,
+                    PRIMARY KEY (setting_key)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+            `);
+            console.log('   ✅ Created system_settings table for takeout cup tracking');
+        }
+
+        await db.query(`
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES ('takeout_cups_stock', '200')
+            ON DUPLICATE KEY UPDATE setting_value = setting_value
+        `);
+        console.log('   ✅ Ensured takeout_cups_stock default setting');
+    } catch (error) {
+        console.error('   ⚠️ ensureTakeoutCupTracking:', error.message);
     }
 }
 

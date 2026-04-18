@@ -788,6 +788,20 @@
   border-color: #6b4423;
 }
 
+.takeout-cups-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.takeout-cups-hint.ok {
+  color: #2e7d32;
+}
+
+.takeout-cups-hint.danger {
+  color: #c62828;
+}
+
 /* Beeper Selection */
 .beeper-selection {
   flex-shrink: 0;

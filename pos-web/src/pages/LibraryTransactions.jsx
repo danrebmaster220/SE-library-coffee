@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
-import { printLibraryCheckinReceipt, printLibraryExtensionReceipt } from '../services/webPrinter';
+import { printLibraryCheckinReceipt, printLibraryExtensionReceipt, printLibraryCheckoutReceipt } from '../services/webPrinter';
 import Toast from '../components/Toast';
 import FilterSelectWrap from '../components/FilterSelectWrap';
 import '../styles/library.css';
@@ -326,9 +326,18 @@ export default function LibraryTransactions() {
   const handleCheckout = async () => {
     if (!selectedSession) return;
     try {
-      await api.post('/library/checkout', {
+      const response = await api.post('/library/checkout', {
         session_id: selectedSession.session_id
       });
+
+      if (response.data?.receipt_data) {
+        try {
+          await printLibraryCheckoutReceipt(response.data.receipt_data);
+        } catch (printErr) {
+          console.error('Checkout receipt print failed:', printErr);
+        }
+      }
+
       showToast('Checkout successful! ID returned to customer.', 'success');
       setShowCheckoutModal(false);
       setShowSessionModal(false);

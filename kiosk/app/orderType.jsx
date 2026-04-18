@@ -11,10 +11,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useResponsive } from "../hooks/useResponsive";
+import { getTakeoutCupsStatus } from "../services/api";
 
 export default function OrderTypeSelection() {
   const router = useRouter();
   const [selectedOption, setSelectedOption] = useState(null);
+  const [cupsStatus, setCupsStatus] = useState({
+    stock: 0,
+    is_takeout_disabled: false,
+  });
+  const [cupsLoading, setCupsLoading] = useState(true);
   const { width } = useWindowDimensions();
   const { isPhone } = useResponsive();
 
@@ -52,7 +58,36 @@ export default function OrderTypeSelection() {
     ]).start();
   }, [fadeAnim, headerSlide, cardsFade, cardsSlide]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCupStatus = async () => {
+      try {
+        const data = await getTakeoutCupsStatus();
+        if (!mounted) return;
+        setCupsStatus({
+          stock: Number(data?.stock ?? 0),
+          is_takeout_disabled: Boolean(data?.is_takeout_disabled),
+        });
+      } finally {
+        if (mounted) setCupsLoading(false);
+      }
+    };
+
+    loadCupStatus();
+    const interval = setInterval(loadCupStatus, 10000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleOptionPress = (option) => {
+    if (option === "takeout" && cupsStatus.is_takeout_disabled) {
+      return;
+    }
+
     setSelectedOption(option);
     const orderTypeValue = option === "dinein" ? "Dine-In" : "Take-Out";
 
@@ -140,8 +175,10 @@ export default function OrderTypeSelection() {
                 styles.card,
                 isPhone && { ...styles.cardPhone, width: phoneCardWidth, height: phoneCardHeight },
                 selectedOption === "takeout" && styles.cardSelected,
+                cupsStatus.is_takeout_disabled && styles.cardDisabled,
               ]}
               onPress={() => handleOptionPress("takeout")}
+              disabled={cupsStatus.is_takeout_disabled}
               activeOpacity={0.85}
             >
               <View style={[styles.iconCircle, isPhone && styles.iconCirclePhone]}>
@@ -150,6 +187,13 @@ export default function OrderTypeSelection() {
               <View style={isPhone ? styles.cardTextPhone : null}>
                 <Text style={[styles.cardTitle, isPhone && styles.cardTitlePhone]}>Take-Out</Text>
                 <Text style={[styles.cardSubtitle, isPhone && styles.cardSubtitlePhone]}>TO GO</Text>
+                <Text style={[styles.cupsText, isPhone && styles.cupsTextPhone]}>
+                  {cupsLoading
+                    ? "Checking cups..."
+                    : cupsStatus.is_takeout_disabled
+                      ? "Unavailable: No cups left"
+                      : `Cups available: ${cupsStatus.stock}`}
+                </Text>
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -244,6 +288,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#6B4423",
     transform: [{ scale: 1.03 }],
   },
+  cardDisabled: {
+    opacity: 0.6,
+  },
   iconCircle: {
     width: 110,
     height: 110,
@@ -285,5 +332,15 @@ const styles = StyleSheet.create({
   cardSubtitlePhone: {
     fontSize: 11,
     letterSpacing: 3,
+  },
+  cupsText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#F4DABF",
+    letterSpacing: 0.3,
+  },
+  cupsTextPhone: {
+    marginTop: 6,
+    fontSize: 10,
   },
 });

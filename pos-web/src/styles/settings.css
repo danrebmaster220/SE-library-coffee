@@ -27,14 +27,18 @@
 }
 
 .settings-card-printer {
-  order: 4;
+  order: 5;
 }
 
 .settings-card-delay {
-  order: 3;
+  order: 4;
 }
 
 .settings-card-pending {
+  order: 3;
+}
+
+.settings-card-cups {
   order: 2;
 }
 

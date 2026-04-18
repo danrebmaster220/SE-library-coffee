@@ -73,6 +73,9 @@ export default function Config() {
   const [pinMessage, setPinMessage] = useState(null);
   const [pinLoading, setPinLoading] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
+  const [cupsStock, setCupsStock] = useState('200');
+  const [cupsSaving, setCupsSaving] = useState(false);
+  const [cupsMessage, setCupsMessage] = useState(null);
   const [priceDelayDays, setPriceDelayDays] = useState('3');
   const [priceDelayLoading, setPriceDelayLoading] = useState(false);
   const [priceDelayMessage, setPriceDelayMessage] = useState(null);
@@ -142,9 +145,10 @@ export default function Config() {
 
     const loadPriceDelaySettings = async () => {
       try {
-        const [settingsRes, pendingRes] = await Promise.all([
+        const [settingsRes, pendingRes, cupsRes] = await Promise.all([
           api.get('/menu/price-update-settings'),
-          api.get('/menu/price-schedules/pending?limit=200')
+          api.get('/menu/price-schedules/pending?limit=200'),
+          api.get('/pos/cups/status')
         ]);
 
         const delay = settingsRes?.data?.settings?.delay_days;
@@ -153,6 +157,7 @@ export default function Config() {
         }
 
         setPendingSchedules(Array.isArray(pendingRes?.data?.schedules) ? pendingRes.data.schedules : []);
+        setCupsStock(String(cupsRes?.data?.stock ?? 200));
       } catch (err) {
         console.error('Error loading price update settings:', err);
       }
@@ -459,6 +464,36 @@ export default function Config() {
     }
   };
 
+  const handleSaveCupsStock = async () => {
+    setCupsMessage(null);
+
+    const parsed = Number(cupsStock);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      setCupsMessage({ success: false, message: 'Takeout cups stock must be a non-negative whole number.' });
+      return;
+    }
+
+    setCupsSaving(true);
+    try {
+      const res = await api.put('/pos/cups/stock', { stock: parsed });
+      const nextStock = Number(res?.data?.stock ?? parsed);
+      setCupsStock(String(nextStock));
+      setCupsMessage({
+        success: true,
+        message: nextStock <= 0
+          ? 'Takeout cups updated. Take Out is now disabled.'
+          : `Takeout cups updated to ${nextStock}.`
+      });
+    } catch (err) {
+      setCupsMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to update takeout cup stock.'
+      });
+    } finally {
+      setCupsSaving(false);
+    }
+  };
+
   const refreshPendingSchedules = async () => {
     setPendingSchedulesLoading(true);
     setPendingSchedulesMessage(null);
@@ -652,6 +687,53 @@ export default function Config() {
           )}
         </div>
       </div>
+
+      {isAdminUser && (
+        <div className="settings-card settings-card-cups">
+          <div className="settings-card-header">
+            <span className="icon">🥤</span>
+            <h2>Takeout Cups Stock</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-info-box">
+              <h4>ℹ️ Cup Tracking Policy</h4>
+              <p>
+                Take Out automatically disables when stock reaches zero.
+                Cup deduction is automatic on payment based on cup-eligible item quantities.
+              </p>
+            </div>
+
+            <div className="settings-form-group">
+              <label>Current takeout cups stock</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={cupsStock}
+                onChange={(e) => setCupsStock(e.target.value)}
+                placeholder="Enter current stock"
+              />
+            </div>
+
+            <div className="settings-actions">
+              <button
+                className="settings-btn settings-btn-primary"
+                onClick={handleSaveCupsStock}
+                disabled={cupsSaving}
+              >
+                {cupsSaving ? '⏳ Saving...' : '💾 Save Cup Stock'}
+              </button>
+            </div>
+
+            {cupsMessage && (
+              <div className={`settings-status ${cupsMessage.success ? 'success' : 'error'}`}>
+                <span className="icon">{cupsMessage.success ? '✅' : '❌'}</span>
+                {cupsMessage.message}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isAdminUser && (
         <div className="settings-card settings-card-delay">

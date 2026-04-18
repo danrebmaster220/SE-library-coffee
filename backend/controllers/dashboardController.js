@@ -61,6 +61,37 @@ exports.getDashboardStats = async (req, res) => {
             FROM library_seats
         `);
 
+        const [cupSettingRows] = await db.query(
+            `
+            SELECT setting_value
+            FROM system_settings
+            WHERE setting_key = 'takeout_cups_stock'
+            LIMIT 1
+            `
+        );
+
+        const [cupsUsedRows] = await db.query(`
+            SELECT COALESCE(
+                SUM(
+                    CASE WHEN COALESCE(c.requires_takeout_cup, 1) = 1
+                    THEN ti.quantity
+                    ELSE 0 END
+                ),
+                0
+            ) as cups_used_today
+            FROM transactions t
+            JOIN transaction_items ti ON ti.transaction_id = t.transaction_id
+            JOIN items i ON i.item_id = ti.item_id
+            JOIN categories c ON c.category_id = i.category_id
+            WHERE DATE(t.created_at) = CURDATE()
+            AND t.order_type = 'takeout'
+            AND t.status NOT IN ('pending', 'voided')
+        `);
+
+        const cupStock = Number.parseInt(String(cupSettingRows?.[0]?.setting_value ?? '200'), 10);
+        const takeoutCupStock = Number.isNaN(cupStock) ? 200 : Math.max(0, cupStock);
+        const takeoutCupsUsedToday = Number.parseInt(String(cupsUsedRows?.[0]?.cups_used_today ?? '0'), 10) || 0;
+
         res.json({
             todaySales: parseFloat(salesData[0]?.total_sales || 0),
             totalOrders: parseInt(salesData[0]?.total_orders || 0),
@@ -75,6 +106,11 @@ exports.getDashboardStats = async (req, res) => {
                 available: parseInt(seats[0]?.available || 0),
                 occupied: parseInt(seats[0]?.occupied || 0),
                 maintenance: parseInt(seats[0]?.maintenance || 0)
+            },
+            takeoutCups: {
+                stock: takeoutCupStock,
+                used_today: takeoutCupsUsedToday,
+                is_takeout_disabled: takeoutCupStock <= 0
             }
         });
     } catch (error) {

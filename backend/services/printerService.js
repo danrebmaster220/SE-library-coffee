@@ -602,6 +602,141 @@ function buildLibraryExtensionReceipt(session) {
 }
 
 
+// Build Library Checkout Receipt (session end)
+function buildLibraryCheckoutReceipt(session) {
+    let receipt = '';
+    const cashierFirstName = getFirstName(session.cashier_name);
+    const startLabel = session.start_time ? formatDateTime(new Date(session.start_time)) : '-';
+    const endLabel = session.end_time ? formatDateTime(new Date(session.end_time)) : formatDateTime();
+
+    receipt += COMMANDS.INIT;
+    receipt += COMMANDS.ALIGN_CENTER;
+
+    receipt += COMMANDS.BOLD_ON;
+    receipt += 'THE LIBRARY\n';
+    receipt += COMMANDS.BOLD_OFF;
+    receipt += 'Session Checkout\n';
+    receipt += separator() + '\n';
+
+    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += `Date: ${formatDateTime()}\n`;
+    if (session.session_id) {
+        receipt += `Session #: LIB-${String(session.session_id).padStart(6, '0')}\n`;
+    }
+    receipt += `Table: ${session.table_number || '-'}\n`;
+    receipt += `Seat: ${session.seat_number || '-'}\n`;
+    receipt += `Customer: ${session.customer_name || '-'}\n`;
+    if (cashierFirstName) {
+        receipt += `Cashier: ${cashierFirstName}\n`;
+    }
+    receipt += separator() + '\n';
+
+    receipt += COMMANDS.BOLD_ON;
+    receipt += 'SESSION SUMMARY:\n';
+    receipt += COMMANDS.BOLD_OFF;
+    receipt += `Start: ${startLabel}\n`;
+    receipt += `End: ${endLabel}\n`;
+    receipt += `Used Time: ${session.total_minutes || 0} mins\n`;
+    receipt += `Paid Time: ${session.paid_minutes || 0} mins\n`;
+    receipt += separator() + '\n';
+
+    receipt += COMMANDS.BOLD_ON;
+    receipt += COMMANDS.ALIGN_RIGHT;
+    receipt += `TOTAL PAID: ${formatCurrency(session.amount_paid || 0)}\n`;
+    receipt += COMMANDS.BOLD_OFF;
+
+    receipt += '\n';
+    receipt += COMMANDS.ALIGN_CENTER;
+    receipt += separator() + '\n';
+    receipt += 'Thank you for studying with us!\n';
+    receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
+    receipt += '\n';
+    receipt += 'NOT AN OFFICIAL RECEIPT\n';
+    receipt += '\n';
+
+    receipt += COMMANDS.FEED_LINES(1);
+    receipt += COMMANDS.PARTIAL_CUT;
+
+    return receipt;
+}
+
+
+// Build Refund Receipt
+function buildRefundReceipt(data) {
+    let receipt = '';
+
+    receipt += COMMANDS.INIT;
+    receipt += COMMANDS.ALIGN_CENTER;
+    receipt += COMMANDS.BOLD_ON;
+    receipt += 'THE LIBRARY\n';
+    receipt += COMMANDS.BOLD_OFF;
+    receipt += 'Coffee + Study\n';
+    receipt += 'Pavilion, Nunez St.\n';
+    receipt += 'Zamboanga City\n';
+    receipt += separator() + '\n';
+
+    receipt += COMMANDS.BOLD_ON;
+    receipt += '*** REFUND RECEIPT ***\n';
+    receipt += COMMANDS.BOLD_OFF;
+    receipt += separator() + '\n';
+
+    const transactionNum = 'ORD-' + String(data.transaction_id || data.order_id || data.id || 0).padStart(6, '0');
+    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += `Date: ${formatDateTime(data.refunded_at || new Date())}\n`;
+    receipt += `Orig Order: ${transactionNum}\n`;
+    receipt += `Beeper #: ${data.beeper_number || '-'}\n`;
+    receipt += `Orig Date: ${formatDateTime(data.created_at || new Date())}\n`;
+    if (data.refunded_by) {
+        receipt += `Auth By: ${getFirstName(data.refunded_by)}\n`;
+    }
+    receipt += separator() + '\n';
+
+    receipt += 'REFUNDED ITEMS:\n';
+    if (Array.isArray(data.items) && data.items.length > 0) {
+        data.items.forEach(item => {
+            const itemName = item.item_name || item.name || 'Item';
+            const qty = Number(item.quantity || 1);
+            const totalPrice = Number(item.total_price || (Number(item.unit_price || 0) * qty));
+            const left = `${qty}x ${itemName}`;
+            const right = formatCurrency(totalPrice);
+            const spacing = Math.max(1, PRINTER_CONFIG.width - left.length - right.length);
+            receipt += `${left}${' '.repeat(spacing)}${right}\n`;
+        });
+    }
+
+    receipt += separator() + '\n';
+    receipt += COMMANDS.ALIGN_RIGHT;
+    receipt += `Subtotal: ${formatCurrency(data.subtotal || data.total_amount || 0)}\n`;
+    if (data.discount_amount && Number(data.discount_amount) > 0) {
+        receipt += `Discount: -${formatCurrency(data.discount_amount)}\n`;
+    }
+    receipt += COMMANDS.BOLD_ON;
+    receipt += `REFUND TOTAL: ${formatCurrency(data.total_amount || 0)}\n`;
+    receipt += COMMANDS.BOLD_OFF;
+    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += separator() + '\n';
+
+    if (data.refund_reason) {
+        receipt += `Reason: ${data.refund_reason}\n`;
+        receipt += separator() + '\n';
+    }
+
+    receipt += COMMANDS.ALIGN_CENTER;
+    receipt += 'Refund confirmation.\n';
+    receipt += 'Keep for your records.\n';
+    receipt += separator() + '\n';
+    receipt += 'Powered by Spavion\n';
+    receipt += 'NOT AN OFFICIAL RECEIPT\n';
+    receipt += '\n';
+
+    receipt += COMMANDS.FEED_LINES(1);
+    receipt += COMMANDS.PARTIAL_CUT;
+
+    return receipt;
+}
+
+
 // Build Library Session Receipt (legacy - for checkout summary if needed)
 function buildLibraryReceipt(session) {
     let receipt = '';
@@ -1016,6 +1151,54 @@ async function printLibraryExtensionReceipt(session) {
 }
 
 
+// Print library checkout receipt (at session end)
+async function printLibraryCheckoutReceipt(session) {
+    try {
+        const receiptData = buildLibraryCheckoutReceipt(session);
+        await printRaw(receiptData);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+
+// Print barista ticket only
+async function printBaristaTicket(order) {
+    try {
+        const ticketData = buildBaristaTicket(order);
+        await printRaw(ticketData);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+
+// Print kitchen ticket only
+async function printKitchenTicket(order) {
+    try {
+        const ticketData = buildKitchenTicket(order);
+        await printRaw(ticketData);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+
+// Print refund receipt
+async function printRefundReceipt(data) {
+    try {
+        const receiptData = buildRefundReceipt(data);
+        await printRaw(receiptData);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+
 // Test print - useful for checking printer connection
 
 async function testPrint() {
@@ -1140,14 +1323,20 @@ module.exports = {
     buildLibraryReceipt,
     buildLibraryCheckinReceipt,
     buildLibraryExtensionReceipt,
+    buildLibraryCheckoutReceipt,
+    buildRefundReceipt,
     printRaw,
     printDirectUSB,
     printWithPowerShell,
     printWithESCPOS,
     printOrderReceipts,
+    printBaristaTicket,
+    printKitchenTicket,
     printLibraryReceipt,
     printLibraryCheckinReceipt,
     printLibraryExtensionReceipt,
+    printLibraryCheckoutReceipt,
+    printRefundReceipt,
     testPrint,
     getAvailablePrinters
 };

@@ -174,3 +174,5 @@ http://localhost:9100/status
 | `POST /print` | Print customer receipt + barista ticket + kitchen ticket |
 | `POST /library-checkin` | Print library check-in receipt |
 | `POST /library-extension` | Print library extension receipt |
+| `POST /library-checkout` | Print library checkout/session summary receipt |
+| `POST /refund` | Print refund receipt |

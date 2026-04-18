@@ -161,6 +161,22 @@ export const getAvailableBeepers = async () => {
   }
 };
 
+export const getTakeoutCupsStatus = async () => {
+  try {
+    const data = await fetchAPI('/pos/cups/status');
+    return {
+      stock: Number(data?.stock ?? 0),
+      is_takeout_disabled: Boolean(data?.is_takeout_disabled),
+    };
+  } catch (error) {
+    console.error('Error fetching takeout cup status:', error);
+    return {
+      stock: 0,
+      is_takeout_disabled: true,
+    };
+  }
+};
+
 export default {
   getCategories,
   getMenuItems,
@@ -168,5 +184,6 @@ export default {
   getItemCustomizations,
   submitOrder,
   getAvailableBeepers,
+  getTakeoutCupsStatus,
   API_BASE_URL,
 };

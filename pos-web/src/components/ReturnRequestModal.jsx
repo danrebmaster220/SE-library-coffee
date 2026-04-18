@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import FilterSelectWrap from './FilterSelectWrap';
+import { printRefundReceipt } from '../services/webPrinter';
 import '../styles/pos.css'; // Utilizing existing CSS
 
 export default function ReturnRequestModal({ 
@@ -103,15 +104,67 @@ export default function ReturnRequestModal({
       }
 
       // 2. Process Refund
-      await api.post(`/pos/transactions/${transactionId}/refund`, {
+      const selectedIds = Array.from(selectedItemIds);
+      const refundRes = await api.post(`/pos/transactions/${transactionId}/refund`, {
         reason: finalReason,
         refundMethod: refundMethod,
         admin_pin: adminPin,
-        refundedItems: Array.from(selectedItemIds),
+        refundedItems: selectedIds,
         refundLibrary
       });
 
-      // 3. Close & Refresh
+      // 3. Print refund receipt (local print-server first, browser print fallback)
+      try {
+        let parsedBooking = null;
+        if (transaction.library_booking) {
+          try {
+            parsedBooking = typeof transaction.library_booking === 'string'
+              ? JSON.parse(transaction.library_booking)
+              : transaction.library_booking;
+          } catch {
+            parsedBooking = null;
+          }
+        }
+
+        const refundedItems = (transaction.items || [])
+          .filter(item => selectedIds.includes(item.transaction_item_id))
+          .map(item => ({
+            item_name: item.item_name,
+            quantity: Number(item.quantity) || 1,
+            unit_price: Number(item.unit_price) || 0,
+            total_price: (Number(item.quantity) || 1) * (Number(item.unit_price) || 0)
+          }));
+
+        if (refundLibrary && parsedBooking) {
+          refundedItems.push({
+            item_name: `Study Area Booking (Table ${parsedBooking.table_number || '-'}, Seat ${parsedBooking.seat_number || '-'})`,
+            quantity: 1,
+            unit_price: Number(parsedBooking.amount || parsedBooking.amount_paid || 0),
+            total_price: Number(parsedBooking.amount || parsedBooking.amount_paid || 0)
+          });
+        }
+
+        const subtotal = refundedItems.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+        const refundTotal = Number(refundRes.data?.refund_amount);
+
+        await printRefundReceipt({
+          transaction_id: transaction.transaction_id,
+          beeper_number: transaction.beeper_number,
+          created_at: transaction.created_at,
+          refunded_at: new Date().toISOString(),
+          refunded_by: authRes.data?.admin_name || authRes.data?.name || '',
+          refund_reason: finalReason,
+          subtotal,
+          discount_name: transaction.discount_name || '',
+          discount_amount: 0,
+          total_amount: Number.isFinite(refundTotal) ? refundTotal : subtotal,
+          items: refundedItems
+        });
+      } catch (printErr) {
+        console.error('Refund receipt print failed:', printErr);
+      }
+
+      // 4. Close & Refresh
       onRefundComplete();
       onClose();
     } catch (err) {

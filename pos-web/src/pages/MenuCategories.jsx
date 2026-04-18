@@ -16,7 +16,8 @@ const normalizeCategoryList = (rows) =>
   (Array.isArray(rows) ? rows : []).map((row) => ({
     ...row,
     allow_hot: toFlag01(row.allow_hot, true),
-    allow_iced: toFlag01(row.allow_iced, true)
+    allow_iced: toFlag01(row.allow_iced, true),
+    requires_takeout_cup: toFlag01(row.requires_takeout_cup, true)
   }));
 
 const tempModesLabel = (allowHot, allowIced) => {
@@ -31,7 +32,7 @@ export default function MenuCategories() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true, addon_limit: "" });
+  const [formData, setFormData] = useState({ name: "", status: "active", allow_hot: true, allow_iced: true, requires_takeout_cup: true, addon_limit: "" });
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,7 @@ export default function MenuCategories() {
         await api.put(`/menu/categories/${editingCategory.category_id}`, formData);
         const hot = formData.allow_hot ? 1 : 0;
         const iced = formData.allow_iced ? 1 : 0;
+        const requiresCup = formData.requires_takeout_cup ? 1 : 0;
         setCategories((prev) =>
           normalizeCategoryList(
             prev.map((c) =>
@@ -76,6 +78,7 @@ export default function MenuCategories() {
                     status: formData.status,
                     allow_hot: hot,
                     allow_iced: iced,
+                    requires_takeout_cup: requiresCup,
                     addon_limit: formData.addon_limit !== "" ? parseInt(formData.addon_limit, 10) : null
                   }
                 : c
@@ -87,6 +90,7 @@ export default function MenuCategories() {
         const newId = response.data?.category_id;
         const hot = formData.allow_hot ? 1 : 0;
         const iced = formData.allow_iced ? 1 : 0;
+        const requiresCup = formData.requires_takeout_cup ? 1 : 0;
         if (newId != null) {
           setCategories((prev) =>
             normalizeCategoryList([
@@ -97,6 +101,7 @@ export default function MenuCategories() {
                 status: formData.status,
                 allow_hot: hot,
                 allow_iced: iced,
+                requires_takeout_cup: requiresCup,
                 addon_limit: formData.addon_limit !== "" ? parseInt(formData.addon_limit, 10) : null,
                 created_at: new Date().toISOString()
               }
@@ -146,6 +151,7 @@ export default function MenuCategories() {
       status: category.status || "active",
       allow_hot: toFlag01(category.allow_hot, true) === 1,
       allow_iced: toFlag01(category.allow_iced, true) === 1,
+      requires_takeout_cup: toFlag01(category.requires_takeout_cup, true) === 1,
       addon_limit: category.addon_limit != null ? String(category.addon_limit) : ""
     });
     setShowModal(true);
@@ -153,14 +159,14 @@ export default function MenuCategories() {
 
   const openAddModal = () => {
     setEditingCategory(null);
-    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true });
+    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true, requires_takeout_cup: true, addon_limit: "" });
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingCategory(null);
-    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true, addon_limit: "" });
+    setFormData({ name: "", status: "active", allow_hot: true, allow_iced: true, requires_takeout_cup: true, addon_limit: "" });
   };
 
   const filteredCategories = categories.filter((cat) => {
@@ -260,6 +266,7 @@ export default function MenuCategories() {
                     <th>ID</th>
                     <th>Category Name</th>
                     <th>Temp Modes</th>
+                    <th>Cup Rule</th>
                     <th>Add-on Limit</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -277,6 +284,11 @@ export default function MenuCategories() {
                           toFlag01(category.allow_hot, true) === 1,
                           toFlag01(category.allow_iced, true) === 1
                         )}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: toFlag01(category.requires_takeout_cup, true) === 1 ? '#2e7d32' : '#666', fontWeight: 600 }}>
+                        {toFlag01(category.requires_takeout_cup, true) === 1 ? 'Cup Required' : 'No Cup Needed'}
                       </span>
                     </td>
                     <td>
@@ -388,6 +400,16 @@ export default function MenuCategories() {
                     onChange={(e) => setFormData({ ...formData, allow_iced: e.target.checked })}
                   />
                   <span className="checkbox-main-text">Allow Iced in this category</span>
+                </label>
+
+                <label className="checkbox-label checkbox-label--tile checkbox-label--compact category-temp-toggle-label">
+                  <input
+                    className="checkbox-input"
+                    type="checkbox"
+                    checked={!!formData.requires_takeout_cup}
+                    onChange={(e) => setFormData({ ...formData, requires_takeout_cup: e.target.checked })}
+                  />
+                  <span className="checkbox-main-text">Require cups for Take Out in this category</span>
                 </label>
               </div>
               <small className="form-hint" style={{ display: 'block', marginTop: '6px' }}>

@@ -405,7 +405,7 @@ exports.getPriceUpdateNotices = async (req, res) => {
 
 // Create Category
 exports.createCategory = async (req, res) => {
-    const { name, icon, status, allow_hot, allow_iced, addon_limit } = req.body;
+    const { name, icon, status, allow_hot, allow_iced, addon_limit, requires_takeout_cup } = req.body;
     let connection;
 
     try {
@@ -419,14 +419,15 @@ exports.createCategory = async (req, res) => {
         const parsedLimit = addon_limit != null && addon_limit !== '' ? parseInt(addon_limit, 10) : null;
 
         await connection.query(
-            'INSERT INTO categories (category_id, name, status, allow_hot, allow_iced, addon_limit) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO categories (category_id, name, status, allow_hot, allow_iced, addon_limit, requires_takeout_cup) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [
                 nextId,
                 name,
                 status || 'active',
                 toTinyBool(allow_hot, 1),
                 toTinyBool(allow_iced, 1),
-                Number.isNaN(parsedLimit) ? null : parsedLimit
+                Number.isNaN(parsedLimit) ? null : parsedLimit,
+                toTinyBool(requires_takeout_cup, 1)
             ]
         );
         
@@ -446,19 +447,20 @@ exports.createCategory = async (req, res) => {
 // Update Category
 exports.updateCategory = async (req, res) => {
     const { id } = req.params;
-    const { name, icon, status, allow_hot, allow_iced, addon_limit } = req.body;
+    const { name, icon, status, allow_hot, allow_iced, addon_limit, requires_takeout_cup } = req.body;
 
     try {
         const parsedLimit = addon_limit != null && addon_limit !== '' ? parseInt(addon_limit, 10) : null;
 
         await db.query(
-            'UPDATE categories SET name = ?, status = ?, allow_hot = ?, allow_iced = ?, addon_limit = ? WHERE category_id = ?',
+            'UPDATE categories SET name = ?, status = ?, allow_hot = ?, allow_iced = ?, addon_limit = ?, requires_takeout_cup = ? WHERE category_id = ?',
             [
                 name,
                 status,
                 toTinyBool(allow_hot, 1),
                 toTinyBool(allow_iced, 1),
                 Number.isNaN(parsedLimit) ? null : parsedLimit,
+                toTinyBool(requires_takeout_cup, 1),
                 id
             ]
         );
@@ -498,7 +500,7 @@ exports.getItems = async (req, res) => {
     try {
         res.set('Cache-Control', MENU_CACHE_CONTROL);
         let query = `
-            SELECT i.*, c.name as category_name 
+            SELECT i.*, c.name as category_name, COALESCE(c.requires_takeout_cup, 1) as requires_takeout_cup
             FROM items i 
             JOIN categories c ON i.category_id = c.category_id
         `;

@@ -61,6 +61,8 @@ const findOptionForMenuBranch = (options, slug) => {
   return null;
 };
 
+const isTakeoutOrderType = (value) => value === 'takeout' || value === 'take_out';
+
 /**
  * Prefill modal `selectedCustomizations` from global Temp/Size bar (posMenuBranchForModal).
  * Keys are group_id; values are [optionId] for single-select groups.
@@ -118,6 +120,13 @@ export default function POS() {
     return d?.cart?.length ? d.cart : [];
   });
   const [orderType, setOrderType] = useState(null);
+  const [takeoutCupsStatus, setTakeoutCupsStatus] = useState({
+    stock: null,
+    is_takeout_disabled: false,
+    required_cups: 0,
+    can_fulfill: true
+  });
+  const [takeoutCupsLoading, setTakeoutCupsLoading] = useState(false);
   const [orders, setOrders] = useState({ pending: [], preparing: [], ready: [] });
   const [beepers, setBeepers] = useState([]);
   const [selectedBeeper, setSelectedBeeper] = useState(null);
@@ -256,6 +265,30 @@ export default function POS() {
     }
   }, []);
 
+  const fetchTakeoutCupsStatus = useCallback(async (requiredOverride = null) => {
+    try {
+      setTakeoutCupsLoading(true);
+      const requiredCups = Number.isFinite(requiredOverride)
+        ? Math.max(0, Math.floor(requiredOverride))
+        : 0;
+
+      const res = await api.get('/pos/cups/status', {
+        params: { required_cups: requiredCups }
+      });
+
+      setTakeoutCupsStatus({
+        stock: Number(res.data?.stock ?? 0),
+        is_takeout_disabled: Boolean(res.data?.is_takeout_disabled),
+        required_cups: Number(res.data?.required_cups ?? requiredCups),
+        can_fulfill: Boolean(res.data?.can_fulfill)
+      });
+    } catch (err) {
+      console.error('Failed to fetch takeout cup status:', err);
+    } finally {
+      setTakeoutCupsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     // Check if user is admin
@@ -276,6 +309,7 @@ export default function POS() {
     fetchOrders();
     fetchBeepers();
     fetchDiscounts();
+    fetchTakeoutCupsStatus(0);
 
     // Connect to Socket.IO for real-time beeper updates
     socketService.connect();
@@ -285,13 +319,38 @@ export default function POS() {
       fetchBeepers();
     });
 
-    const interval = setInterval(fetchOrders, 5000);
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchTakeoutCupsStatus(0);
+    }, 5000);
     return () => {
       clearInterval(interval);
       socketService.removeListener('beepers:update');
       window.removeEventListener('shiftUpdated', checkShift);
     };
-  }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts]);
+  }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts, fetchTakeoutCupsStatus]);
+
+  useEffect(() => {
+    const requiredCups = isTakeoutOrderType(orderType)
+      ? cart.reduce((sum, item) => {
+        const requiresCup = Number(item?.requires_takeout_cup ?? 1) === 1;
+        const quantity = Number(item?.quantity || 0);
+        if (!requiresCup || quantity <= 0) return sum;
+        return sum + Math.floor(quantity);
+      }, 0)
+      : 0;
+
+    fetchTakeoutCupsStatus(requiredCups);
+  }, [fetchTakeoutCupsStatus, orderType, cart]);
+
+  useEffect(() => {
+    if (pendingOrderId) return;
+    if (!isTakeoutOrderType(orderType)) return;
+    if (!takeoutCupsStatus.is_takeout_disabled) return;
+
+    setOrderType('dine_in');
+    showToast('Take Out is currently unavailable because cups are out of stock.', 'warning');
+  }, [orderType, pendingOrderId, showToast, takeoutCupsStatus.is_takeout_disabled]);
 
   useEffect(() => {
     fetchMenuItems();
@@ -444,7 +503,8 @@ export default function POS() {
         customizations: [],
         customization_total: 0,
         total_price: parseFloat(item.price),
-        quantity: 1
+        quantity: 1,
+        requires_takeout_cup: Number(item?.requires_takeout_cup ?? 1)
       };
       setCart(prev => [...prev, cartItem]);
       showToast(`${item.name} added to cart`, 'success');
@@ -485,7 +545,8 @@ export default function POS() {
       customizations: [],
       customization_total: 0,
       total_price: parseFloat(item.price),
-      quantity: 1
+      quantity: 1,
+      requires_takeout_cup: Number(item?.requires_takeout_cup ?? 1)
     };
     setCart(prev => [...prev, cartItem]);
     showToast(`${item.name} added to cart`, 'success');
@@ -731,7 +792,8 @@ export default function POS() {
       customizations,
       customization_total: Number(customizationTotal.toFixed(2)),
       total_price: Number((resolvedBasePrice + customizationTotal).toFixed(2)),
-      quantity: 1
+      quantity: 1,
+      requires_takeout_cup: Number(customizingItem?.requires_takeout_cup ?? 1)
     };
 
     setCart(prev => [...prev, cartItem]);
@@ -861,6 +923,17 @@ export default function POS() {
     const libraryTotal = pendingLibraryBooking ? pendingLibraryBooking.amount : 0;
     return Number((itemsTotal + libraryTotal).toFixed(2));
   }, [cart, pendingLibraryBooking]);
+
+  const requiredTakeoutCups = useMemo(() => {
+    if (!isTakeoutOrderType(orderType)) return 0;
+
+    return cart.reduce((sum, item) => {
+      const requiresCup = Number(item?.requires_takeout_cup ?? 1) === 1;
+      const quantity = Number(item?.quantity || 0);
+      if (!requiresCup || quantity <= 0) return sum;
+      return sum + Math.floor(quantity);
+    }, 0);
+  }, [cart, orderType]);
 
   const discountAmount = useMemo(() => {
     if (!selectedDiscount) return 0;
@@ -1024,6 +1097,22 @@ export default function POS() {
       showToast('Please select order type first!', 'warning');
       return;
     }
+
+    if (isTakeoutOrderType(orderType)) {
+      const stock = Number(takeoutCupsStatus.stock ?? 0);
+      if (stock <= 0) {
+        showToast('Take Out is unavailable because cups are out of stock.', 'warning');
+        await fetchTakeoutCupsStatus(requiredTakeoutCups);
+        return;
+      }
+
+      if (requiredTakeoutCups > stock) {
+        showToast(`Not enough cups. Need ${requiredTakeoutCups}, available ${stock}.`, 'warning');
+        await fetchTakeoutCupsStatus(requiredTakeoutCups);
+        return;
+      }
+    }
+
     // For pending orders, beeper is already assigned
     if (!pendingOrderId && !selectedBeeper) {
       showToast('Please select a beeper number!', 'warning');
@@ -1062,7 +1151,6 @@ export default function POS() {
           change_due: change
         });
         transactionId = pendingOrderId;
-        showToast(`Payment successful for Order #${pendingOrderBeeper}!`, 'success');
       } else {
         const items = cart.map(item => ({
           item_id: item.item_id,
@@ -1093,7 +1181,6 @@ export default function POS() {
           status: 'preparing'
         });
         transactionId = response.data.transaction_id;
-        showToast('Payment successful!', 'success');
       }
 
       // Print receipt after successful payment (via print server)
@@ -1118,8 +1205,16 @@ export default function POS() {
       resetOrder();
       fetchOrders();
       fetchBeepers();
+      fetchTakeoutCupsStatus(0);
     } catch (err) {
       console.error('Payment failed:', err);
+      const responseData = err?.response?.data || {};
+      if (responseData.code === 'INSUFFICIENT_TAKEOUT_CUPS') {
+        const needed = Number(responseData.cups_needed ?? 0);
+        const available = Number(responseData.cups_available ?? 0);
+        showToast(`Insufficient cups: need ${needed}, available ${available}.`, 'error');
+        await fetchTakeoutCupsStatus(needed);
+      }
       setError(err.response?.data?.error || 'Payment failed');
     } finally {
       setLoading(false);
@@ -1183,7 +1278,8 @@ export default function POS() {
           })),
           customization_total: customizationTotal,
           total_price: parseFloat(item.unit_price),
-          quantity: item.quantity
+          quantity: item.quantity,
+          requires_takeout_cup: Number(item?.requires_takeout_cup ?? 1)
         };
       });
       setCart(cartItems);
@@ -1625,11 +1721,27 @@ export default function POS() {
             </button>
             <button
               className={`order-type-btn ${orderType === 'takeout' || orderType === 'take_out' ? 'active' : ''}`}
-              onClick={() => !pendingOrderId && setOrderType('take_out')}
-              disabled={pendingOrderId}
+              onClick={() => {
+                if (pendingOrderId) return;
+                if (takeoutCupsStatus.is_takeout_disabled) {
+                  showToast('Take Out is unavailable because cups are out of stock.', 'warning');
+                  return;
+                }
+                setOrderType('take_out');
+              }}
+              disabled={pendingOrderId || takeoutCupsStatus.is_takeout_disabled}
             >
               Take Out
             </button>
+          </div>
+          <div className={`takeout-cups-hint ${takeoutCupsStatus.is_takeout_disabled ? 'danger' : 'ok'}`}>
+            {takeoutCupsLoading
+              ? 'Checking takeout cup stock...'
+              : takeoutCupsStatus.is_takeout_disabled
+                ? 'Take Out unavailable: no cups left.'
+                : isTakeoutOrderType(orderType)
+                  ? `Cups needed: ${requiredTakeoutCups} | Available: ${Number(takeoutCupsStatus.stock ?? 0)}`
+                  : `Take Out cups available: ${Number(takeoutCupsStatus.stock ?? 0)}`}
           </div>
         </div>
 
@@ -1769,6 +1881,14 @@ export default function POS() {
                 showToast('Please select order type first!', 'warning');
                 return;
               }
+              if (isTakeoutOrderType(orderType) && takeoutCupsStatus.is_takeout_disabled) {
+                showToast('Take Out is unavailable because cups are out of stock.', 'warning');
+                return;
+              }
+              if (isTakeoutOrderType(orderType) && requiredTakeoutCups > Number(takeoutCupsStatus.stock ?? 0)) {
+                showToast(`Not enough cups. Need ${requiredTakeoutCups}, available ${Number(takeoutCupsStatus.stock ?? 0)}.`, 'warning');
+                return;
+              }
               if (!pendingOrderId && !selectedBeeper) {
                 showToast('Please select a beeper number!', 'warning');
                 return;
@@ -1780,7 +1900,12 @@ export default function POS() {
               setCashAmount('');
               setShowPaymentModal(true);
             }}
-            disabled={loading || (cart.length === 0 && !pendingOrderId && !pendingLibraryBooking) || !orderType}
+            disabled={
+              loading ||
+              (cart.length === 0 && !pendingOrderId && !pendingLibraryBooking) ||
+              !orderType ||
+              (isTakeoutOrderType(orderType) && takeoutCupsStatus.is_takeout_disabled)
+            }
             className="btn-pay"
           >
             {loading ? 'Processing...' : 'Proceed to Payment'}

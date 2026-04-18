@@ -380,6 +380,45 @@ function buildLibraryExtensionReceiptHTML(session) {
   `;
 }
 
+function buildLibraryCheckoutReceiptHTML(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
+  const startLabel = session.start_time ? formatDateTime(session.start_time) : '-';
+  const endLabel = session.end_time ? formatDateTime(session.end_time) : formatDateTime();
+
+  return `
+    <div class="receipt">
+      <div class="receipt-header">
+        <div class="store-name">THE LIBRARY</div>
+        <div class="store-sub">Session Checkout</div>
+      </div>
+      <div class="separator">${SEP}</div>
+      <div class="info-row"><span>Date:</span><span>${formatDateTime()}</span></div>
+      ${session.session_id ? `<div class="info-row"><span>Session #:</span><span>LIB-${String(session.session_id).padStart(6, '0')}</span></div>` : ''}
+      <div class="info-row"><span>Table:</span><span>${session.table_number || '-'}</span></div>
+      <div class="info-row"><span>Seat:</span><span>${session.seat_number || '-'}</span></div>
+      <div class="info-row"><span>Customer:</span><span>${escapeHtml(session.customer_name || '-')}</span></div>
+      ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
+      <div class="separator">${SEP}</div>
+      <div class="section-title">SESSION SUMMARY:</div>
+      <div class="info-row"><span>Start:</span><span>${startLabel}</span></div>
+      <div class="info-row"><span>End:</span><span>${endLabel}</span></div>
+      <div class="info-row"><span>Used Time:</span><span>${session.total_minutes || 0} mins</span></div>
+      <div class="info-row"><span>Paid Time:</span><span>${session.paid_minutes || 0} mins</span></div>
+      <div class="separator">${SEP}</div>
+      <div class="totals">
+        <div class="row total-final"><span>TOTAL PAID:</span><span>${formatCurrency(session.amount_paid || 0)}</span></div>
+      </div>
+      <div class="separator">${SEP}</div>
+      <div class="footer">
+        <p>Thank you for studying with us!</p>
+        <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
+        <p style="margin-top:4px;">NOT AN OFFICIAL RECEIPT</p>
+      </div>
+    </div>
+  `;
+}
+
 // ============================================
 // Local Print Server (localhost:9100)
 // ============================================
@@ -409,7 +448,8 @@ async function tryLocalPrint(receiptData, endpoint = '/print') {
 // Modal Overlay (shows receipt preview in-app)
 // ============================================
 
-function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = null, printEndpoint = '/print') {
+function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = null, printEndpoint = '/print', options = {}) {
+  const { autoPrint = false } = options;
   return new Promise((resolve) => {
     // Remove any existing modal
     const existing = document.getElementById('receipt-preview-overlay');
@@ -505,8 +545,9 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
     // Print button — try print server first, fall back to browser window.print()
-    document.getElementById('rp-print-btn').onclick = async () => {
+    const handlePrint = async () => {
       const btn = document.getElementById('rp-print-btn');
+      if (!btn || btn.style.pointerEvents === 'none') return;
       btn.innerHTML = '⏳ Printing...';
       btn.style.pointerEvents = 'none';
 
@@ -535,6 +576,8 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
       openThermalPrint(receiptData, printEndpoint);
     };
 
+    document.getElementById('rp-print-btn').onclick = handlePrint;
+
     // Hover effects
     const closeX = document.getElementById('rp-close-x');
     closeX.onmouseenter = () => { closeX.style.background = 'rgba(255,255,255,0.15)'; };
@@ -551,6 +594,12 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
       if (e.key === 'Escape') closeModal();
     };
     document.addEventListener('keydown', handleEsc);
+
+    if (autoPrint) {
+      setTimeout(() => {
+        handlePrint();
+      }, 150);
+    }
   });
 }
 
@@ -789,6 +838,35 @@ function buildPlainTextLibraryExtension(session) {
   return lines.join('\n');
 }
 
+function buildPlainTextLibraryCheckout(session) {
+  const cashierFirstName = getFirstName(session.cashier_name);
+  const lines = [];
+  lines.push(txtCenter('THE LIBRARY'));
+  lines.push(txtCenter('Session Checkout'));
+  lines.push(TXT_SEP);
+  lines.push(txtLR('Date:', formatDateTime()));
+  if (session.session_id) lines.push(txtLR('Session #:', 'LIB-' + String(session.session_id).padStart(6, '0')));
+  lines.push(txtLR('Table:', String(session.table_number || '-')));
+  lines.push(txtLR('Seat:', String(session.seat_number || '-')));
+  lines.push(txtLR('Customer:', String(session.customer_name || '-')));
+  if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
+  lines.push(TXT_SEP);
+  lines.push('SESSION SUMMARY:');
+  lines.push(txtLR('Start:', session.start_time ? formatDateTime(session.start_time) : '-'));
+  lines.push(txtLR('End:', session.end_time ? formatDateTime(session.end_time) : formatDateTime()));
+  lines.push(txtLR('Used Time:', `${session.total_minutes || 0} mins`));
+  lines.push(txtLR('Paid Time:', `${session.paid_minutes || 0} mins`));
+  lines.push(TXT_DBL_SEP);
+  lines.push(txtLR('TOTAL PAID:', txtMoney(session.amount_paid || 0)));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Thank you for studying with us!'));
+  lines.push(TXT_SEP);
+  lines.push(txtCenter('Powered by Spavion'));
+  lines.push(txtCenter('NOT AN OFFICIAL RECEIPT'));
+
+  return lines.join('\n');
+}
+
 // ============================================
 // Refund Receipt Builders
 // ============================================
@@ -907,6 +985,8 @@ function openThermalPrint(receiptData, printEndpoint) {
     plainText = buildPlainTextLibraryCheckin(receiptData);
   } else if (printEndpoint === '/library-extension') {
     plainText = buildPlainTextLibraryExtension(receiptData);
+  } else if (printEndpoint === '/library-checkout') {
+    plainText = buildPlainTextLibraryCheckout(receiptData);
   } else if (printEndpoint === '/refund') {
     plainText = buildPlainTextRefundReceipt(receiptData);
   } else {
@@ -1016,6 +1096,14 @@ export async function printLibraryExtensionReceipt(session) {
 }
 
 /**
+ * Show library checkout receipt preview
+ */
+export async function printLibraryCheckoutReceipt(session) {
+  const html = buildLibraryCheckoutReceiptHTML(session);
+  return showReceiptModal(html, 'Checkout Receipt', session, '/library-checkout', { autoPrint: true });
+}
+
+/**
  * Show refund receipt preview
  */
 export async function printRefundReceipt(refundData) {
@@ -1028,5 +1116,6 @@ export default {
   printCustomerReceipt,
   printLibraryCheckinReceipt,
   printLibraryExtensionReceipt,
+  printLibraryCheckoutReceipt,
   printRefundReceipt
 };

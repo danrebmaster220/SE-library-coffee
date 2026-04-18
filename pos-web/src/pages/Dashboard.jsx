@@ -52,6 +52,12 @@ export default function Dashboard() {
     total: 0
   });
 
+  const [takeoutCups, setTakeoutCups] = useState({
+    stock: 0,
+    usedToday: 0,
+    isDisabled: false
+  });
+
   const [chartData, setChartData] = useState({
     daily: [],
     weekly: [],
@@ -95,6 +101,12 @@ export default function Dashboard() {
           available: statsRes.data.librarySeats?.available || 0,
           occupied: statsRes.data.librarySeats?.occupied || 0,
           total: statsRes.data.librarySeats?.total || 0
+        });
+
+        setTakeoutCups({
+          stock: Number(statsRes.data.takeoutCups?.stock || 0),
+          usedToday: Number(statsRes.data.takeoutCups?.used_today || 0),
+          isDisabled: Boolean(statsRes.data.takeoutCups?.is_takeout_disabled)
         });
 
         setChartData({
@@ -245,6 +257,15 @@ export default function Dashboard() {
             <span className="stat-sub">Avg: {formatMoney(stats.avgOrderValue)}</span>
           </div>
         </div>
+
+        <div className="stat-card">
+          <div className="stat-icon cups">U</div>
+          <div className="stat-info">
+            <span className="stat-label">Takeout Cups</span>
+            <span className="stat-value">{takeoutCups.stock}</span>
+            <span className="stat-sub">{takeoutCups.isDisabled ? 'Take Out disabled' : `${takeoutCups.usedToday} used today`}</span>
+          </div>
+        </div>
       </div>
 
       <div className="charts-row">
@@ -393,6 +414,24 @@ export default function Dashboard() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="cups-monitor">
+        <h3>Takeout Cups Monitor</h3>
+        <div className="cups-monitor-grid">
+          <div className="cups-chip">
+            <span className="cups-chip-label">Current Stock</span>
+            <strong className="cups-chip-value">{takeoutCups.stock}</strong>
+          </div>
+          <div className="cups-chip">
+            <span className="cups-chip-label">Used Today</span>
+            <strong className="cups-chip-value">{takeoutCups.usedToday}</strong>
+          </div>
+          <div className={`cups-chip ${takeoutCups.isDisabled ? 'danger' : 'ok'}`}>
+            <span className="cups-chip-label">Take Out Status</span>
+            <strong className="cups-chip-value">{takeoutCups.isDisabled ? 'Disabled' : 'Enabled'}</strong>
           </div>
         </div>
       </div>

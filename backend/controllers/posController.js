@@ -2,6 +2,10 @@ const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
 
+const TAKEOUT_CUPS_SETTING_KEY = 'takeout_cups_stock';
+const DEFAULT_TAKEOUT_CUP_STOCK = 200;
+const MAX_TAKEOUT_CUP_STOCK = 100000;
+
 
 // BEEPER MANAGEMENT
 
@@ -32,6 +36,161 @@ const releaseBeeper = async (beeperNumber) => {
         'UPDATE beepers SET status = ?, transaction_id = NULL, assigned_at = NULL WHERE beeper_number = ?',
         ['available', beeperNumber]
     );
+};
+
+const normalizeOrderType = (rawOrderType) => {
+    const value = String(rawOrderType || '').trim().toLowerCase();
+    if (value === 'dine_in' || value === 'dine-in') return 'dine-in';
+    if (value === 'take_out' || value === 'takeout') return 'takeout';
+    return value || 'dine-in';
+};
+
+const sanitizeNonNegativeInt = (value, fallback = 0) => {
+    const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+    if (Number.isNaN(parsed) || parsed < 0) return fallback;
+    return parsed;
+};
+
+const parseStrictNonNegativeInteger = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0) return null;
+    return parsed;
+};
+
+const extractPositiveWholeQuantity = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return Math.floor(parsed);
+};
+
+const ensureTakeoutCupSetting = async (queryRunner) => {
+    await queryRunner.query(
+        `
+        INSERT INTO system_settings (setting_key, setting_value)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = setting_value
+        `,
+        [TAKEOUT_CUPS_SETTING_KEY, String(DEFAULT_TAKEOUT_CUP_STOCK)]
+    );
+};
+
+const getTakeoutCupStock = async (queryRunner, { lock = false } = {}) => {
+    await ensureTakeoutCupSetting(queryRunner);
+
+    const lockClause = lock ? ' FOR UPDATE' : '';
+    const [rows] = await queryRunner.query(
+        `
+        SELECT setting_value
+        FROM system_settings
+        WHERE setting_key = ?${lockClause}
+        LIMIT 1
+        `,
+        [TAKEOUT_CUPS_SETTING_KEY]
+    );
+
+    return sanitizeNonNegativeInt(rows?.[0]?.setting_value, DEFAULT_TAKEOUT_CUP_STOCK);
+};
+
+const buildInsufficientCupError = ({ cupsNeeded, cupsAvailable }) => {
+    const error = new Error(
+        `Insufficient takeout cups. Required ${cupsNeeded}, available ${cupsAvailable}.`
+    );
+    error.code = 'INSUFFICIENT_TAKEOUT_CUPS';
+    error.statusCode = 409;
+    error.cups_needed = cupsNeeded;
+    error.cups_available = cupsAvailable;
+    return error;
+};
+
+const calculateTakeoutCupsFromPayload = async (queryRunner, rawItems = []) => {
+    const lineItems = (Array.isArray(rawItems) ? rawItems : [])
+        .map((item) => ({
+            itemId: Number(item?.item_id),
+            quantity: extractPositiveWholeQuantity(item?.quantity)
+        }))
+        .filter((item) => Number.isInteger(item.itemId) && item.itemId > 0 && item.quantity > 0);
+
+    if (lineItems.length === 0) return 0;
+
+    const uniqueItemIds = [...new Set(lineItems.map((item) => item.itemId))];
+    const placeholders = uniqueItemIds.map(() => '?').join(', ');
+    const [rows] = await queryRunner.query(
+        `
+        SELECT i.item_id, COALESCE(c.requires_takeout_cup, 1) AS requires_takeout_cup
+        FROM items i
+        JOIN categories c ON c.category_id = i.category_id
+        WHERE i.item_id IN (${placeholders})
+        `,
+        uniqueItemIds
+    );
+
+    const cupFlagByItem = new Map(
+        rows.map((row) => [Number(row.item_id), Number(row.requires_takeout_cup) === 1])
+    );
+
+    return lineItems.reduce((sum, item) => {
+        const requiresCup = cupFlagByItem.get(item.itemId);
+        if (requiresCup === false) return sum;
+        return sum + item.quantity;
+    }, 0);
+};
+
+const calculateTakeoutCupsFromTransaction = async (queryRunner, transactionId) => {
+    const [rows] = await queryRunner.query(
+        `
+        SELECT COALESCE(
+            SUM(
+                CASE WHEN COALESCE(c.requires_takeout_cup, 1) = 1
+                THEN ti.quantity
+                ELSE 0 END
+            ),
+            0
+        ) AS cups_needed
+        FROM transaction_items ti
+        JOIN items i ON i.item_id = ti.item_id
+        JOIN categories c ON c.category_id = i.category_id
+        WHERE ti.transaction_id = ?
+        `,
+        [transactionId]
+    );
+
+    return sanitizeNonNegativeInt(rows?.[0]?.cups_needed, 0);
+};
+
+const ensureTakeoutCupCapacity = async ({ queryRunner, orderType, cupsNeeded, deduct = false }) => {
+    const normalizedOrderType = normalizeOrderType(orderType);
+    const needed = sanitizeNonNegativeInt(cupsNeeded, 0);
+
+    if (normalizedOrderType !== 'takeout' || needed <= 0) {
+        return {
+            cups_needed: 0,
+            cups_available: null,
+            cups_after: null,
+            deducted: false
+        };
+    }
+
+    const cupsAvailable = await getTakeoutCupStock(queryRunner, { lock: deduct });
+    if (cupsAvailable < needed) {
+        throw buildInsufficientCupError({ cupsNeeded: needed, cupsAvailable });
+    }
+
+    let cupsAfter = cupsAvailable;
+    if (deduct) {
+        cupsAfter = cupsAvailable - needed;
+        await queryRunner.query(
+            'UPDATE system_settings SET setting_value = ? WHERE setting_key = ?',
+            [String(cupsAfter), TAKEOUT_CUPS_SETTING_KEY]
+        );
+    }
+
+    return {
+        cups_needed: needed,
+        cups_available: cupsAvailable,
+        cups_after: cupsAfter,
+        deducted: deduct
+    };
 };
 
 // Determine admin role from JWT payload in a backward-compatible way.
@@ -105,6 +264,53 @@ exports.getQuickCashAmounts = async (req, res) => {
             ['active']
         );
         res.json({ amounts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getTakeoutCupsStatus = async (req, res) => {
+    try {
+        const requiredCups = sanitizeNonNegativeInt(req.query?.required_cups, 0);
+        const stock = await getTakeoutCupStock(db);
+        const isTakeoutDisabled = requiredCups > 0 && requiredCups > stock;
+
+        res.json({
+            stock,
+            is_takeout_disabled: isTakeoutDisabled,
+            required_cups: requiredCups,
+            can_fulfill: requiredCups <= stock
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.updateTakeoutCupsStock = async (req, res) => {
+    try {
+        const requestedStock = parseStrictNonNegativeInteger(
+            req.body?.stock ?? req.body?.takeout_cups_stock
+        );
+
+        if (requestedStock === null) {
+            return res.status(400).json({ error: 'Stock must be a non-negative whole number.' });
+        }
+
+        if (requestedStock > MAX_TAKEOUT_CUP_STOCK) {
+            return res.status(400).json({ error: `Stock cannot exceed ${MAX_TAKEOUT_CUP_STOCK}.` });
+        }
+
+        await ensureTakeoutCupSetting(db);
+        await db.query(
+            'UPDATE system_settings SET setting_value = ? WHERE setting_key = ?',
+            [String(requestedStock), TAKEOUT_CUPS_SETTING_KEY]
+        );
+
+        res.json({
+            message: 'Takeout cup stock updated successfully.',
+            stock: requestedStock,
+            is_takeout_disabled: requestedStock <= 0
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -187,6 +393,15 @@ exports.createTransaction = async (req, res) => {
             status
         } = req.body;
 
+        const normalizedOrderType = normalizeOrderType(order_type);
+        const takeoutCupsNeeded = await calculateTakeoutCupsFromPayload(connection, items);
+        const cupReservation = await ensureTakeoutCupCapacity({
+            queryRunner: connection,
+            orderType: normalizedOrderType,
+            cupsNeeded: takeoutCupsNeeded,
+            deduct: true
+        });
+
         // Get beeper number - either from provided beeper_id or get next available
         let beeperNumber;
         if (beeper_id) {
@@ -218,7 +433,7 @@ exports.createTransaction = async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
         `, [
             beeperNumber,
-            order_type || 'dine-in',
+            normalizedOrderType,
             subtotal,
             discount_id || null,
             discount_amount || 0,
@@ -287,10 +502,19 @@ exports.createTransaction = async (req, res) => {
         res.json({
             message: 'Transaction created successfully',
             transaction_id: transactionId,
-            beeper_number: beeperNumber
+            beeper_number: beeperNumber,
+            cups: cupReservation
         });
     } catch (error) {
         await connection.rollback();
+        if (error?.code === 'INSUFFICIENT_TAKEOUT_CUPS') {
+            return res.status(error.statusCode || 409).json({
+                error: error.message,
+                code: error.code,
+                cups_needed: error.cups_needed,
+                cups_available: error.cups_available
+            });
+        }
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
@@ -305,6 +529,15 @@ exports.createKioskOrder = async (req, res) => {
         await connection.beginTransaction();
 
         const { order_type, items, subtotal, total_amount, library_booking } = req.body;
+
+        let normalizedOrderType = normalizeOrderType(order_type);
+        const takeoutCupsNeeded = await calculateTakeoutCupsFromPayload(connection, items);
+        const cupAvailability = await ensureTakeoutCupCapacity({
+            queryRunner: connection,
+            orderType: normalizedOrderType,
+            cupsNeeded: takeoutCupsNeeded,
+            deduct: false
+        });
 
         // Get available beeper (with row lock to prevent race conditions)
         const beeperNumber = await getAvailableBeeper(connection);
@@ -343,10 +576,6 @@ exports.createKioskOrder = async (req, res) => {
 
         // Create transaction with pending status
         // Include library_booking JSON if present
-        // Normalize order_type: kiosk may send 'dine_in' but DB enum expects 'dine-in'
-        let normalizedOrderType = order_type || 'dine-in';
-        if (normalizedOrderType === 'dine_in') normalizedOrderType = 'dine-in';
-        
         const [result] = await connection.query(`
             INSERT INTO transactions (
                 beeper_number, order_type, subtotal, total_amount, status, library_booking
@@ -410,10 +639,19 @@ exports.createKioskOrder = async (req, res) => {
         res.json({
             message: 'Order placed successfully',
             transaction_id: transactionId,
-            beeper_number: beeperNumber
+            beeper_number: beeperNumber,
+            cups: cupAvailability
         });
     } catch (error) {
         await connection.rollback();
+        if (error?.code === 'INSUFFICIENT_TAKEOUT_CUPS') {
+            return res.status(error.statusCode || 409).json({
+                error: error.message,
+                code: error.code,
+                cups_needed: error.cups_needed,
+                cups_available: error.cups_available
+            });
+        }
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
@@ -433,7 +671,7 @@ exports.processPayment = async (req, res) => {
 
         // Get original transaction to calculate final amount and check for library booking
         const [orders] = await connection.query(
-            'SELECT total_amount, library_booking, processed_by, status FROM transactions WHERE transaction_id = ? FOR UPDATE',
+            'SELECT total_amount, library_booking, processed_by, status, order_type FROM transactions WHERE transaction_id = ? FOR UPDATE',
             [id]
         );
 
@@ -456,6 +694,13 @@ exports.processPayment = async (req, res) => {
         const originalTotal = parseFloat(transaction.total_amount);
         const discountAmt = parseFloat(discount_amount) || 0;
         const finalTotal = Math.max(0, originalTotal - discountAmt);
+        const takeoutCupsNeeded = await calculateTakeoutCupsFromTransaction(connection, id);
+        const cupReservation = await ensureTakeoutCupCapacity({
+            queryRunner: connection,
+            orderType: transaction.order_type,
+            cupsNeeded: takeoutCupsNeeded,
+            deduct: true
+        });
         
         // Parse library booking if exists
         let libraryBooking = null;
@@ -529,10 +774,19 @@ exports.processPayment = async (req, res) => {
 
         res.json({ 
             message: 'Payment processed successfully',
-            library_session_id: librarySessionId 
+            library_session_id: librarySessionId,
+            cups: cupReservation
         });
     } catch (error) {
         await connection.rollback();
+        if (error?.code === 'INSUFFICIENT_TAKEOUT_CUPS') {
+            return res.status(error.statusCode || 409).json({
+                error: error.message,
+                code: error.code,
+                cups_needed: error.cups_needed,
+                cups_available: error.cups_available
+            });
+        }
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
@@ -1282,9 +1536,10 @@ exports.getPendingOrders = async (req, res) => {
         // Get items and customizations for each order
         for (let order of orders) {
             const [items] = await db.query(`
-                SELECT ti.*, i.name as item_name_db, i.price as base_price
+                SELECT ti.*, i.name as item_name_db, i.price as base_price, COALESCE(c.requires_takeout_cup, 1) as requires_takeout_cup
                 FROM transaction_items ti
                 JOIN items i ON ti.item_id = i.item_id
+                JOIN categories c ON c.category_id = i.category_id
                 WHERE ti.transaction_id = ?
             `, [order.transaction_id]);
 
