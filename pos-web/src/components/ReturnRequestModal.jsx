@@ -24,6 +24,12 @@ export default function ReturnRequestModal({
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   useEffect(() => {
     const fetchTransactionDetails = async () => {
       try {
@@ -202,10 +208,11 @@ export default function ReturnRequestModal({
                     {transaction.library_booking && (
                       <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: refundLibrary ? '#fff3e0' : 'transparent' }}>
                         <input 
+                          className="modal-check-input"
                           type="checkbox" 
                           checked={refundLibrary} 
                           onChange={() => setRefundLibrary(!refundLibrary)}
-                          style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                          style={{ marginRight: '15px' }}
                         />
                         <div style={{ flex: 1 }}>
                           <span style={{ fontWeight: 'bold' }}>Study Area Booking</span>
@@ -213,7 +220,7 @@ export default function ReturnRequestModal({
                             {transaction.library_booking.table_name}, Seat {transaction.library_booking.seat_number}
                           </div>
                         </div>
-                        <span style={{ fontWeight: 'bold' }}>₱{parseFloat(transaction.library_booking.amount || 0).toFixed(2)}</span>
+                        <span style={{ fontWeight: 'bold' }}>{formatMoney(transaction.library_booking.amount || 0)}</span>
                       </label>
                     )}
 
@@ -222,10 +229,11 @@ export default function ReturnRequestModal({
                       return (
                       <label key={item.transaction_item_id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.transaction_item_id) ? '#fff3e0' : 'transparent' }}>
                         <input 
+                          className="modal-check-input"
                           type="checkbox" 
                           checked={selectedItemIds.has(item.transaction_item_id)}
                           onChange={() => toggleItem(item.transaction_item_id)}
-                          style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                          style={{ marginRight: '15px' }}
                         />
                         <div style={{ flex: 1 }}>
                           <span style={{ fontWeight: 'bold' }}>{item.quantity}x {item.item_name}</span>
@@ -235,7 +243,7 @@ export default function ReturnRequestModal({
                             </div>
                           )}
                         </div>
-                        <span style={{ fontWeight: 'bold' }}>₱{itemTotal.toFixed(2)}</span>
+                        <span style={{ fontWeight: 'bold' }}>{formatMoney(itemTotal)}</span>
                       </label>
                     )})}
                   </div>

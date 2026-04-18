@@ -21,6 +21,12 @@ export default function VoidTransactionModal({
 
   if (!isOpen) return null;
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const toggleItem = (itemId) => {
     setSelectedItemIds(prev => {
       const next = new Set(prev);
@@ -117,10 +123,11 @@ export default function VoidTransactionModal({
                 {libraryBooking && (
                   <label style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: voidLibrary ? '#ffebee' : 'transparent' }}>
                     <input 
+                      className="modal-check-input"
                       type="checkbox" 
                       checked={voidLibrary} 
                       onChange={() => setVoidLibrary(!voidLibrary)}
-                      style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                      style={{ marginRight: '15px' }}
                     />
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 'bold' }}>Study Area Booking</span>
@@ -128,17 +135,18 @@ export default function VoidTransactionModal({
                         {libraryBooking.table_name}, Seat {libraryBooking.seat_number} - {libraryBooking.duration_minutes} mins
                       </div>
                     </div>
-                    <span style={{ fontWeight: 'bold' }}>₱{libraryBooking.amount.toFixed(2)}</span>
+                    <span style={{ fontWeight: 'bold' }}>{formatMoney(libraryBooking.amount)}</span>
                   </label>
                 )}
 
                 {cartItems.map(item => (
                   <label key={item.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', backgroundColor: selectedItemIds.has(item.id) ? '#ffebee' : 'transparent' }}>
                     <input 
+                      className="modal-check-input"
                       type="checkbox" 
                       checked={selectedItemIds.has(item.id)}
                       onChange={() => toggleItem(item.id)}
-                      style={{ marginRight: '15px', transform: 'scale(1.2)' }}
+                      style={{ marginRight: '15px' }}
                     />
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 'bold' }}>{item.quantity}x {item.name}</span>
@@ -148,7 +156,7 @@ export default function VoidTransactionModal({
                         </div>
                       )}
                     </div>
-                    <span style={{ fontWeight: 'bold' }}>₱{(item.total_price * item.quantity).toFixed(2)}</span>
+                    <span style={{ fontWeight: 'bold' }}>{formatMoney(item.total_price * item.quantity)}</span>
                   </label>
                 ))}
 

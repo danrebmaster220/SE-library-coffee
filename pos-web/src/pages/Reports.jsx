@@ -219,13 +219,14 @@ export default function Reports() {
     }
   };
 
-  const handleExportExcel = async () => {
+  const handleExportCSV = async () => {
     try {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         startDate,
         endDate,
-        type: activeTab
+        type: activeTab,
+        format: 'csv'
       });
       
       if (activeTab === 'orders') {
@@ -257,7 +258,7 @@ export default function Reports() {
 
       // Get the filename from the response headers
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `report_${activeTab}_${startDate}_to_${endDate}.xlsx`;
+      let filename = `report_${activeTab}_${startDate}_to_${endDate}.csv`;
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
         if (filenameMatch) {
@@ -277,8 +278,8 @@ export default function Reports() {
       window.URL.revokeObjectURL(url);
       setShowExportDropdown(false);
     } catch (error) {
-      console.error('Export error:', error);
-      showToast('Failed to export report. Please try again.', 'error');
+      console.error('CSV export error:', error);
+      showToast('Failed to export CSV. Please try again.', 'error');
     }
   };
 
@@ -702,14 +703,14 @@ export default function Reports() {
           </button>
           {showExportDropdown && (
             <div className="export-dropdown-menu">
-              <button className="export-dropdown-item" onClick={handleExportExcel}>
+              <button className="export-dropdown-item" onClick={handleExportCSV}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14 2 14 8 20 8"></polyline>
                   <line x1="16" y1="13" x2="8" y2="13"></line>
                   <line x1="16" y1="17" x2="8" y2="17"></line>
                 </svg>
-                <span>Excel (.xlsx)</span>
+                <span>Excel (.csv)</span>
               </button>
               <button className="export-dropdown-item" onClick={handleExportPDF}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

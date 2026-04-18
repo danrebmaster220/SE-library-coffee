@@ -1842,6 +1842,49 @@
   margin: 0;
 }
 
+.modal-check-input {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #bfa89a;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.modal-check-input::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  transition: transform 0.15s ease;
+}
+
+.modal-check-input:hover {
+  border-color: #8d6e63;
+}
+
+.modal-check-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(141, 110, 99, 0.25);
+}
+
+.modal-check-input:checked {
+  background: #6b4423;
+  border-color: #6b4423;
+}
+
+.modal-check-input:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
 .option-name {
   flex: 1;
   font-size: 13px;

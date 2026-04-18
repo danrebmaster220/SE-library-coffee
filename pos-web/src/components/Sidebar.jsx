@@ -376,6 +376,12 @@ export default function Sidebar() {
     return `${hours}h ${minutes}m`;
   };
 
+  const formatMoney = (value) => {
+    const numeric = Number(value || 0);
+    const amount = Number.isNaN(numeric) ? 0 : numeric;
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const handleCashInput = (value, setter) => {
     if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
       setter(value);
@@ -636,7 +642,7 @@ export default function Sidebar() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
               <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Total Sales</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#2e7d32' }}>₱{(parseFloat(shiftSummary.total_sales) || 0).toFixed(2)}</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#2e7d32' }}>{formatMoney(shiftSummary.total_sales)}</div>
               </div>
               <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Transactions</div>
@@ -648,17 +654,17 @@ export default function Sidebar() {
               </div>
               <div style={{ background: '#f5f7fa', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Refunds</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#c62828' }}>₱{(parseFloat(shiftSummary.total_refunds) || 0).toFixed(2)}</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#c62828' }}>{formatMoney(shiftSummary.total_refunds)}</div>
               </div>
             </div>
             <div style={{ background: '#e8f5e9', borderRadius: '10px', padding: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Starting Cash</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.starting_cash) || 0).toFixed(2)}</div></div>
+              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Starting Cash</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>{formatMoney(shiftSummary.starting_cash)}</div></div>
               <div style={{ fontSize: '20px', color: '#999' }}>+</div>
-              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Sales</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.total_sales) || 0).toFixed(2)}</div></div>
+              <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Sales</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>{formatMoney(shiftSummary.total_sales)}</div></div>
               <div style={{ fontSize: '20px', color: '#999' }}>−</div>
-              <div><div style={{ fontSize: '12px', color: '#c62828' }}>Refunds</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>₱{(parseFloat(shiftSummary.total_refunds) || 0).toFixed(2)}</div></div>
+              <div><div style={{ fontSize: '12px', color: '#c62828' }}>Refunds</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>{formatMoney(shiftSummary.total_refunds)}</div></div>
               <div style={{ fontSize: '20px', color: '#999' }}>=</div>
-              <div><div style={{ fontSize: '12px', color: '#1565c0', fontWeight: '700' }}>Expected</div><div style={{ fontSize: '16px', fontWeight: '700', color: '#1565c0' }}>₱{expectedCash.toFixed(2)}</div></div>
+              <div><div style={{ fontSize: '12px', color: '#1565c0', fontWeight: '700' }}>Expected</div><div style={{ fontSize: '16px', fontWeight: '700', color: '#1565c0' }}>{formatMoney(expectedCash)}</div></div>
             </div>
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '14px' }}>Actual Cash Count (₱)</label>
@@ -667,7 +673,7 @@ export default function Sidebar() {
             </div>
             {cashDifference !== null && (
               <div style={{ padding: '10px', borderRadius: '10px', marginBottom: '12px', textAlign: 'center', background: cashDifference === 0 ? '#e8f5e9' : cashDifference > 0 ? '#fff3e0' : '#ffebee', color: cashDifference === 0 ? '#2e7d32' : cashDifference > 0 ? '#e65100' : '#c62828', fontWeight: '700', fontSize: '16px' }}>
-                {cashDifference === 0 ? '✅ Exact Match' : cashDifference > 0 ? `⬆️ Overage: ₱${cashDifference.toFixed(2)}` : `⬇️ Shortage: ₱${Math.abs(cashDifference).toFixed(2)}`}
+                {cashDifference === 0 ? '✅ Exact Match' : cashDifference > 0 ? `⬆️ Overage: ${formatMoney(cashDifference)}` : `⬇️ Shortage: ${formatMoney(Math.abs(cashDifference))}`}
               </div>
             )}
             <div style={{ marginBottom: '16px' }}>

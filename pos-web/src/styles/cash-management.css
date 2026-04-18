@@ -274,23 +274,6 @@
   color: #999;
 }
 
-/* Buttons */
-.btn-force-close {
-  padding: 6px 12px;
-  background: #fff;
-  color: #c62828;
-  border: 1px solid #e57373;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-force-close:hover {
-  background: #ffebee;
-}
-
 .btn-view-details {
   padding: 6px 12px;
   background: #f5f5f5;

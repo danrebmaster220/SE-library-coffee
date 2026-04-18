@@ -598,13 +598,377 @@ exports.getAuditLogs = async (req, res) => {
 // EXPORT TO EXCEL
 
 exports.exportReport = async (req, res) => {
-    const format = String(req.query.format || 'excel').toLowerCase();
+    const format = String(req.query.format || 'csv').toLowerCase();
 
     if (format === 'pdf') {
         return exports.exportPDF(req, res);
     }
 
-    return exports.exportExcel(req, res);
+    if (format === 'excel' || format === 'xlsx') {
+        return exports.exportExcel(req, res);
+    }
+
+    return exports.exportCSV(req, res);
+};
+
+exports.exportCSV = async (req, res) => {
+    const { type, startDate, endDate, orderType, status, action, actorUserId, staffUserId, targetType, search, cashierUserId } = req.query;
+
+    try {
+        const formatCurrency = (amount) => `₱${parseFloat(amount || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+
+        const formatDate = (dateString) => {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        };
+
+        const formatDateTime = (dateString) => {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('en-PH', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        };
+
+        const escapeCsvValue = (value) => {
+            if (value === null || value === undefined) return '';
+            const str = String(value);
+            if (/[",\n\r]/.test(str)) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
+
+        const toCsvRow = (values) => values.map(escapeCsvValue).join(',');
+        const rows = [];
+        let filename = '';
+
+        if (type === 'orders') {
+            filename = `Orders_Report_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
+
+            let whereConditions = ['1=1'];
+            const params = [];
+
+            if (startDate && endDate) {
+                whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
+                params.push(startDate, endDate);
+            }
+            if (orderType) {
+                whereConditions.push('t.order_type = ?');
+                params.push(orderType);
+            }
+            if (status) {
+                whereConditions.push('t.status = ?');
+                params.push(status);
+            }
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                params.push(cashierUserId);
+            }
+
+            const [orders] = await db.query(`
+                SELECT 
+                    t.transaction_id,
+                    t.created_at,
+                    t.beeper_number,
+                    t.order_type,
+                    t.subtotal,
+                    t.discount_amount,
+                    t.total_amount,
+                    t.status,
+                    d.name as discount_name,
+                    COUNT(ti.transaction_item_id) as item_count
+                FROM transactions t
+                LEFT JOIN discounts d ON t.discount_id = d.discount_id
+                LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
+                WHERE ${whereConditions.join(' AND ')}
+                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, d.name
+                ORDER BY t.created_at DESC
+            `, params);
+
+            const totalOrders = orders.length;
+            const completedOrders = orders.filter((o) => o.status === 'completed').length;
+            const voidedOrders = orders.filter((o) => o.status === 'voided').length;
+            const pendingOrders = orders.filter((o) => o.status !== 'completed' && o.status !== 'voided').length;
+            const totalRevenue = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+            const totalDiscounts = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.discount_amount || 0), 0);
+            const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
+
+            rows.push(['ORDERS REPORT']);
+            rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
+            rows.push([]);
+            rows.push(['SUMMARY']);
+            rows.push(['Total Orders', totalOrders]);
+            rows.push(['Completed Orders', completedOrders]);
+            rows.push(['Voided Orders', voidedOrders]);
+            rows.push(['Pending/Other', pendingOrders]);
+            rows.push(['Total Revenue', formatCurrency(totalRevenue)]);
+            rows.push(['Total Discounts', formatCurrency(totalDiscounts)]);
+            rows.push(['Average Order Value', formatCurrency(avgOrderValue)]);
+            rows.push([]);
+            rows.push(['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'Status']);
+
+            orders.forEach((order) => {
+                rows.push([
+                    `ORD-${String(order.transaction_id).padStart(6, '0')}`,
+                    formatDateTime(order.created_at),
+                    order.beeper_number || '-',
+                    order.order_type ? order.order_type.charAt(0).toUpperCase() + order.order_type.slice(1).replace('_', ' ') : '-',
+                    order.item_count || 0,
+                    formatCurrency(order.subtotal),
+                    order.discount_amount ? formatCurrency(order.discount_amount) : '-',
+                    formatCurrency(order.total_amount),
+                    order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : '-'
+                ]);
+            });
+        } else if (type === 'sales') {
+            filename = `Sales_Report_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
+
+            let whereConditions = ["t.status != 'voided'"];
+            const params = [];
+
+            if (startDate && endDate) {
+                whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
+                params.push(startDate, endDate);
+            }
+
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                params.push(cashierUserId);
+            }
+
+            const [salesDetails] = await db.query(`
+                SELECT 
+                    DATE(t.created_at) as date,
+                    COUNT(t.transaction_id) as transaction_count,
+                    SUM(t.subtotal) as gross_sales,
+                    SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
+                    SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
+                    SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
+                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
+                FROM transactions t
+                LEFT JOIN (
+                    SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                    FROM void_log
+                    WHERE action_type = 'refund'
+                    GROUP BY transaction_id
+                ) vl ON vl.transaction_id = t.transaction_id
+                WHERE ${whereConditions.join(' AND ')}
+                GROUP BY DATE(t.created_at)
+                ORDER BY DATE(t.created_at) DESC
+            `, params);
+
+            const totalTransactions = salesDetails.reduce((sum, d) => sum + parseInt(d.transaction_count, 10), 0);
+            const totalGrossSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.gross_sales || 0), 0);
+            const totalDiscounts = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
+            const totalRefunds = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
+            const totalNetSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_sales || 0), 0);
+            const avgOrderValue = totalTransactions > 0 ? totalNetSales / totalTransactions : 0;
+
+            rows.push(['SALES REPORT']);
+            rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
+            rows.push(['* Voided orders are excluded from this report']);
+            rows.push([]);
+            rows.push(['SUMMARY']);
+            rows.push(['Total Transactions', totalTransactions]);
+            rows.push(['Gross Sales', formatCurrency(totalGrossSales)]);
+            rows.push(['Total Discounts', formatCurrency(totalDiscounts)]);
+            rows.push(['Total Cash Refunds', formatCurrency(totalRefunds)]);
+            rows.push(['Net Sales', formatCurrency(totalNetSales)]);
+            rows.push(['Average Order Value', formatCurrency(avgOrderValue)]);
+            rows.push([]);
+            rows.push(['Date', 'Transactions', 'Gross Sales', 'Discounts', 'Net Sales', 'Avg Order']);
+
+            salesDetails.forEach((day) => {
+                rows.push([
+                    formatDate(day.date),
+                    day.transaction_count,
+                    formatCurrency(day.gross_sales),
+                    formatCurrency(day.total_discounts),
+                    formatCurrency(day.net_sales),
+                    formatCurrency(day.avg_order_value)
+                ]);
+            });
+        } else if (type === 'library') {
+            filename = `Library_Report_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
+
+            let whereConditions = ['1=1'];
+            const params = [];
+
+            if (startDate && endDate) {
+                whereConditions.push('DATE(ls.start_time) BETWEEN ? AND ?');
+                params.push(startDate, endDate);
+            }
+            if (status && status !== 'all') {
+                whereConditions.push('ls.status = ?');
+                params.push(status);
+            }
+            if (cashierUserId) {
+                whereConditions.push('ls.processed_by = ?');
+                params.push(cashierUserId);
+            }
+
+            const [sessions] = await db.query(`
+                SELECT 
+                    ls.session_id,
+                    ls.seat_id,
+                    s.seat_number,
+                    s.table_number,
+                    ls.customer_name,
+                    ls.start_time,
+                    ls.end_time,
+                    ls.paid_minutes,
+                    ls.total_minutes,
+                    ls.amount_paid,
+                    ls.amount_due,
+                    ls.status
+                FROM library_sessions ls
+                LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
+                WHERE ${whereConditions.join(' AND ')}
+                ORDER BY ls.start_time DESC
+            `, params);
+
+            const totalSessions = sessions.length;
+            const completedSessions = sessions.filter((s) => s.status === 'completed').length;
+            const activeSessions = sessions.filter((s) => s.status === 'active').length;
+            const totalMinutes = sessions.reduce((sum, s) => sum + parseInt(s.total_minutes || 0, 10), 0);
+            const totalHours = (totalMinutes / 60).toFixed(2);
+            const totalRevenue = sessions
+                .filter((s) => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
+
+            rows.push(['LIBRARY REPORT']);
+            rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
+            rows.push([]);
+            rows.push(['SUMMARY']);
+            rows.push(['Total Sessions', totalSessions]);
+            rows.push(['Completed Sessions', completedSessions]);
+            rows.push(['Active Sessions', activeSessions]);
+            rows.push(['Total Hours', `${totalHours} hrs`]);
+            rows.push(['Total Revenue', formatCurrency(totalRevenue)]);
+            rows.push([]);
+            rows.push(['Session #', 'Date', 'Table', 'Seat', 'Customer Name', 'Start Time', 'End Time', 'Duration', 'Amount', 'Status']);
+
+            sessions.forEach((session) => {
+                const durationMins = Number(session.total_minutes || 0);
+                const hours = Math.floor(durationMins / 60);
+                const mins = durationMins % 60;
+                const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+                rows.push([
+                    `LIB-${String(session.session_id).padStart(6, '0')}`,
+                    formatDate(session.start_time),
+                    session.table_number || '-',
+                    session.seat_number || '-',
+                    session.customer_name || '-',
+                    formatDateTime(session.start_time),
+                    session.end_time ? formatDateTime(session.end_time) : '-',
+                    durationStr,
+                    formatCurrency(session.amount_paid || session.amount_due),
+                    session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
+                ]);
+            });
+        } else if (type === 'audit') {
+            filename = `Audit_Trail_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
+
+            const { whereClause, params } = buildAuditLogsWhereClause({
+                startDate,
+                endDate,
+                action,
+                actorUserId,
+                staffUserId,
+                targetType,
+                search
+            });
+
+            const [logs] = await db.query(`
+                SELECT
+                    a.audit_id,
+                    a.action,
+                    a.actor_user_id,
+                    a.target_type,
+                    a.target_id,
+                    a.details_json,
+                    a.ip_address,
+                    a.created_at,
+                    u.full_name as actor_full_name,
+                    u.username as actor_username,
+                    tu.full_name as affected_staff_full_name,
+                    tu.username as affected_staff_username
+                FROM audit_logs a
+                LEFT JOIN users u ON a.actor_user_id = u.user_id
+                LEFT JOIN users tu
+                    ON tu.user_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.details_json, '$.target_user_id')) AS UNSIGNED)
+                WHERE ${whereClause}
+                ORDER BY a.created_at DESC
+                LIMIT 5000
+            `, params);
+
+            const totalEvents = logs.length;
+            const uniqueActors = new Set(logs.map((log) => log.actor_user_id).filter(Boolean)).size;
+            const forceClosures = logs.filter((log) => log.action === 'shift_force_closed').length;
+
+            rows.push(['AUDIT TRAIL REPORT']);
+            rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
+            rows.push([]);
+            rows.push(['SUMMARY']);
+            rows.push(['Total Events', totalEvents]);
+            rows.push(['Unique Actors', uniqueActors]);
+            rows.push(['Shift Force Closures', forceClosures]);
+            rows.push(['Action Filter', action || 'All']);
+            rows.push(['Target Filter', targetType || 'All']);
+            rows.push([]);
+            rows.push(['Date/Time', 'Action', 'Actor', 'Affected Staff', 'Target', 'Details', 'Audit ID']);
+
+            logs.forEach((log) => {
+                const actorName = log.actor_full_name || 'System';
+                const actorUsername = log.actor_username ? ` (@${log.actor_username})` : '';
+                const affectedName = log.affected_staff_full_name || '-';
+                const affectedUsername = log.affected_staff_username ? ` (@${log.affected_staff_username})` : '';
+                const targetLabel = log.target_type
+                    ? `${log.target_type}${log.target_id != null ? ` #${log.target_id}` : ''}`
+                    : '-';
+
+                rows.push([
+                    formatDateTime(log.created_at),
+                    formatAuditActionLabel(log.action),
+                    `${actorName}${actorUsername}`,
+                    affectedName === '-' ? '-' : `${affectedName}${affectedUsername}`,
+                    targetLabel,
+                    stringifyAuditDetails(log.details_json),
+                    log.audit_id
+                ]);
+            });
+        } else {
+            return res.status(400).json({ error: 'Invalid report type for CSV export' });
+        }
+
+        const csvContent = rows.map(toCsvRow).join('\r\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(`\uFEFF${csvContent}`);
+    } catch (error) {
+        console.error('CSV export error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.exportExcel = async (req, res) => {
@@ -619,7 +983,10 @@ exports.exportExcel = async (req, res) => {
 
         // Helper function to format currency
         const formatCurrency = (amount) => {
-            return parseFloat(amount || 0).toFixed(2);
+            return parseFloat(amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         };
 
         // Helper function to format date
@@ -1333,7 +1700,7 @@ exports.exportPDF = async (req, res) => {
 
         // Helper function to format currency
         const formatCurrency = (amount) => {
-            return `P${parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            return `₱${parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         };
 
         // Helper function to format date
