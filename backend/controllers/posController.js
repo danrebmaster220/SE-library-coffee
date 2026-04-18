@@ -83,8 +83,8 @@ const getTakeoutCupStock = async (queryRunner, { lock = false } = {}) => {
         `
         SELECT setting_value
         FROM system_settings
-        WHERE setting_key = ?${lockClause}
-        LIMIT 1
+        WHERE setting_key = ?
+        LIMIT 1${lockClause}
         `,
         [TAKEOUT_CUPS_SETTING_KEY]
     );
