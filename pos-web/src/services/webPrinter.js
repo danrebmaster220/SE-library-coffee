@@ -1068,7 +1068,7 @@ export async function printOrderReceipt(receiptData) {
   const kitchenHTML = buildKitchenTicketHTML(receiptData);
   if (kitchenHTML) html += kitchenHTML;
   
-  return showReceiptModal(html, 'Order Receipt', receiptData);
+  return showReceiptModal(html, 'Order Receipt', receiptData, '/print', { autoPrint: true });
 }
 
 /**

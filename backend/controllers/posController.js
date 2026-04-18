@@ -273,13 +273,14 @@ exports.getTakeoutCupsStatus = async (req, res) => {
     try {
         const requiredCups = sanitizeNonNegativeInt(req.query?.required_cups, 0);
         const stock = await getTakeoutCupStock(db);
-        const isTakeoutDisabled = requiredCups > 0 && requiredCups > stock;
+        const isTakeoutDisabled = stock <= 0 || (requiredCups > 0 && requiredCups > stock);
+        const canFulfill = requiredCups > 0 ? requiredCups <= stock : stock > 0;
 
         res.json({
             stock,
             is_takeout_disabled: isTakeoutDisabled,
             required_cups: requiredCups,
-            can_fulfill: requiredCups <= stock
+            can_fulfill: canFulfill
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
