@@ -40,6 +40,7 @@ export default function Reports() {
   // Audit report state
   const [auditData, setAuditData] = useState([]);
   const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditDetailModalLog, setAuditDetailModalLog] = useState(null);
 
   // Pagination states
   const [ordersPage, setOrdersPage] = useState(1);
@@ -84,6 +85,19 @@ export default function Reports() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!auditDetailModalLog) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setAuditDetailModalLog(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [auditDetailModalLog]);
+
+  useEffect(() => {
+    if (activeTab !== 'audit') setAuditDetailModalLog(null);
+  }, [activeTab]);
 
   const fetchReportData = async () => {
     setLoading(true);
@@ -443,12 +457,39 @@ export default function Reports() {
   };
 
   const AUDIT_DETAIL_LABELS = {
-    starting_cash: 'Starting Cash',
-    expected_cash: 'Expected Cash',
-    actual_cash: 'Actual Cash',
-    cash_difference: 'Cash Difference',
-    notes: 'Notes'
+    starting_cash: 'Starting cash',
+    expected_cash: 'Expected cash',
+    actual_cash: 'Actual cash',
+    cash_difference: 'Cash difference',
+    notes: 'Notes',
+    delay_days: 'Wait before prices change',
+    effective_at: 'Goes live on',
+    item_id: 'Menu item',
+    replaced_count: 'Existing prices updated',
+    schedule_ids: 'Related schedules',
+    scheduled_count: 'Price changes scheduled',
+    scope: 'What this applies to',
+    timezone: 'Time zone'
   };
+
+  /** Puts the most important fields first for price-update and similar logs */
+  const AUDIT_DETAIL_ROW_ORDER = [
+    'effective_at',
+    'delay_days',
+    'scope',
+    'item_id',
+    'scheduled_count',
+    'schedule_ids',
+    'replaced_count',
+    'timezone',
+    'starting_cash',
+    'expected_cash',
+    'actual_cash',
+    'cash_difference',
+    'notes'
+  ];
+
+  const HIDDEN_AUDIT_DETAIL_KEYS = new Set(['backfilled', 'target_user_id']);
 
   const formatAuditDetailKey = (key) => {
     if (!key) return '';
@@ -459,31 +500,158 @@ export default function Reports() {
       .replace(/\b\w/g, (match) => match.toUpperCase());
   };
 
-  const formatAuditDetails = (details) => {
-    if (!details) return '-';
+  const parseAuditDetailDate = (str) => {
+    if (!str || typeof str !== 'string') return null;
+    const trimmed = str.trim();
+    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+    const d = new Date(normalized);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
 
-    let parsed = details;
-    if (typeof details === 'string') {
-      try {
-        parsed = JSON.parse(details);
-      } catch {
-        return details;
+  const formatAuditDetailValueForDisplay = (key, value) => {
+    if (value === null || value === undefined) return '—';
+
+    const k = String(key || '');
+
+    if (k === 'scope' && typeof value === 'string') {
+      const s = value.toLowerCase().trim();
+      if (s === 'variant') {
+        return 'Drink size and temperature options (per cup size & hot/iced)';
+      }
+      if (s === 'item') return 'The whole menu item';
+      if (s === 'base') return 'Base price only (no size/temperature options)';
+      return value;
+    }
+
+    if (k === 'timezone' && typeof value === 'string' && value === 'Asia/Manila') {
+      return 'Philippines (Manila)';
+    }
+
+    if (k === 'item_id' && (typeof value === 'number' || /^\d+$/.test(String(value)))) {
+      return `#${value}`;
+    }
+
+    if ((k === 'effective_at' || k.endsWith('_at')) && typeof value === 'string') {
+      const d = parseAuditDetailDate(value);
+      if (d) {
+        return d.toLocaleString('en-PH', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
       }
     }
 
-    if (typeof parsed !== 'object') {
-      return String(parsed);
+    if (k === 'delay_days') {
+      const n = Number(value);
+      if (!Number.isNaN(n)) {
+        if (n === 0) return 'Same day (no extra wait)';
+        if (n === 1) return '1 day';
+        return `${n} days`;
+      }
     }
 
-    const hiddenKeys = new Set(['backfilled', 'target_user_id']);
+    if (k === 'schedule_ids' && Array.isArray(value)) {
+      if (value.length === 0) return 'None';
+      return value.map((id) => `#${id}`).join(', ');
+    }
 
-    const preview = Object.entries(parsed)
-      .filter(([key]) => !hiddenKeys.has(key))
-      .slice(0, 3)
-      .map(([key, value]) => `${formatAuditDetailKey(key)}: ${value}`)
-      .join(' | ');
+    if (Array.isArray(value)) {
+      if (value.every((x) => x === null || ['string', 'number', 'boolean'].includes(typeof x))) {
+        return value.length ? value.join(', ') : '—';
+      }
+      return JSON.stringify(value, null, 2);
+    }
 
-    return preview || '-';
+    if (typeof value === 'object') {
+      return JSON.stringify(value, null, 2);
+    }
+
+    if ((k === 'replaced_count' || k === 'scheduled_count') && (typeof value === 'number' || /^\d+$/.test(String(value)))) {
+      const n = Number(value);
+      return Number.isNaN(n) ? String(value) : n.toLocaleString('en-PH');
+    }
+
+    return String(value);
+  };
+
+  const getAuditDetailsEntries = (details) => {
+    if (details === null || details === undefined) return null;
+
+    const buildFromObject = (obj) => {
+      const rows = Object.entries(obj)
+        .filter(([rowKey]) => !HIDDEN_AUDIT_DETAIL_KEYS.has(rowKey))
+        .map(([rowKey, value]) => {
+          const text = formatAuditDetailValueForDisplay(rowKey, value);
+          const multiline = text.includes('\n') || text.length > 160;
+          return {
+            key: String(rowKey),
+            label: formatAuditDetailKey(rowKey),
+            value: text,
+            multiline
+          };
+        });
+
+      rows.sort((a, b) => {
+        const ia = AUDIT_DETAIL_ROW_ORDER.indexOf(a.key);
+        const ib = AUDIT_DETAIL_ROW_ORDER.indexOf(b.key);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.key.localeCompare(b.key);
+      });
+
+      return rows.length ? rows : null;
+    };
+
+    if (typeof details === 'string') {
+      const trimmed = details.trim();
+      if (!trimmed) return null;
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          return buildFromObject(parsed);
+        }
+        return [{
+          key: '_raw',
+          label: 'Details',
+          value: formatAuditDetailValueForDisplay('_raw', parsed),
+          multiline: false
+        }];
+      } catch {
+        return [{
+          key: '_raw',
+          label: 'Details',
+          value: trimmed,
+          multiline: trimmed.length > 120 || trimmed.includes('\n')
+        }];
+      }
+    }
+
+    if (typeof details === 'object' && !Array.isArray(details)) {
+      return buildFromObject(details);
+    }
+
+    return [{
+      key: '_raw',
+      label: 'Details',
+      value: formatAuditDetailValueForDisplay('_raw', details),
+      multiline: false
+    }];
+  };
+
+  const auditLogHasViewableDetails = (details) => {
+    const entries = getAuditDetailsEntries(details);
+    return Boolean(entries && entries.length);
+  };
+
+  const getAuditDetailsSearchText = (log) => {
+    const entries = getAuditDetailsEntries(log?.details_json);
+    if (!entries) return '';
+    return entries.map((e) => `${e.label} ${e.value}`).join(' ').toLowerCase();
   };
 
   const getAuditAffectedStaffLabel = (log) => {
@@ -550,13 +718,15 @@ export default function Reports() {
     const affectedStaffText = getAuditAffectedStaffLabel(log).toLowerCase();
     const actionText = String(log.action || '').toLowerCase();
     const ipText = String(log.ip_address || '').toLowerCase();
+    const detailsText = getAuditDetailsSearchText(log);
 
     return (
       actionText.includes(searchLower) ||
       actor.includes(searchLower) ||
       affectedStaffText.includes(searchLower) ||
       targetText.includes(searchLower) ||
-      ipText.includes(searchLower)
+      ipText.includes(searchLower) ||
+      detailsText.includes(searchLower)
     );
   });
 
@@ -1267,7 +1437,19 @@ export default function Reports() {
                               ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}`
                               : '-'}
                           </td>
-                          <td style={{ maxWidth: '320px' }}>{formatAuditDetails(log.details_json)}</td>
+                          <td className="audit-details-cell">
+                            {auditLogHasViewableDetails(log.details_json) ? (
+                              <button
+                                type="button"
+                                className="audit-details-view-btn"
+                                onClick={() => setAuditDetailModalLog(log)}
+                              >
+                                View
+                              </button>
+                            ) : (
+                              <span className="audit-details-empty">—</span>
+                            )}
+                          </td>
                         </tr>
                       );})}
                     </tbody>
@@ -1296,6 +1478,53 @@ export default function Reports() {
           </>
         )}
       </div>
+
+      {auditDetailModalLog && (
+        <div
+          className="audit-details-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="audit-details-modal-title"
+          onClick={() => setAuditDetailModalLog(null)}
+        >
+          <div className="audit-details-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="audit-details-modal-header">
+              <h3 id="audit-details-modal-title">Summary</h3>
+              <button
+                type="button"
+                className="audit-details-modal-close"
+                onClick={() => setAuditDetailModalLog(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="audit-details-modal-body">
+              {getAuditDetailsEntries(auditDetailModalLog.details_json)?.map((row) => (
+                <div key={row.key} className="audit-details-modal-row">
+                  <div className="audit-details-modal-label">{row.label}</div>
+                  <div className="audit-details-modal-value">
+                    {row.multiline ? (
+                      <pre className="audit-details-modal-pre">{row.value}</pre>
+                    ) : (
+                      row.value
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="audit-details-modal-footer">
+              <button
+                type="button"
+                className="audit-details-modal-done"
+                onClick={() => setAuditDetailModalLog(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       <Toast toast={toast} onClose={() => setToast({ show: false, message: '', type: 'info' })} />
