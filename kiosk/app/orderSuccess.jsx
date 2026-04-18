@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensio
 import { useMemo, useEffect, useState, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useResponsive } from "../hooks/useResponsive";
+import { getTaxDisplay } from "../services/api";
 
 const OrderSuccess = () => {
   const router = useRouter();
@@ -53,6 +54,19 @@ const OrderSuccess = () => {
   // Auto-redirect countdown (10 seconds)
   const [countdown, setCountdown] = useState(10);
   const countdownRef = useRef(null);
+  const [vatInclusiveNote, setVatInclusiveNote] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTaxDisplay().then((t) => {
+      if (cancelled || !t?.vat_enabled) return;
+      const r = Math.round(Number(t.vat_rate_percent) || 0);
+      setVatInclusiveNote(`Prices include VAT (${r}%)`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     countdownRef.current = setInterval(() => {
@@ -102,6 +116,9 @@ const OrderSuccess = () => {
                   #{displayNumber}
                 </Text>
                 <Text style={styles.cashierText}>Please proceed to the cashier for payment</Text>
+                {vatInclusiveNote ? (
+                  <Text style={styles.vatNote}>{vatInclusiveNote}</Text>
+                ) : null}
               </View>
 
               {/* Library Booking Info - only show if exists */}
@@ -238,6 +255,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#D4AF37",
     marginTop: 8,
+    textAlign: "center",
+  },
+  vatNote: {
+    fontSize: 12,
+    color: "#C4B5A0",
+    marginTop: 10,
     textAlign: "center",
   },
   libraryBox: {

@@ -6,6 +6,9 @@ const { verifyToken, isAdmin, requireActiveShiftForNonAdmin } = require('../midd
 // Quick cash amounts (public)
 router.get('/quick-cash', posController.getQuickCashAmounts);
 
+// Current VAT settings (for POS inclusive-price notice)
+router.get('/tax-display', verifyToken, posController.getTaxDisplay);
+
 // Takeout cups stock
 router.get('/cups/status', posController.getTakeoutCupsStatus);
 router.put('/cups/stock', verifyToken, isAdmin, posController.updateTakeoutCupsStock);

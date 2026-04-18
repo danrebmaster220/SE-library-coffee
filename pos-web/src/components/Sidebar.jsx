@@ -657,6 +657,12 @@ export default function Sidebar() {
                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#c62828' }}>{formatMoney(shiftSummary.total_refunds)}</div>
               </div>
             </div>
+            <div style={{ fontSize: '12px', color: '#555', marginBottom: '12px', padding: '10px 12px', background: '#faf8f5', borderRadius: '8px', lineHeight: 1.5 }}>
+              <strong style={{ color: '#5d4037' }}>Tax (net, after refunds)</strong>
+              <div style={{ marginTop: '6px' }}>
+                VAT: {formatMoney(shiftSummary.net_vat)} · VATable (V): {formatMoney(shiftSummary.net_vatable_base)} · Non-VAT: {formatMoney(shiftSummary.net_non_vatable)}
+              </div>
+            </div>
             <div style={{ background: '#e8f5e9', borderRadius: '10px', padding: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div><div style={{ fontSize: '12px', color: '#2e7d32' }}>Starting Cash</div><div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>{formatMoney(shiftSummary.starting_cash)}</div></div>
               <div style={{ fontSize: '20px', color: '#999' }}>+</div>

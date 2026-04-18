@@ -27,15 +27,19 @@
 }
 
 .settings-card-printer {
-  order: 5;
+  order: 6;
 }
 
 .settings-card-delay {
-  order: 4;
+  order: 5;
+}
+
+.settings-card-tax {
+  order: 3;
 }
 
 .settings-card-pending {
-  order: 3;
+  order: 4;
 }
 
 .settings-card-cups {
@@ -174,6 +178,85 @@
 
 .settings-btn-secondary:hover {
   background: var(--latte);
+}
+
+/* Tax / VAT toggle */
+.settings-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.settings-toggle-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--coffee-dark);
+  margin-bottom: 4px;
+}
+
+.settings-toggle-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.45;
+  max-width: 420px;
+}
+
+.settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ccc;
+  border-radius: 28px;
+  transition: background 0.2s ease;
+}
+
+.settings-switch-slider::before {
+  position: absolute;
+  content: '';
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.settings-switch input:checked + .settings-switch-slider {
+  background: #6b4423;
+}
+
+.settings-switch input:checked + .settings-switch-slider::before {
+  transform: translateX(20px);
+}
+
+.settings-switch input:focus-visible + .settings-switch-slider {
+  outline: 2px solid #c4a882;
+  outline-offset: 2px;
 }
 
 .pending-schedule-actions {

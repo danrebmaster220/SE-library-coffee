@@ -9,8 +9,12 @@ const DEFAULT_DELAY_OPTIONS = [3, 5, 7];
 const SETTING_KEYS = {
     DELAY_DAYS: 'price_update_delay_days',
     TIMEZONE: 'price_update_timezone',
-    DELAY_OPTIONS: 'price_update_delay_options'
+    DELAY_OPTIONS: 'price_update_delay_options',
+    VAT_RATE_PERCENT: 'vat_rate_percent',
+    VAT_ENABLED: 'vat_enabled'
 };
+
+const DEFAULT_VAT_RATE_PERCENT = 12;
 
 const PRICE_SCOPE = {
     BASE: 'base',
@@ -44,6 +48,24 @@ const normalizeDelayDays = (value, allowed = ALLOWED_DELAY_DAYS, fallback = DEFA
     if (Number.isNaN(parsed)) return fallback;
     const intValue = Math.round(parsed);
     return allowed.includes(intValue) ? intValue : fallback;
+};
+
+/** VAT rate stored as percent (e.g. 12 = 12%). Clamped 0–100, max 2 decimal places. */
+const normalizeVatRatePercent = (value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return DEFAULT_VAT_RATE_PERCENT;
+    const clamped = Math.min(100, Math.max(0, parsed));
+    return Math.round(clamped * 100) / 100;
+};
+
+/** Stored as "0" / "1" in system_settings. Default off until admin enables. */
+const normalizeVatEnabled = (value) => {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0) return false;
+    const s = String(value ?? '').trim().toLowerCase();
+    if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+    if (s === '0' || s === 'false' || s === 'no' || s === 'off' || s === '') return false;
+    return false;
 };
 
 const parseDelayOptions = (rawValue) => {
@@ -201,10 +223,20 @@ const getPriceUpdateSettings = async (queryRunner = db) => {
 
     const timezone = String(map.get(SETTING_KEYS.TIMEZONE) || DEFAULT_TIMEZONE).trim() || DEFAULT_TIMEZONE;
 
+    const [vatRows] = await queryRunner.query(
+        `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (?, ?)`,
+        [SETTING_KEYS.VAT_RATE_PERCENT, SETTING_KEYS.VAT_ENABLED]
+    );
+    const vatMap = new Map(vatRows.map((r) => [r.setting_key, r.setting_value]));
+    const vat_rate_percent = normalizeVatRatePercent(vatMap.get(SETTING_KEYS.VAT_RATE_PERCENT));
+    const vat_enabled = normalizeVatEnabled(vatMap.get(SETTING_KEYS.VAT_ENABLED));
+
     return {
         delay_days: delayDays,
         timezone,
-        delay_options: delayOptions
+        delay_options: delayOptions,
+        vat_rate_percent,
+        vat_enabled
     };
 };
 
@@ -252,16 +284,72 @@ const updatePriceUpdateDelayDays = async ({
         targetId: null,
         details: {
             setting_key: SETTING_KEYS.DELAY_DAYS,
-            setting_value: String(effectiveDelay)
+            delay_days: effectiveDelay
         },
         ipAddress
     });
 
-    return {
-        delay_days: effectiveDelay,
-        timezone: DEFAULT_TIMEZONE,
-        delay_options: [...DEFAULT_DELAY_OPTIONS]
-    };
+    return getPriceUpdateSettings(queryRunner);
+};
+
+const updateTaxSettings = async ({
+    vatRatePercent = undefined,
+    vatEnabled = undefined,
+    actorUserId = null,
+    ipAddress = null,
+    queryRunner = db
+}) => {
+    await ensureSystemSettingsTable(queryRunner);
+
+    const updateRate = vatRatePercent !== undefined && vatRatePercent !== null && String(vatRatePercent).trim() !== '';
+    const updateEnabled = vatEnabled !== undefined && vatEnabled !== null;
+
+    if (!updateRate && !updateEnabled) {
+        throw new Error('Provide vat_rate_percent and/or vat_enabled');
+    }
+
+    let nextRate = null;
+    let nextEnabled = null;
+
+    if (updateRate) {
+        nextRate = normalizeVatRatePercent(vatRatePercent);
+        await queryRunner.query(
+            `
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+            `,
+            [SETTING_KEYS.VAT_RATE_PERCENT, String(nextRate)]
+        );
+    }
+
+    if (updateEnabled) {
+        nextEnabled = normalizeVatEnabled(vatEnabled);
+        await queryRunner.query(
+            `
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+            `,
+            [SETTING_KEYS.VAT_ENABLED, nextEnabled ? '1' : '0']
+        );
+    }
+
+    const snapshot = await getPriceUpdateSettings(queryRunner);
+
+    await safeLogAuditEvent({
+        action: 'tax_settings_updated',
+        actorUserId,
+        targetType: 'system_settings',
+        targetId: null,
+        details: {
+            ...(updateRate ? { vat_rate_percent: snapshot.vat_rate_percent } : {}),
+            ...(updateEnabled ? { vat_enabled: snapshot.vat_enabled } : {})
+        },
+        ipAddress
+    });
+
+    return snapshot;
 };
 
 const scheduleSinglePriceChange = async ({
@@ -977,10 +1065,14 @@ const getPriceUpdateNotices = async ({
 module.exports = {
     DEFAULT_DELAY_DAYS,
     DEFAULT_TIMEZONE,
+    DEFAULT_VAT_RATE_PERCENT,
     ALLOWED_DELAY_DAYS,
     PRICE_SCOPE,
+    normalizeVatRatePercent,
+    normalizeVatEnabled,
     getPriceUpdateSettings,
     updatePriceUpdateDelayDays,
+    updateTaxSettings,
     scheduleBasePriceUpdate,
     scheduleVariantPriceUpdates,
     getPendingPriceSchedules,

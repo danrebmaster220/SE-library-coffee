@@ -2010,8 +2010,9 @@
     font-size: 30px;
   }
 
+  /* Six stat cards in one row on wide layouts */
   .stats-row {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -2028,6 +2029,30 @@
 @media (min-width: 1440px) {
   .dashboard-simple {
     padding: 45px 60px;
+  }
+}
+
+/* Fullscreen (F11 / browser fullscreen): stack all six stat cards in six rows */
+@media (display-mode: fullscreen) {
+  .dashboard-simple .stats-row {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    max-width: min(560px, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    gap: 14px;
+  }
+}
+
+/* Safari / older: fullscreen alternative */
+@media (min-width: 1280px) {
+  .dashboard-simple:fullscreen .stats-row,
+  .dashboard-simple:-webkit-full-screen .stats-row {
+    grid-template-columns: 1fr;
+    max-width: min(560px, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    gap: 14px;
   }
 }
 
@@ -2220,6 +2245,15 @@
   color: var(--coffee-dark);
   min-width: 60px;
   text-align: right;
+}
+
+.legend-vat {
+  font-size: 11px;
+  font-weight: 500;
+  color: #558b2f;
+  min-width: 76px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .legend-percent {

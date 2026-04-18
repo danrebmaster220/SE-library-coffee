@@ -2,6 +2,8 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { resolveDisplayName } = require('../utils/userName');
 const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
+const { getPriceUpdateSettings } = require('../services/priceScheduleService');
+const { computeTransactionTaxSnapshot } = require('../services/taxService');
 const { printLibraryCheckinReceipt, printLibraryExtensionReceipt, printLibraryCheckoutReceipt } = require('../services/printerService');
 
 // Pricing configuration
@@ -11,6 +13,24 @@ const LIBRARY_PRICING = {
     EXTEND_RATE: 50,     // ₱50 per 30 minutes extension
     EXTEND_MINUTES: 30   // Extension block size
 };
+
+/** VAT-inclusive breakdown for library payments (same rules as POS transactions). */
+async function taxReceiptFieldsForAmount(amount) {
+    const settings = await getPriceUpdateSettings(db);
+    const snap = computeTransactionTaxSnapshot({
+        totalIncl: amount,
+        vatEnabled: Boolean(settings.vat_enabled),
+        vatRatePercent: Number(settings.vat_rate_percent)
+    });
+    return {
+        vat_amount: snap.vat_amount,
+        vatable_sales: snap.vatable_sales,
+        non_vatable_sales: snap.non_vatable_sales,
+        net_vatable_sales: snap.net_vatable_sales,
+        vat_rate_snapshot: snap.vat_rate_snapshot,
+        vat_enabled_snapshot: snap.vat_enabled_snapshot
+    };
+}
 
 
 // GET AVAILABLE SEATS FOR KIOSK (Public - no auth required)
@@ -183,14 +203,17 @@ exports.checkin = async (req, res) => {
 
         const actualCashTendered = cash_tendered || amount_paid;
         const changeDue = actualCashTendered - amount_paid;
+
+        const taxFields = await taxReceiptFieldsForAmount(amount_paid);
         
         const userId = req.user?.user_id || req.user?.id || null;
 
         // Create session with paid time
         const [result] = await db.query(`
             INSERT INTO library_sessions 
-            (seat_id, customer_name, paid_minutes, amount_paid, cash_tendered, change_due, status, start_time, processed_by) 
-            VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), ?)
+            (seat_id, customer_name, paid_minutes, amount_paid, cash_tendered, change_due, status, start_time, processed_by,
+             vat_enabled_snapshot, vat_rate_snapshot, vat_amount, vatable_sales, non_vatable_sales) 
+            VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), ?, ?, ?, ?, ?, ?)
         `, [
             seat_id, 
             customer_name, 
@@ -198,7 +221,12 @@ exports.checkin = async (req, res) => {
             amount_paid,
             actualCashTendered,
             changeDue,
-            userId
+            userId,
+            taxFields.vat_enabled_snapshot,
+            taxFields.vat_rate_snapshot,
+            taxFields.vat_amount,
+            taxFields.vatable_sales,
+            taxFields.non_vatable_sales
         ]);
 
         // Update seat status
@@ -219,13 +247,17 @@ exports.checkin = async (req, res) => {
         // Print check-in receipt
         try {
             await printLibraryCheckinReceipt({
+                session_id: result.insertId,
                 table_number: seat[0].table_number,
                 seat_number: seat[0].seat_number,
                 customer_name: customer_name,
+                paid_minutes: duration_minutes,
+                duration_minutes: duration_minutes,
                 amount_paid: amount_paid,
                 cash_tendered: actualCashTendered,
                 change_due: changeDue,
-                cashier_name: cashierName
+                cashier_name: cashierName,
+                ...taxFields
             });
         } catch (printError) {
             console.log('Check-in receipt print failed:', printError.message);
@@ -247,7 +279,8 @@ exports.checkin = async (req, res) => {
                 amount_paid: amount_paid,
                 cash_tendered: actualCashTendered,
                 change_due: changeDue,
-                cashier_name: cashierName
+                cashier_name: cashierName,
+                ...taxFields
             }
         });
 
@@ -300,11 +333,27 @@ exports.extend = async (req, res) => {
         const newTotalPaid = parseFloat(session[0].amount_paid) + actualAmountPaid;
         const newRemainingMinutes = parseInt(session[0].remaining_minutes) + minutes;
 
+        const taxFields = await taxReceiptFieldsForAmount(actualAmountPaid);
+
         await db.query(`
             UPDATE library_sessions 
-            SET paid_minutes = ?, amount_paid = ?
+            SET paid_minutes = ?, amount_paid = ?,
+                vat_amount = COALESCE(vat_amount, 0) + ?,
+                vatable_sales = COALESCE(vatable_sales, 0) + ?,
+                non_vatable_sales = COALESCE(non_vatable_sales, 0) + ?,
+                vat_rate_snapshot = ?,
+                vat_enabled_snapshot = ?
             WHERE session_id = ?
-        `, [newPaidMinutes, newTotalPaid, session_id]);
+        `, [
+            newPaidMinutes,
+            newTotalPaid,
+            taxFields.vat_amount,
+            taxFields.vatable_sales,
+            taxFields.non_vatable_sales,
+            taxFields.vat_rate_snapshot,
+            taxFields.vat_enabled_snapshot,
+            session_id
+        ]);
 
         // Get cashier name from user token
         let cashierName = null;
@@ -322,6 +371,7 @@ exports.extend = async (req, res) => {
         try {
             const actualCashTendered = cash_tendered || actualAmountPaid;
             await printLibraryExtensionReceipt({
+                session_id,
                 table_number: session[0].table_number,
                 seat_number: session[0].seat_number,
                 customer_name: session[0].customer_name,
@@ -331,7 +381,8 @@ exports.extend = async (req, res) => {
                 remaining_minutes: newRemainingMinutes,
                 cash_tendered: actualCashTendered,
                 change_due: actualCashTendered - extensionFee,
-                cashier_name: cashierName
+                cashier_name: cashierName,
+                ...taxFields
             });
         } catch (printError) {
             console.log('Extension receipt print failed:', printError.message);
@@ -354,7 +405,8 @@ exports.extend = async (req, res) => {
                 remaining_minutes: newRemainingMinutes,
                 cash_tendered: cash_tendered || extensionFee,
                 change_due: (cash_tendered || extensionFee) - extensionFee,
-                cashier_name: cashierName
+                cashier_name: cashierName,
+                ...taxFields
             }
         });
 
@@ -414,6 +466,9 @@ exports.checkout = async (req, res) => {
         // Update seat status back to available
         await db.query('UPDATE library_seats SET status = "available" WHERE seat_id = ?', [session[0].seat_id]);
 
+        const totalPaid = parseFloat(session[0].amount_paid) || 0;
+        const taxFields = await taxReceiptFieldsForAmount(totalPaid);
+
         const checkoutReceiptData = {
             session_id: session[0].session_id,
             table_number: session[0].table_number,
@@ -424,7 +479,8 @@ exports.checkout = async (req, res) => {
             total_minutes: totalMinutes,
             paid_minutes: session[0].paid_minutes,
             amount_paid: session[0].amount_paid,
-            cashier_name: cashierName
+            cashier_name: cashierName,
+            ...taxFields
         };
 
         // Best-effort print: do not fail checkout if printer is unavailable

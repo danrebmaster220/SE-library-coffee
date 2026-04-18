@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const { logAuditEvent } = require('../services/auditLogService');
+const { getPriceUpdateSettings } = require('../services/priceScheduleService');
+const { computeTransactionTaxSnapshot } = require('../services/taxService');
 
 const SHIFT_SOCKET_ROOM = 'authenticated-users';
 const MAX_SHIFT_NOTES_LENGTH = 500;
@@ -198,6 +200,9 @@ exports.endShift = async (req, res) => {
                 total_transactions = ?,
                 total_voids = ?,
                 total_refunds = ?,
+                net_vat_amount = ?,
+                net_vatable_base = ?,
+                net_non_vatable = ?,
                 status = 'closed',
                 notes = ?,
                 closed_by = ?
@@ -211,6 +216,9 @@ exports.endShift = async (req, res) => {
             summary.total_transactions,
             summary.total_voids,
             summary.total_refunds,
+            summary.net_vat,
+            summary.net_vatable_base,
+            summary.net_non_vatable,
             normalizedNotes,
             userId,
             shift.shift_id
@@ -381,6 +389,9 @@ exports.forceCloseShift = async (req, res) => {
                 total_transactions = ?,
                 total_voids = ?,
                 total_refunds = ?,
+                net_vat_amount = ?,
+                net_vatable_base = ?,
+                net_non_vatable = ?,
                 status = 'closed',
                 notes = ?,
                 closed_by = ?
@@ -392,6 +403,9 @@ exports.forceCloseShift = async (req, res) => {
             summary.total_transactions,
             summary.total_voids,
             summary.total_refunds,
+            summary.net_vat,
+            summary.net_vatable_base,
+            summary.net_non_vatable,
             normalizedNotes,
             adminId,
             id
@@ -521,15 +535,83 @@ async function getShiftSummary(shift, queryExecutor = db) {
             totalRefunds = parseFloat(fallbackRefundRows?.[0]?.total_refunds) || 0;
         }
 
+        const vatParams = shift.end_time
+            ? [shift.user_id, shift.start_time, shift.end_time]
+            : [shift.user_id, shift.start_time];
+
+        const [vatRows] = await queryExecutor.query(
+            `
+            SELECT 
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) AS net_vat,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) AS net_vatable_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) AS net_non_vatable
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) AS refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE t.processed_by = ?
+            AND t.status IN ('completed', 'preparing', 'ready', 'refunded')
+            AND t.created_at >= ?
+            ${shift.end_time ? 'AND t.created_at <= ?' : ''}
+            `,
+            vatParams
+        );
+
+        const txnNetVat = parseFloat(vatRows?.[0]?.net_vat) || 0;
+        const txnNetVatable = parseFloat(vatRows?.[0]?.net_vatable_base) || 0;
+        const txnNetNonVat = parseFloat(vatRows?.[0]?.net_non_vatable) || 0;
+
+        const libraryIncl = parseFloat(librarySalesResult[0].library_sales) || 0;
+        const settings = await getPriceUpdateSettings(queryExecutor);
+        const libSnap = computeTransactionTaxSnapshot({
+            totalIncl: libraryIncl,
+            vatEnabled: Boolean(settings.vat_enabled),
+            vatRatePercent: Number(settings.vat_rate_percent)
+        });
+
+        const net_vat = txnNetVat + (parseFloat(libSnap.vat_amount) || 0);
+        const net_vatable_base = txnNetVatable + (parseFloat(libSnap.net_vatable_sales) || 0);
+        const net_non_vatable = txnNetNonVat + (parseFloat(libSnap.non_vatable_sales) || 0);
+
         return {
             running_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
             total_sales: (parseFloat(salesResult[0].total_sales) || 0) + (parseFloat(librarySalesResult[0].library_sales) || 0),
             total_transactions: parseInt(salesResult[0].total_transactions) || 0,
             total_voids: parseInt(voidResult[0].total_voids) || 0,
-            total_refunds: totalRefunds
+            total_refunds: totalRefunds,
+            net_vat,
+            net_vatable_base,
+            net_non_vatable
         };
     } catch (error) {
         console.error('getShiftSummary error:', error.message);
-        return { running_sales: 0, total_sales: 0, total_transactions: 0, total_voids: 0, total_refunds: 0 };
+        return {
+            running_sales: 0,
+            total_sales: 0,
+            total_transactions: 0,
+            total_voids: 0,
+            total_refunds: 0,
+            net_vat: 0,
+            net_vatable_base: 0,
+            net_non_vatable: 0
+        };
     }
 }

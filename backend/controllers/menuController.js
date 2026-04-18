@@ -3,6 +3,7 @@ const {
     ALLOWED_DELAY_DAYS,
     getPriceUpdateSettings,
     updatePriceUpdateDelayDays,
+    updateTaxSettings,
     scheduleBasePriceUpdate,
     getPendingPriceSchedules,
     cancelPendingPriceSchedule,
@@ -209,6 +210,20 @@ exports.getPriceUpdateSettings = async (_req, res) => {
     }
 };
 
+/** Public VAT display for kiosk footers (no auth). Cached briefly at CDN/browser. */
+exports.getTaxDisplayPublic = async (_req, res) => {
+    try {
+        const settings = await getPriceUpdateSettings(db);
+        res.set('Cache-Control', 'public, max-age=60');
+        res.json({
+            vat_enabled: Boolean(settings.vat_enabled),
+            vat_rate_percent: Number(settings.vat_rate_percent) || 0
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Update effective-date pricing delay (admin)
 exports.updatePriceUpdateSettings = async (req, res) => {
     try {
@@ -228,6 +243,40 @@ exports.updatePriceUpdateSettings = async (req, res) => {
 
         res.json({
             message: 'Price update delay settings saved successfully',
+            settings
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** VAT toggle + rate (0–100). Send vat_enabled and/or vat_rate_percent. */
+exports.updateTaxSettings = async (req, res) => {
+    try {
+        const body = req.body || {};
+        const rawRate = body.vat_rate_percent;
+        const hasRate =
+            rawRate !== undefined &&
+            rawRate !== null &&
+            String(rawRate).trim() !== '';
+        const hasEnabled = body.vat_enabled !== undefined && body.vat_enabled !== null;
+
+        if (!hasRate && !hasEnabled) {
+            return res.status(400).json({
+                error: 'Provide vat_rate_percent and/or vat_enabled'
+            });
+        }
+
+        const settings = await updateTaxSettings({
+            vatRatePercent: hasRate ? rawRate : undefined,
+            vatEnabled: hasEnabled ? body.vat_enabled : undefined,
+            actorUserId: getActorUserIdFromRequest(req),
+            ipAddress: req.ip,
+            queryRunner: db
+        });
+
+        res.json({
+            message: 'Tax settings saved successfully',
             settings
         });
     } catch (error) {

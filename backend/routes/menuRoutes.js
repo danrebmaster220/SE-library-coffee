@@ -7,8 +7,10 @@ const { verifyToken, isAdmin, isAdminOrCashier } = require('../middleware/auth')
 // CATEGORIES
 
 router.get('/categories', menuController.getCategories);
+router.get('/tax-display', menuController.getTaxDisplayPublic);
 router.get('/price-update-settings', verifyToken, isAdmin, menuController.getPriceUpdateSettings);
 router.put('/price-update-settings', verifyToken, isAdmin, menuController.updatePriceUpdateSettings);
+router.put('/tax-settings', verifyToken, isAdmin, menuController.updateTaxSettings);
 router.get('/price-schedules/pending', verifyToken, isAdmin, menuController.getPendingPriceSchedules);
 router.put('/price-schedules/:id/cancel', verifyToken, isAdmin, menuController.cancelPendingPriceSchedule);
 router.put('/price-schedules/:id/replace', verifyToken, isAdmin, menuController.replacePendingPriceSchedule);

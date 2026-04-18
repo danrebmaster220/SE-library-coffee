@@ -19,7 +19,25 @@ exports.getDashboardStats = async (req, res) => {
                 CASE
                     WHEN COUNT(*) > 0 THEN (COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0)) / COUNT(*)
                     ELSE 0
-                END as avg_order_value
+                END as avg_order_value,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vatable_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_non_vatable
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -111,6 +129,11 @@ exports.getDashboardStats = async (req, res) => {
                 stock: takeoutCupStock,
                 used_today: takeoutCupsUsedToday,
                 is_takeout_disabled: takeoutCupStock <= 0
+            },
+            taxToday: {
+                net_vat: parseFloat(salesData[0]?.net_vat || 0),
+                net_vatable_base: parseFloat(salesData[0]?.net_vatable_base || 0),
+                net_non_vatable: parseFloat(salesData[0]?.net_non_vatable || 0)
             }
         });
     } catch (error) {
@@ -150,7 +173,13 @@ exports.getSalesChart = async (req, res) => {
         const [dailyWeekData] = await db.query(`
             SELECT 
                 DAYOFWEEK(t.created_at) as day_num,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -171,7 +200,8 @@ exports.getSalesChart = async (req, res) => {
             const found = dailyWeekData.find(d => d.day_num === dayNums[idx]);
             return {
                 day: day,
-                sales: found ? parseFloat(found.sales) : 0
+                sales: found ? parseFloat(found.sales) : 0,
+                net_vat: found ? parseFloat(found.net_vat) : 0
             };
         });
 
@@ -179,7 +209,13 @@ exports.getSalesChart = async (req, res) => {
         const [weekOfMonthData] = await db.query(`
             SELECT 
                 CEIL(DAY(t.created_at) / 7) as week_num,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -203,7 +239,8 @@ exports.getSalesChart = async (req, res) => {
             const found = weekOfMonthData.find(d => Number(d.week_num) === w);
             weeklyData.push({
                 week: `Week ${w}`,
-                sales: found ? parseFloat(found.sales) : 0
+                sales: found ? parseFloat(found.sales) : 0,
+                net_vat: found ? parseFloat(found.net_vat) : 0
             });
         }
 
@@ -211,7 +248,13 @@ exports.getSalesChart = async (req, res) => {
         const [monthOfYearData] = await db.query(`
             SELECT 
                 MONTH(t.created_at) as month_num,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -230,7 +273,8 @@ exports.getSalesChart = async (req, res) => {
             const found = monthOfYearData.find(d => d.month_num === idx + 1);
             return {
                 month,
-                sales: found ? parseFloat(found.sales) : 0
+                sales: found ? parseFloat(found.sales) : 0,
+                net_vat: found ? parseFloat(found.net_vat) : 0
             };
         });
 
@@ -238,7 +282,13 @@ exports.getSalesChart = async (req, res) => {
         const [multiYearRows] = await db.query(`
             SELECT 
                 YEAR(t.created_at) as year_num,
-                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as sales,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -260,7 +310,8 @@ exports.getSalesChart = async (req, res) => {
             const found = multiYearRows.find((d) => Number(d.year_num) === y);
             yearlyData.push({
                 year: String(y),
-                sales: found ? parseFloat(found.sales) : 0
+                sales: found ? parseFloat(found.sales) : 0,
+                net_vat: found ? parseFloat(found.net_vat) : 0
             });
         }
 
@@ -312,13 +363,31 @@ exports.getCategorySales = async (req, res) => {
                         END
                     ),
                     0
-                ) as total_sales
+                ) as total_sales,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN t.transaction_id IS NULL THEN 0
+                            WHEN t.status = 'refunded' AND COALESCE(vl.refund_amount, 0) > 0 THEN 0
+                            WHEN t.total_amount > 0 AND COALESCE(tls.line_sum, 0) > 0 THEN
+                                (t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount)))
+                                * (ti.total_price / tls.line_sum)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) as net_vat
             FROM categories c
             LEFT JOIN items i ON c.category_id = i.category_id
             LEFT JOIN transaction_items ti ON i.item_id = ti.item_id
             LEFT JOIN transactions t ON ti.transaction_id = t.transaction_id 
                 AND (${dateClause})
                 AND t.status NOT IN ('voided', 'pending')
+            LEFT JOIN (
+                SELECT transaction_id, SUM(total_price) as line_sum
+                FROM transaction_items
+                GROUP BY transaction_id
+            ) tls ON tls.transaction_id = t.transaction_id
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
                 FROM void_log
@@ -334,7 +403,8 @@ exports.getCategorySales = async (req, res) => {
             category_id: row.category_id,
             category_name: row.category_name,
             category: row.category_name,
-            total_sales: parseFloat(row.total_sales || 0)
+            total_sales: parseFloat(row.total_sales || 0),
+            net_vat: parseFloat(row.net_vat || 0)
         }));
 
         res.json(result);

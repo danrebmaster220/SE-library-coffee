@@ -12,6 +12,22 @@ function toFirstName(name) {
 }
 
 /** Same display logic as auth/UI: prefer first/middle/last, else legacy full_name. */
+function taxPayloadFromTransactionRow(t) {
+    if (!t) return {};
+    const vatAmt = parseFloat(t.vat_amount ?? 0) || 0;
+    const vatGross = parseFloat(t.vatable_sales ?? 0) || 0;
+    const nonVat = parseFloat(t.non_vatable_sales ?? 0) || 0;
+    const netVatable = Math.round((vatGross - vatAmt) * 100) / 100;
+    return {
+        vat_enabled: Number(t.vat_enabled_snapshot) === 1,
+        vat_rate_snapshot: t.vat_rate_snapshot != null ? parseFloat(t.vat_rate_snapshot) : null,
+        vat_amount: vatAmt,
+        vatable_sales: vatGross,
+        non_vatable_sales: nonVat,
+        net_vatable_sales: netVatable
+    };
+}
+
 function cashierNameFromUserJoin(row) {
     if (!row) return null;
     if (row.cashier_first_name) {
@@ -103,6 +119,7 @@ router.post('/receipt/:transactionId', verifyToken, async (req, res) => {
             change_due: transaction.change_due,
             cashier_name: cashierName,
             library_booking: transaction.library_booking,
+            ...taxPayloadFromTransactionRow(transaction),
             items: items.map(item => ({
                 name: item.item_name,
                 quantity: item.quantity,
@@ -189,6 +206,7 @@ router.get('/receipt-data/:transactionId', verifyToken, async (req, res) => {
             cashier_name: cashierName,
             created_at: transaction.created_at,
             library_booking: libraryBooking,
+            ...taxPayloadFromTransactionRow(transaction),
             items: items.map(item => ({
                 name: item.item_name,
                 quantity: item.quantity,
@@ -265,6 +283,7 @@ router.post('/reprint/:transactionId', verifyToken, async (req, res) => {
             change_due: transaction.change_due,
             cashier_name: cashierName,
             library_booking: transaction.library_booking,
+            ...taxPayloadFromTransactionRow(transaction),
             items: items.map(item => ({
                 name: item.item_name,
                 quantity: item.quantity,

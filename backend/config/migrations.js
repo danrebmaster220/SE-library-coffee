@@ -77,6 +77,15 @@ async function runMigrations() {
         // Migration 22: Bootstrap default admin account on empty users table
         await ensureDefaultAdminAccount();
 
+        // Migration 23: VAT snapshot columns on transactions
+        await ensureTransactionVatColumns();
+
+        // Migration 24: Net VAT snapshot columns on closed shifts (Z-style)
+        await ensureShiftVatColumns();
+
+        // Migration 25: VAT snapshot columns on library_sessions (cumulative per session)
+        await ensureLibrarySessionTaxColumns();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -1069,7 +1078,9 @@ async function ensurePriceScheduleSettings() {
             VALUES
                 ('price_update_delay_days', '3'),
                 ('price_update_timezone', 'Asia/Manila'),
-                ('price_update_delay_options', '3,5,7')
+                ('price_update_delay_options', '3,5,7'),
+                ('vat_rate_percent', '12'),
+                ('vat_enabled', '0')
             ON DUPLICATE KEY UPDATE setting_value = setting_value
         `);
 
@@ -1301,6 +1312,85 @@ async function ensureDefaultAdminAccount() {
         }
 
         console.error('   ⚠️ ensureDefaultAdminAccount:', error.message);
+    }
+}
+
+async function ensureTransactionVatColumns() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'transactions'
+        `);
+        const have = new Set(cols.map((r) => r.COLUMN_NAME));
+
+        const add = async (name, ddl) => {
+            if (!have.has(name)) {
+                await db.query(`ALTER TABLE transactions ADD COLUMN ${ddl}`);
+                console.log(`   ✅ Added transactions.${name}`);
+            }
+        };
+
+        await add('vat_enabled_snapshot', 'vat_enabled_snapshot TINYINT(1) NOT NULL DEFAULT 0');
+        await add('vat_rate_snapshot', 'vat_rate_snapshot DECIMAL(5,2) NULL DEFAULT NULL');
+        await add('vat_amount', 'vat_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('vatable_sales', 'vatable_sales DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('non_vatable_sales', 'non_vatable_sales DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+    } catch (error) {
+        console.error('   ⚠️ ensureTransactionVatColumns:', error.message);
+    }
+}
+
+async function ensureShiftVatColumns() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'shifts'
+        `);
+        const have = new Set(cols.map((r) => r.COLUMN_NAME));
+
+        const add = async (name, ddl) => {
+            if (!have.has(name)) {
+                await db.query(`ALTER TABLE shifts ADD COLUMN ${ddl}`);
+                console.log(`   ✅ Added shifts.${name}`);
+            }
+        };
+
+        await add('net_vat_amount', 'net_vat_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('net_vatable_base', 'net_vatable_base DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('net_non_vatable', 'net_non_vatable DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+    } catch (error) {
+        console.error('   ⚠️ ensureShiftVatColumns:', error.message);
+    }
+}
+
+async function ensureLibrarySessionTaxColumns() {
+    try {
+        const [cols] = await db.query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'library_sessions'
+        `);
+        const have = new Set(cols.map((r) => r.COLUMN_NAME));
+
+        const add = async (name, ddl) => {
+            if (!have.has(name)) {
+                await db.query(`ALTER TABLE library_sessions ADD COLUMN ${ddl}`);
+                console.log(`   ✅ Added library_sessions.${name}`);
+            }
+        };
+
+        await add('vat_enabled_snapshot', 'vat_enabled_snapshot TINYINT(1) NOT NULL DEFAULT 0');
+        await add('vat_rate_snapshot', 'vat_rate_snapshot DECIMAL(5,2) NULL DEFAULT NULL');
+        await add('vat_amount', 'vat_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('vatable_sales', 'vatable_sales DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+        await add('non_vatable_sales', 'non_vatable_sales DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+    } catch (error) {
+        console.error('   ⚠️ ensureLibrarySessionTaxColumns:', error.message);
     }
 }
 

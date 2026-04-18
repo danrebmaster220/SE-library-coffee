@@ -17,6 +17,7 @@ const MenuContent = ({
   selectedCategory,
   isPhone: isPhoneProp,
   branchFilters = null,
+  taxDisplay = null,
 }) => {
   const { isPhone: isPhoneHook } = useResponsive();
 
@@ -176,7 +177,7 @@ const MenuContent = ({
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={[styles.rowSpacing, isPhone && styles.rowSpacingPhone]}
         renderItem={({ item }) => (
-          <MenuItemCard item={item} onAddToOrder={onAddToOrder} isPhone={isPhone} />
+          <MenuItemCard item={item} onAddToOrder={onAddToOrder} isPhone={isPhone} taxDisplay={taxDisplay} />
         )}
         contentContainerStyle={[styles.listPadding, isPhone && styles.listPaddingPhone]}
       />

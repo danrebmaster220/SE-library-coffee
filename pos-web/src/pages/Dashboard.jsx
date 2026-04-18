@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  ComposedChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
 import api from '../api';
 import '../styles/dashboard.css';
 
@@ -43,7 +52,8 @@ export default function Dashboard() {
     preparingOrders: 0,
     readyOrders: 0,
     customers: 0,
-    avgOrderValue: 0
+    avgOrderValue: 0,
+    taxToday: { net_vat: 0, net_vatable_base: 0, net_non_vatable: 0 }
   });
 
   const [libraryStatus, setLibraryStatus] = useState({
@@ -73,6 +83,7 @@ export default function Dashboard() {
       return {
         name,
         sales: parseFloat(cat.total_sales) || 0,
+        net_vat: parseFloat(cat.net_vat) || 0,
         color: getCategoryColor(name, index)
       };
     });
@@ -94,7 +105,12 @@ export default function Dashboard() {
           preparingOrders: statsRes.data.preparingOrders || 0,
           readyOrders: statsRes.data.readyOrders || 0,
           customers: statsRes.data.uniqueCustomers || 0,
-          avgOrderValue: statsRes.data.avgOrderValue || 0
+          avgOrderValue: statsRes.data.avgOrderValue || 0,
+          taxToday: statsRes.data.taxToday || {
+            net_vat: 0,
+            net_vatable_base: 0,
+            net_non_vatable: 0
+          }
         });
 
         setLibraryStatus({
@@ -266,6 +282,18 @@ export default function Dashboard() {
             <span className="stat-sub">{takeoutCups.isDisabled ? 'Take Out disabled' : `${takeoutCups.usedToday} used today`}</span>
           </div>
         </div>
+
+        <div className="stat-card">
+          <div className="stat-icon sales" style={{ fontSize: '12px' }}>VAT</div>
+          <div className="stat-info">
+            <span className="stat-label">Tax (net today)</span>
+            <span className="stat-value">{formatMoney(stats.taxToday?.net_vat ?? 0)}</span>
+            <span className="stat-sub">
+              V net {formatMoney(stats.taxToday?.net_vatable_base ?? 0)} · Non-VAT{' '}
+              {formatMoney(stats.taxToday?.net_non_vatable ?? 0)}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="charts-row">
@@ -307,11 +335,15 @@ export default function Dashboard() {
           {/* Line Chart with Recharts */}
           <div className="line-chart-container" style={{ width: '100%', height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={currentChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+              <ComposedChart data={currentChartData} margin={{ top: 10, right: 16, left: 0, bottom: 5 }}>
                 <defs>
                   <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8B5E3C" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#8B5E3C" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="vatGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2E7D32" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#2E7D32" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0ece8" vertical={false} />
@@ -325,6 +357,7 @@ export default function Dashboard() {
                   tickFormatter={formatXAxisTick}
                 />
                 <YAxis
+                  yAxisId="left"
                   tick={{ fontSize: 11, fill: '#999' }}
                   axisLine={false}
                   tickLine={false}
@@ -337,8 +370,24 @@ export default function Dashboard() {
                     return `₱${value}`;
                   }}
                 />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  width={52}
+                  tick={{ fontSize: 10, fill: '#558b2f' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value) => {
+                    if (value === 0) return '₱0';
+                    if (value >= 1000) {
+                      const k = value / 1000;
+                      return k % 1 === 0 ? `₱${k}K` : `₱${k.toFixed(1)}K`;
+                    }
+                    return `₱${value}`;
+                  }}
+                />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(value), 'Sales']}
+                  formatter={(value, name) => [formatCurrency(value), name]}
                   contentStyle={{
                     backgroundColor: '#fff',
                     border: '1px solid #e0d5c9',
@@ -349,9 +398,12 @@ export default function Dashboard() {
                   }}
                   labelStyle={{ color: '#5d4037', fontWeight: 'bold', marginBottom: '4px' }}
                 />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '4px' }} />
                 <Area
+                  yAxisId="left"
                   type="monotone"
                   dataKey="sales"
+                  name="Net sales"
                   stroke="#8B5E3C"
                   strokeWidth={2.5}
                   fill="url(#salesGradient)"
@@ -360,7 +412,20 @@ export default function Dashboard() {
                   animationDuration={1200}
                   animationEasing="ease-in-out"
                 />
-              </AreaChart>
+                <Area
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="net_vat"
+                  name="Net VAT"
+                  stroke="#2E7D32"
+                  strokeWidth={2}
+                  fill="url(#vatGradient)"
+                  dot={{ r: 2.5, fill: '#1B5E20', stroke: '#fff', strokeWidth: 1 }}
+                  activeDot={{ r: 4, fill: '#2E7D32', stroke: '#fff', strokeWidth: 1 }}
+                  animationDuration={1200}
+                  animationEasing="ease-in-out"
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -409,6 +474,9 @@ export default function Dashboard() {
                 <span className="legend-dot" style={{ background: cat.color }}></span>
                 <span className="legend-name">{cat.name}</span>
                 <span className="legend-value">{formatMoney(cat.sales)}</span>
+                <span className="legend-vat" title="Net VAT allocated to this category">
+                  VAT {formatMoney(cat.net_vat ?? 0)}
+                </span>
                 <span className="legend-percent">
                   {totalCategorySales > 0 ? ((cat.sales / totalCategorySales) * 100).toFixed(0) : 0}%
                 </span>

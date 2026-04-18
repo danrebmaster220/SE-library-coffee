@@ -80,6 +80,7 @@ export default function MenuPage() {
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [taxDisplay, setTaxDisplay] = useState({ vat_enabled: false, vat_rate_percent: 0 });
 
   /** Iced / Hot branch (only for categories with allow_iced / allow_hot) */
   const [branchMode, setBranchMode] = useState('all'); // 'all' | 'iced' | 'hot'
@@ -123,6 +124,27 @@ export default function MenuPage() {
       socket.disconnect();
     };
   }, [currentLibraryBooking]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/menu/tax-display`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data) return;
+        setTaxDisplay({
+          vat_enabled: Boolean(data.vat_enabled),
+          vat_rate_percent: Number(data.vat_rate_percent) || 0
+        });
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Restore cart from AsyncStorage on mount
   useEffect(() => {
@@ -607,6 +629,7 @@ export default function MenuPage() {
               selectedCategory={selectedCategory}
               isPhone={isPhone}
               branchFilters={kioskBranchFilters}
+              taxDisplay={taxDisplay}
             />
           )}
         </View>
@@ -717,6 +740,7 @@ export default function MenuPage() {
               selectedCategory={selectedCategory}
               isPhone={isPhone}
               branchFilters={kioskBranchFilters}
+              taxDisplay={taxDisplay}
             />
           )}
         </View>

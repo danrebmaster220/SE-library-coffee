@@ -234,6 +234,20 @@ function buildCustomerReceipt(order, copyLabel = 'CUSTOMER RECEIPT') {
     if (order.discount_amount && parseFloat(order.discount_amount) > 0) {
         receipt += `Discount: -${formatCurrency(order.discount_amount)}\n`;
     }
+
+    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += 'TAX BREAKDOWN\n';
+    receipt += COMMANDS.ALIGN_RIGHT;
+    const netVatable =
+        order.net_vatable_sales != null && order.net_vatable_sales !== undefined
+            ? parseFloat(order.net_vatable_sales)
+            : Math.max(
+                  0,
+                  parseFloat(order.vatable_sales || 0) - parseFloat(order.vat_amount || 0)
+              );
+    receipt += `VATable (V): ${formatCurrency(netVatable)}\n`;
+    receipt += `Non-VATable: ${formatCurrency(order.non_vatable_sales || 0)}\n`;
+    receipt += `VAT: ${formatCurrency(order.vat_amount || 0)}\n`;
     
     // Library Booking (if exists)
     let libraryBooking = null;
@@ -454,6 +468,25 @@ function buildKitchenTicket(order) {
 }
 
 
+/** VAT lines for study receipts (fields from computeTransactionTaxSnapshot). */
+function libraryTaxBreakdownEscPos(session) {
+    if (session == null || session.vat_amount === undefined) return '';
+    const vat = parseFloat(session.vat_amount ?? 0) || 0;
+    const vGross = parseFloat(session.vatable_sales ?? 0) || 0;
+    const nonV = parseFloat(session.non_vatable_sales ?? 0) || 0;
+    const netV =
+        session.net_vatable_sales != null && session.net_vatable_sales !== undefined
+            ? parseFloat(session.net_vatable_sales)
+            : Math.max(0, vGross - vat);
+    let out = '';
+    out += 'TAX BREAKDOWN\n';
+    out += `VATable (V): ${formatCurrency(netV)}\n`;
+    out += `Non-VATable: ${formatCurrency(nonV)}\n`;
+    out += `VAT: ${formatCurrency(vat)}\n`;
+    out += separator() + '\n';
+    return out;
+}
+
 // Build Library Check-in Receipt (after initial payment)
 function buildLibraryCheckinReceipt(session) {
     let receipt = '';
@@ -500,6 +533,8 @@ function buildLibraryCheckinReceipt(session) {
     receipt += `Duration: ${durationStr}\n`;
     receipt += separator() + '\n';
     
+    receipt += libraryTaxBreakdownEscPos(session);
+
     // Payment
     receipt += COMMANDS.BOLD_ON;
     receipt += COMMANDS.ALIGN_RIGHT;
@@ -574,6 +609,8 @@ function buildLibraryExtensionReceipt(session) {
     receipt += `Remaining: ${session.remaining_minutes} minutes\n`;
     receipt += separator() + '\n';
     
+    receipt += libraryTaxBreakdownEscPos(session);
+
     // Payment
     receipt += COMMANDS.BOLD_ON;
     receipt += COMMANDS.ALIGN_RIGHT;
@@ -639,6 +676,8 @@ function buildLibraryCheckoutReceipt(session) {
     receipt += `Used Time: ${session.total_minutes || 0} mins\n`;
     receipt += `Paid Time: ${session.paid_minutes || 0} mins\n`;
     receipt += separator() + '\n';
+
+    receipt += libraryTaxBreakdownEscPos(session);
 
     receipt += COMMANDS.BOLD_ON;
     receipt += COMMANDS.ALIGN_RIGHT;
@@ -711,6 +750,19 @@ function buildRefundReceipt(data) {
     if (data.discount_amount && Number(data.discount_amount) > 0) {
         receipt += `Discount: -${formatCurrency(data.discount_amount)}\n`;
     }
+    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += 'TAX BREAKDOWN (refund portion)\n';
+    receipt += COMMANDS.ALIGN_RIGHT;
+    const rNet =
+        data.net_vatable_sales != null && data.net_vatable_sales !== undefined
+            ? Number(data.net_vatable_sales)
+            : Math.max(
+                  0,
+                  Number(data.vatable_sales || 0) - Number(data.vat_amount || 0)
+              );
+    receipt += `VATable (V): ${formatCurrency(rNet)}\n`;
+    receipt += `Non-VATable: ${formatCurrency(data.non_vatable_sales || 0)}\n`;
+    receipt += `VAT: ${formatCurrency(data.vat_amount || 0)}\n`;
     receipt += COMMANDS.BOLD_ON;
     receipt += `REFUND TOTAL: ${formatCurrency(data.total_amount || 0)}\n`;
     receipt += COMMANDS.BOLD_OFF;

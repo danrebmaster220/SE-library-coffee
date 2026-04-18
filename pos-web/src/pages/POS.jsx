@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../api';
 import socketService from '../services/socketService';
-import { printOrderReceipt } from '../services/webPrinter';
+import { printOrderReceipt, printVoidConfirmation } from '../services/webPrinter';
 import VoidTransactionModal from '../components/VoidTransactionModal';
 import Toast from '../components/Toast';
 import FilterSelectWrap from '../components/FilterSelectWrap';
@@ -127,6 +127,7 @@ export default function POS() {
     can_fulfill: true
   });
   const [takeoutCupsLoading, setTakeoutCupsLoading] = useState(false);
+  const [taxDisplay, setTaxDisplay] = useState({ vat_enabled: false, vat_rate_percent: 0 });
   const [orders, setOrders] = useState({ pending: [], preparing: [], ready: [] });
   const [beepers, setBeepers] = useState([]);
   const [selectedBeeper, setSelectedBeeper] = useState(null);
@@ -289,6 +290,33 @@ export default function POS() {
     }
   }, []);
 
+  const fetchTaxDisplay = useCallback(async () => {
+    try {
+      const res = await api.get('/pos/tax-display');
+      setTaxDisplay({
+        vat_enabled: Boolean(res.data?.vat_enabled),
+        vat_rate_percent: Number(res.data?.vat_rate_percent) || 0
+      });
+    } catch (err) {
+      console.error('Failed to fetch tax display:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onTaxSettingsUpdated = () => {
+      fetchTaxDisplay();
+    };
+    const onFocus = () => {
+      fetchTaxDisplay();
+    };
+    window.addEventListener('tax-settings-updated', onTaxSettingsUpdated);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('tax-settings-updated', onTaxSettingsUpdated);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [fetchTaxDisplay]);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     // Check if user is admin
@@ -310,6 +338,7 @@ export default function POS() {
     fetchBeepers();
     fetchDiscounts();
     fetchTakeoutCupsStatus(0);
+    fetchTaxDisplay();
 
     // Connect to Socket.IO for real-time beeper updates
     socketService.connect();
@@ -328,7 +357,7 @@ export default function POS() {
       socketService.removeListener('beepers:update');
       window.removeEventListener('shiftUpdated', checkShift);
     };
-  }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts, fetchTakeoutCupsStatus]);
+  }, [fetchMenuData, fetchOrders, fetchBeepers, fetchDiscounts, fetchTakeoutCupsStatus, fetchTaxDisplay]);
 
   useEffect(() => {
     const requiredCups = isTakeoutOrderType(orderType)
@@ -955,6 +984,24 @@ export default function POS() {
             admin_pin: adminPin || null
           });
           showToast('Order voided successfully', 'success');
+          try {
+            const beeperNum =
+              pendingOrderBeeper ??
+              (selectedBeeper != null
+                ? beepers.find((b) => (b.beeper_id || b.beeper_number) === selectedBeeper)?.beeper_number ??
+                  selectedBeeper
+                : null);
+            await printVoidConfirmation({
+              transaction_id: pendingOrderId,
+              beeper_number: beeperNum,
+              total_amount: total,
+              order_type: orderType,
+              reason: reason || 'Voided from cart panel',
+              voided_at: new Date().toISOString()
+            });
+          } catch (printErr) {
+            console.warn('Void slip print:', printErr);
+          }
           resetOrder();
         } else {
           // Partial void — remove selected items from pending order
@@ -972,6 +1019,24 @@ export default function POS() {
 
           if (result.data.fully_voided) {
             showToast('All items removed — order voided', 'success');
+            try {
+              const beeperNum =
+                pendingOrderBeeper ??
+                (selectedBeeper != null
+                  ? beepers.find((b) => (b.beeper_id || b.beeper_number) === selectedBeeper)?.beeper_number ??
+                    selectedBeeper
+                  : null);
+              await printVoidConfirmation({
+                transaction_id: pendingOrderId,
+                beeper_number: beeperNum,
+                total_amount: total,
+                order_type: orderType,
+                reason: reason || 'Partial void — cart emptied',
+                voided_at: new Date().toISOString()
+              });
+            } catch (printErr) {
+              console.warn('Void slip print:', printErr);
+            }
             resetOrder();
           } else {
             // Remove voided items from local cart
@@ -1337,6 +1402,19 @@ export default function POS() {
         ...voidData,
         admin_pin: adminPin
       });
+
+      try {
+        await printVoidConfirmation({
+          transaction_id: voidingOrder.id,
+          beeper_number: voidingOrder.beeper_number,
+          total_amount: voidingOrder.total_amount,
+          order_type: voidingOrder.order_type,
+          reason: finalReason.trim(),
+          voided_at: new Date().toISOString()
+        });
+      } catch (printErr) {
+        console.warn('Void slip print:', printErr);
+      }
 
       showToast('Order voided successfully', 'success');
       setShowVoidModal(false);
@@ -1870,6 +1948,14 @@ export default function POS() {
             <span>Total:</span>
             <span>{formatMoney(calculateTotal())}</span>
           </div>
+          {taxDisplay.vat_enabled && (
+            <div
+              className="pos-vat-inclusive-note"
+              style={{ fontSize: '11px', color: '#666', textAlign: 'center', paddingTop: '6px', lineHeight: 1.3 }}
+            >
+              Prices include VAT ({Number(taxDisplay.vat_rate_percent || 0).toFixed(0)}%)
+            </div>
+          )}
         </div>
 
         </div>{/* End of cart-payment-section */}

@@ -1108,6 +1108,41 @@ export default function Reports() {
                 <p className="summary-value">{salesData?.total_orders || 0}</p>
               </div>
             </div>
+            <div className="summary-card">
+              <div className="summary-icon sales-icon">
+                <span style={{ fontSize: '11px', fontWeight: 700 }}>VAT</span>
+              </div>
+              <div className="summary-info">
+                <h4>Net VAT</h4>
+                <p className="summary-value">{formatCurrency(salesData?.net_vat ?? 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon avg-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 3v18h18"></path>
+                  <path d="M18 17V9"></path>
+                  <path d="M13 17V5"></path>
+                  <path d="M8 17v-3"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>VATable (V) net</h4>
+                <p className="summary-value">{formatCurrency(salesData?.net_vatable_base ?? 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon discount-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Non-VAT (net)</h4>
+                <p className="summary-value">{formatCurrency(salesData?.net_non_vatable ?? 0)}</p>
+              </div>
+            </div>
           </>
         )}
 
@@ -1227,6 +1262,7 @@ export default function Reports() {
                         <th>Subtotal</th>
                         <th>Discount</th>
                         <th>Total</th>
+                        <th>VAT</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -1241,6 +1277,7 @@ export default function Reports() {
                           <td>{formatCurrency(order.subtotal)}</td>
                           <td className="discount-cell">{order.discount_amount > 0 ? `-${formatCurrency(order.discount_amount)}` : '-'}</td>
                           <td className="total-cell">{formatCurrency(order.total_amount)}</td>
+                          <td>{formatCurrency(order.vat_amount ?? 0)}</td>
                           <td>
                             <span className={`status-badge ${order.status || 'completed'}`}>
                               {order.status || 'Completed'}
@@ -1288,6 +1325,9 @@ export default function Reports() {
                         <th>Gross Sales</th>
                         <th>Discounts</th>
                         <th>Net Sales</th>
+                        <th>Net VAT</th>
+                        <th>V net</th>
+                        <th>Non-VAT</th>
                         <th>Avg Order</th>
                       </tr>
                     </thead>
@@ -1299,6 +1339,9 @@ export default function Reports() {
                           <td>{formatCurrency(row.gross_sales)}</td>
                           <td className="discount-cell">{row.total_discounts > 0 ? `-${formatCurrency(row.total_discounts)}` : '-'}</td>
                           <td className="total-cell">{formatCurrency(row.net_sales)}</td>
+                          <td>{formatCurrency(row.net_vat ?? 0)}</td>
+                          <td>{formatCurrency(row.net_vatable_base ?? 0)}</td>
+                          <td>{formatCurrency(row.net_non_vatable ?? 0)}</td>
                           <td>{formatCurrency(row.avg_order_value)}</td>
                         </tr>
                       ))}

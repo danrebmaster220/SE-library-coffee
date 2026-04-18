@@ -152,6 +152,12 @@ export default function ReturnRequestModal({
 
         const subtotal = refundedItems.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
         const refundTotal = Number(refundRes.data?.refund_amount);
+        const tb = refundRes.data?.tax_breakdown || {};
+        const origTotal = parseFloat(transaction.total_amount) || 0;
+        const origDisc = parseFloat(transaction.discount_amount) || 0;
+        const refundAmtNum = Number.isFinite(refundTotal) ? refundTotal : subtotal;
+        const discountPortion =
+          origTotal > 0 && origDisc > 0 ? origDisc * (refundAmtNum / origTotal) : 0;
 
         await printRefundReceipt({
           transaction_id: transaction.transaction_id,
@@ -162,9 +168,13 @@ export default function ReturnRequestModal({
           refund_reason: finalReason,
           subtotal,
           discount_name: transaction.discount_name || '',
-          discount_amount: 0,
+          discount_amount: discountPortion,
           total_amount: Number.isFinite(refundTotal) ? refundTotal : subtotal,
-          items: refundedItems
+          items: refundedItems,
+          vat_amount: tb.vat_amount,
+          vatable_sales: tb.vatable_sales,
+          non_vatable_sales: tb.non_vatable_sales,
+          net_vatable_sales: tb.net_vatable_sales
         });
       } catch (printErr) {
         console.error('Refund receipt print failed:', printErr);

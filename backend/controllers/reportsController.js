@@ -145,7 +145,25 @@ exports.getSalesSummary = async (req, res) => {
                     WHEN COUNT(t.transaction_id) > 0
                         THEN (COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0)) / COUNT(t.transaction_id)
                     ELSE 0
-                END as average_order_value
+                END as average_order_value,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vatable_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_non_vatable
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -156,7 +174,18 @@ exports.getSalesSummary = async (req, res) => {
             WHERE ${whereClause}
         `, params);
 
-        res.json(summary[0] || { total_orders: 0, gross_sales: 0, total_sales: 0, average_order_value: 0, total_discounts: 0, total_refunds: 0 });
+        const row = summary[0] || {};
+        res.json({
+            total_orders: row.total_orders ?? 0,
+            gross_sales: parseFloat(row.gross_sales) || 0,
+            total_discounts: parseFloat(row.total_discounts) || 0,
+            total_refunds: parseFloat(row.total_refunds) || 0,
+            total_sales: parseFloat(row.total_sales) || 0,
+            average_order_value: parseFloat(row.average_order_value) || 0,
+            net_vat: parseFloat(row.net_vat) || 0,
+            net_vatable_base: parseFloat(row.net_vatable_base) || 0,
+            net_non_vatable: parseFloat(row.net_non_vatable) || 0
+        });
 
     } catch (error) {
         console.error('Sales summary error:', error);
@@ -358,13 +387,16 @@ exports.getOrdersReport = async (req, res) => {
                 t.change_due,
                 t.status,
                 t.created_at,
+                t.vat_amount,
+                t.vatable_sales,
+                t.non_vatable_sales,
                 d.name as discount_name,
                 COUNT(ti.transaction_item_id) as item_count
             FROM transactions t
             LEFT JOIN discounts d ON t.discount_id = d.discount_id
             LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
             WHERE ${whereConditions.join(' AND ')}
-            GROUP BY t.transaction_id, t.order_type, t.beeper_number, t.subtotal, t.discount_amount, t.total_amount, t.cash_tendered, t.change_due, t.status, t.created_at, d.name
+            GROUP BY t.transaction_id, t.order_type, t.beeper_number, t.subtotal, t.discount_amount, t.total_amount, t.cash_tendered, t.change_due, t.status, t.created_at, t.vat_amount, t.vatable_sales, t.non_vatable_sales, d.name
             ORDER BY t.created_at DESC
         `, params);
 
@@ -403,7 +435,25 @@ exports.getSalesDetails = async (req, res) => {
                 SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
                 SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
                 SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
-                AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
+                AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value,
+                SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ) as net_vat,
+                SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ) as net_vatable_base,
+                SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ) as net_non_vatable
             FROM transactions t
             LEFT JOIN (
                 SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -416,7 +466,14 @@ exports.getSalesDetails = async (req, res) => {
             ORDER BY DATE(t.created_at) DESC
         `, params);
 
-        res.json(details);
+        res.json(
+            (details || []).map((d) => ({
+                ...d,
+                net_vat: parseFloat(d.net_vat) || 0,
+                net_vatable_base: parseFloat(d.net_vatable_base) || 0,
+                net_non_vatable: parseFloat(d.net_non_vatable) || 0
+            }))
+        );
 
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -689,13 +746,16 @@ exports.exportCSV = async (req, res) => {
                     t.discount_amount,
                     t.total_amount,
                     t.status,
+                    t.vat_amount,
+                    t.vatable_sales,
+                    t.non_vatable_sales,
                     d.name as discount_name,
                     COUNT(ti.transaction_item_id) as item_count
                 FROM transactions t
                 LEFT JOIN discounts d ON t.discount_id = d.discount_id
                 LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
                 WHERE ${whereConditions.join(' AND ')}
-                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, d.name
+                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, t.vat_amount, t.vatable_sales, t.non_vatable_sales, d.name
                 ORDER BY t.created_at DESC
             `, params);
 
@@ -723,7 +783,7 @@ exports.exportCSV = async (req, res) => {
             rows.push(['Total Discounts', formatCurrency(totalDiscounts)]);
             rows.push(['Average Order Value', formatCurrency(avgOrderValue)]);
             rows.push([]);
-            rows.push(['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'Status']);
+            rows.push(['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'VAT', 'Status']);
 
             orders.forEach((order) => {
                 rows.push([
@@ -735,6 +795,7 @@ exports.exportCSV = async (req, res) => {
                     formatCurrency(order.subtotal),
                     order.discount_amount ? formatCurrency(order.discount_amount) : '-',
                     formatCurrency(order.total_amount),
+                    formatCurrency(order.vat_amount),
                     order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : '-'
                 ]);
             });
@@ -762,7 +823,25 @@ exports.exportCSV = async (req, res) => {
                     SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
                     SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
                     SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
-                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
+                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vat,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vatable_base,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_non_vatable
                 FROM transactions t
                 LEFT JOIN (
                     SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -780,6 +859,9 @@ exports.exportCSV = async (req, res) => {
             const totalDiscounts = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
             const totalRefunds = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
             const totalNetSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_sales || 0), 0);
+            const totalNetVat = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_vat || 0), 0);
+            const totalNetVatable = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_vatable_base || 0), 0);
+            const totalNetNonVat = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_non_vatable || 0), 0);
             const avgOrderValue = totalTransactions > 0 ? totalNetSales / totalTransactions : 0;
 
             rows.push(['SALES REPORT']);
@@ -792,9 +874,12 @@ exports.exportCSV = async (req, res) => {
             rows.push(['Total Discounts', formatCurrency(totalDiscounts)]);
             rows.push(['Total Cash Refunds', formatCurrency(totalRefunds)]);
             rows.push(['Net Sales', formatCurrency(totalNetSales)]);
+            rows.push(['Net VAT (after refunds)', formatCurrency(totalNetVat)]);
+            rows.push(['Net VATable (V) base', formatCurrency(totalNetVatable)]);
+            rows.push(['Net Non-VAT sales', formatCurrency(totalNetNonVat)]);
             rows.push(['Average Order Value', formatCurrency(avgOrderValue)]);
             rows.push([]);
-            rows.push(['Date', 'Transactions', 'Gross Sales', 'Discounts', 'Net Sales', 'Avg Order']);
+            rows.push(['Date', 'Transactions', 'Gross Sales', 'Discounts', 'Net Sales', 'Net VAT', 'V net base', 'Non-VAT', 'Avg Order']);
 
             salesDetails.forEach((day) => {
                 rows.push([
@@ -803,6 +888,9 @@ exports.exportCSV = async (req, res) => {
                     formatCurrency(day.gross_sales),
                     formatCurrency(day.total_discounts),
                     formatCurrency(day.net_sales),
+                    formatCurrency(day.net_vat),
+                    formatCurrency(day.net_vatable_base),
+                    formatCurrency(day.net_non_vatable),
                     formatCurrency(day.avg_order_value)
                 ]);
             });
@@ -1084,13 +1172,14 @@ exports.exportExcel = async (req, res) => {
                     t.discount_amount,
                     t.total_amount,
                     t.status,
+                    t.vat_amount,
                     d.name as discount_name,
                     COUNT(ti.transaction_item_id) as item_count
                 FROM transactions t
                 LEFT JOIN discounts d ON t.discount_id = d.discount_id
                 LEFT JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
                 WHERE ${whereConditions.join(' AND ')}
-                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, d.name
+                GROUP BY t.transaction_id, t.created_at, t.beeper_number, t.order_type, t.subtotal, t.discount_amount, t.total_amount, t.status, t.vat_amount, d.name
                 ORDER BY t.created_at DESC
             `, params);
 
@@ -1108,7 +1197,7 @@ exports.exportExcel = async (req, res) => {
             const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
             // Title
-            worksheet.mergeCells('A1:I1');
+            worksheet.mergeCells('A1:J1');
             const titleCell = worksheet.getCell('A1');
             titleCell.value = 'ORDERS REPORT';
             titleCell.font = { bold: true, size: 16, color: { argb: 'FF6B4423' } };
@@ -1116,7 +1205,7 @@ exports.exportExcel = async (req, res) => {
             worksheet.getRow(1).height = 28;
 
             // Date Range
-            worksheet.mergeCells('A2:I2');
+            worksheet.mergeCells('A2:J2');
             const dateRangeCell = worksheet.getCell('A2');
             dateRangeCell.value = `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`;
             dateRangeCell.font = { size: 11, color: { argb: 'FF666666' } };
@@ -1151,7 +1240,7 @@ exports.exportExcel = async (req, res) => {
             const dataStartRow = summaryRow + 1;
 
             // Headers
-            const headers = ['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'Status'];
+            const headers = ['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'VAT', 'Status'];
             headers.forEach((header, index) => {
                 const cell = worksheet.getCell(dataStartRow, index + 1);
                 cell.value = header;
@@ -1175,13 +1264,14 @@ exports.exportExcel = async (req, res) => {
                 row.getCell(6).value = `₱${formatCurrency(order.subtotal)}`;
                 row.getCell(7).value = order.discount_amount ? `₱${formatCurrency(order.discount_amount)}` : '-';
                 row.getCell(8).value = `₱${formatCurrency(order.total_amount)}`;
-                row.getCell(9).value = order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : '-';
+                row.getCell(9).value = `₱${formatCurrency(order.vat_amount)}`;
+                row.getCell(10).value = order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : '-';
 
                 // Apply borders and styles
-                for (let col = 1; col <= 9; col++) {
+                for (let col = 1; col <= 10; col++) {
                     const cell = row.getCell(col);
                     cell.border = cellBorder;
-                    cell.alignment = { horizontal: col <= 2 || col === 4 || col === 9 ? 'left' : 'center', vertical: 'middle' };
+                    cell.alignment = { horizontal: col <= 2 || col === 4 || col === 10 ? 'left' : 'center', vertical: 'middle' };
                     
                     // Highlight voided rows
                     if (isVoided) {
@@ -1190,7 +1280,7 @@ exports.exportExcel = async (req, res) => {
                     }
                     
                     // Style status cell
-                    if (col === 9) {
+                    if (col === 10) {
                         if (order.status === 'completed') {
                             cell.font = { color: { argb: 'FF4CAF50' }, bold: true };
                         } else if (order.status === 'voided') {
@@ -1214,6 +1304,7 @@ exports.exportExcel = async (req, res) => {
                 { width: 14 }, // Subtotal
                 { width: 12 }, // Discount
                 { width: 14 }, // Total
+                { width: 11 }, // VAT
                 { width: 12 }  // Status
             ];
 
@@ -1236,7 +1327,7 @@ exports.exportExcel = async (req, res) => {
                 params.push(cashierUserId);
             }
 
-            // Get daily sales breakdown
+            // Get daily sales breakdown (aligned with getSalesDetails / CSV)
             const [salesDetails] = await db.query(`
                 SELECT 
                     DATE(t.created_at) as date,
@@ -1245,7 +1336,25 @@ exports.exportExcel = async (req, res) => {
                     SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
                     SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
                     SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
-                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value
+                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vat,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vatable_base,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_non_vatable
                 FROM transactions t
                 LEFT JOIN (
                     SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -1264,10 +1373,13 @@ exports.exportExcel = async (req, res) => {
             const totalDiscounts = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
             const totalRefunds = salesDetails.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
             const totalNetSales = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_sales || 0), 0);
+            const totalNetVat = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_vat || 0), 0);
+            const totalNetVatableBase = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_vatable_base || 0), 0);
+            const totalNetNonVatable = salesDetails.reduce((sum, d) => sum + parseFloat(d.net_non_vatable || 0), 0);
             const avgOrderValue = totalTransactions > 0 ? totalNetSales / totalTransactions : 0;
 
             // Title
-            worksheet.mergeCells('A1:F1');
+            worksheet.mergeCells('A1:I1');
             const titleCell = worksheet.getCell('A1');
             titleCell.value = 'SALES REPORT';
             titleCell.font = { bold: true, size: 16, color: { argb: 'FF6B4423' } };
@@ -1275,7 +1387,7 @@ exports.exportExcel = async (req, res) => {
             worksheet.getRow(1).height = 28;
 
             // Date Range
-            worksheet.mergeCells('A2:F2');
+            worksheet.mergeCells('A2:I2');
             const dateRangeCell = worksheet.getCell('A2');
             dateRangeCell.value = `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`;
             dateRangeCell.font = { size: 11, color: { argb: 'FF666666' } };
@@ -1283,7 +1395,7 @@ exports.exportExcel = async (req, res) => {
             worksheet.getRow(2).height = 20;
 
             // Note about voided
-            worksheet.mergeCells('A3:F3');
+            worksheet.mergeCells('A3:I3');
             const noteCell = worksheet.getCell('A3');
             noteCell.value = '* Voided orders are excluded from this report';
             noteCell.font = { size: 10, italic: true, color: { argb: 'FF999999' } };
@@ -1299,6 +1411,9 @@ exports.exportExcel = async (req, res) => {
                 ['Total Discounts:', `₱${formatCurrency(totalDiscounts)}`],
                 ['Total Cash Refunds:', `₱${formatCurrency(totalRefunds)}`],
                 ['Net Sales:', `₱${formatCurrency(totalNetSales)}`],
+                ['Net VAT:', `₱${formatCurrency(totalNetVat)}`],
+                ['Net VATable base:', `₱${formatCurrency(totalNetVatableBase)}`],
+                ['Net non-VAT sales:', `₱${formatCurrency(totalNetNonVatable)}`],
                 ['Average Order Value:', `₱${formatCurrency(avgOrderValue)}`]
             ];
 
@@ -1315,7 +1430,7 @@ exports.exportExcel = async (req, res) => {
             const dataStartRow = summaryRow + 1;
 
             // Headers
-            const headers = ['Date', 'Transactions', 'Gross Sales', 'Discounts', 'Net Sales', 'Avg Order'];
+            const headers = ['Date', 'Transactions', 'Gross Sales', 'Discounts', 'Net Sales', 'Net VAT', 'V net', 'Non-VAT', 'Avg Order'];
             headers.forEach((header, index) => {
                 const cell = worksheet.getCell(dataStartRow, index + 1);
                 cell.value = header;
@@ -1333,9 +1448,12 @@ exports.exportExcel = async (req, res) => {
                 row.getCell(3).value = `₱${formatCurrency(day.gross_sales)}`;
                 row.getCell(4).value = `₱${formatCurrency(day.total_discounts)}`;
                 row.getCell(5).value = `₱${formatCurrency(day.net_sales)}`;
-                row.getCell(6).value = `₱${formatCurrency(day.avg_order_value)}`;
+                row.getCell(6).value = `₱${formatCurrency(day.net_vat)}`;
+                row.getCell(7).value = `₱${formatCurrency(day.net_vatable_base)}`;
+                row.getCell(8).value = `₱${formatCurrency(day.net_non_vatable)}`;
+                row.getCell(9).value = `₱${formatCurrency(day.avg_order_value)}`;
 
-                for (let col = 1; col <= 6; col++) {
+                for (let col = 1; col <= 9; col++) {
                     const cell = row.getCell(col);
                     cell.border = cellBorder;
                     cell.alignment = { horizontal: col === 1 ? 'left' : 'right', vertical: 'middle' };
@@ -1352,9 +1470,12 @@ exports.exportExcel = async (req, res) => {
             totalsRow.getCell(3).value = `₱${formatCurrency(totalGrossSales)}`;
             totalsRow.getCell(4).value = `₱${formatCurrency(totalDiscounts)}`;
             totalsRow.getCell(5).value = `₱${formatCurrency(totalNetSales)}`;
-            totalsRow.getCell(6).value = `₱${formatCurrency(avgOrderValue)}`;
+            totalsRow.getCell(6).value = `₱${formatCurrency(totalNetVat)}`;
+            totalsRow.getCell(7).value = `₱${formatCurrency(totalNetVatableBase)}`;
+            totalsRow.getCell(8).value = `₱${formatCurrency(totalNetNonVatable)}`;
+            totalsRow.getCell(9).value = `₱${formatCurrency(avgOrderValue)}`;
 
-            for (let col = 1; col <= 6; col++) {
+            for (let col = 1; col <= 9; col++) {
                 const cell = totalsRow.getCell(col);
                 cell.font = { bold: true };
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F0E8' } };
@@ -1375,6 +1496,9 @@ exports.exportExcel = async (req, res) => {
                 { width: 16 }, // Gross Sales
                 { width: 14 }, // Discounts
                 { width: 16 }, // Net Sales
+                { width: 14 }, // Net VAT
+                { width: 14 }, // V net
+                { width: 14 }, // Non-VAT
                 { width: 14 }  // Avg Order
             ];
 
@@ -1821,6 +1945,7 @@ exports.exportPDF = async (req, res) => {
                     t.subtotal,
                     t.discount_amount,
                     t.total_amount,
+                    t.vat_amount,
                     t.status,
                     t.created_at,
                     u.full_name as cashier_name,
@@ -1848,8 +1973,8 @@ exports.exportPDF = async (req, res) => {
             y += 30;
 
             // Table
-            const headers = ['Order #', 'Date/Time', 'Beeper', 'Type', 'Items', 'Subtotal', 'Discount', 'Total', 'Status'];
-            const columnWidths = [85, 120, 60, 70, 50, 80, 70, 80, 75];
+            const headers = ['Order #', 'Date/Time', 'Beeper', 'Type', 'Items', 'Subtotal', 'Discount', 'Total', 'VAT', 'Status'];
+            const columnWidths = [72, 108, 52, 58, 40, 68, 58, 68, 58, 78];
             
             y = drawTableHeader(headers, y, columnWidths);
 
@@ -1864,22 +1989,54 @@ exports.exportPDF = async (req, res) => {
                     formatCurrency(order.subtotal),
                     order.discount_amount > 0 ? formatCurrency(order.discount_amount) : '-',
                     formatCurrency(order.total_amount),
+                    formatCurrency(order.vat_amount),
                     order.status
                 ];
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });
 
         } else if (type === 'sales') {
-            // SALES REPORT PDF
+            // SALES REPORT PDF (aligned with getSalesDetails / Excel)
             filename = `Sales_Report_${startDate}_to_${endDate}.pdf`;
+
+            let whereConditions = ["t.status != 'voided'"];
+            const salesParams = [];
+            if (startDate && endDate) {
+                whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
+                salesParams.push(startDate, endDate);
+            }
+            if (cashierUserId) {
+                whereConditions.push('t.processed_by = ?');
+                salesParams.push(cashierUserId);
+            }
 
             const [dailySales] = await db.query(`
                 SELECT 
                     DATE(t.created_at) as sale_date,
-                    COUNT(DISTINCT t.transaction_id) as order_count,
-                    SUM(t.total_amount) as total_sales,
-                    SUM(t.discount_amount) as total_discounts,
-                    SUM(COALESCE(vl.refund_amount, 0)) as total_refunds
+                    COUNT(t.transaction_id) as order_count,
+                    SUM(t.subtotal) as gross_sales,
+                    SUM(COALESCE(t.discount_amount, 0)) as total_discounts,
+                    SUM(COALESCE(vl.refund_amount, 0)) as total_refunds,
+                    SUM(t.total_amount) - SUM(COALESCE(vl.refund_amount, 0)) as net_sales,
+                    AVG(t.total_amount - COALESCE(vl.refund_amount, 0)) as avg_order_value,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vat,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_vatable_base,
+                    SUM(
+                        CASE
+                            WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                            ELSE 0
+                        END
+                    ) as net_non_vatable
                 FROM transactions t
                 LEFT JOIN (
                     SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
@@ -1887,45 +2044,59 @@ exports.exportPDF = async (req, res) => {
                     WHERE action_type = 'refund'
                     GROUP BY transaction_id
                 ) vl ON vl.transaction_id = t.transaction_id
-                WHERE t.status != 'voided'
-                AND DATE(t.created_at) BETWEEN ? AND ?
-                ${cashierUserId ? 'AND t.processed_by = ?' : ''}
+                WHERE ${whereConditions.join(' AND ')}
                 GROUP BY DATE(t.created_at)
                 ORDER BY DATE(t.created_at) DESC
-            `, cashierUserId ? [startDate, endDate, cashierUserId] : [startDate, endDate]);
+            `, salesParams);
 
-            // Calculate totals
-            const totalOrders = dailySales.reduce((sum, d) => sum + d.order_count, 0);
-            const totalSales = dailySales.reduce((sum, d) => sum + parseFloat(d.total_sales || 0), 0);
+            const totalOrders = dailySales.reduce((sum, d) => sum + parseInt(d.order_count, 10), 0);
+            const totalGross = dailySales.reduce((sum, d) => sum + parseFloat(d.gross_sales || 0), 0);
             const totalDiscounts = dailySales.reduce((sum, d) => sum + parseFloat(d.total_discounts || 0), 0);
             const totalRefunds = dailySales.reduce((sum, d) => sum + parseFloat(d.total_refunds || 0), 0);
+            const totalNetSales = dailySales.reduce((sum, d) => sum + parseFloat(d.net_sales || 0), 0);
+            const totalNetVat = dailySales.reduce((sum, d) => sum + parseFloat(d.net_vat || 0), 0);
+            const totalVatableBase = dailySales.reduce((sum, d) => sum + parseFloat(d.net_vatable_base || 0), 0);
+            const totalNonVatable = dailySales.reduce((sum, d) => sum + parseFloat(d.net_non_vatable || 0), 0);
+            const avgOrder = totalOrders > 0 ? totalNetSales / totalOrders : 0;
 
-            // Page header
             let y = addPageHeader('Sales Report', `Date Range: ${startDate} to ${endDate}`);
 
-            // Summary section
             doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
             doc.text('Summary', 40, y);
             y += 18;
-            doc.font('Helvetica').fontSize(10).fillColor('black');
-            doc.text(`Total Orders: ${totalOrders}    |    Gross Sales: ${formatCurrency(totalSales)}    |    Discounts: ${formatCurrency(totalDiscounts)}    |    Refunds: ${formatCurrency(totalRefunds)}`, 40, y);
-            y += 30;
+            doc.font('Helvetica').fontSize(9).fillColor('black');
+            doc.text(
+                `Transactions: ${totalOrders}  |  Gross: ${formatCurrency(totalGross)}  |  Discounts: ${formatCurrency(totalDiscounts)}  |  Refunds: ${formatCurrency(totalRefunds)}  |  Net sales: ${formatCurrency(totalNetSales)}`,
+                40,
+                y,
+                { width: 760 }
+            );
+            y += 28;
+            doc.text(
+                `Net VAT: ${formatCurrency(totalNetVat)}  |  VATable base: ${formatCurrency(totalVatableBase)}  |  Non-VAT: ${formatCurrency(totalNonVatable)}  |  Avg order: ${formatCurrency(avgOrder)}`,
+                40,
+                y,
+                { width: 760 }
+            );
+            y += 32;
 
-            // Table
-            const headers = ['Date', 'Orders', 'Total Sales', 'Discounts', 'Net Sales'];
-            const columnWidths = [150, 120, 150, 150, 150];
+            const headers = ['Date', '#', 'Gross', 'Disc.', 'Net', 'VAT', 'V base', 'Non-V', 'AOV'];
+            const columnWidths = [88, 36, 82, 72, 82, 72, 82, 72, 74];
             
             y = drawTableHeader(headers, y, columnWidths);
 
             dailySales.forEach((day, index) => {
                 y = checkNewPage(y);
-                const netSales = parseFloat(day.total_sales || 0) - parseFloat(day.total_discounts || 0) - parseFloat(day.total_refunds || 0);
                 const rowData = [
                     formatDate(day.sale_date),
                     day.order_count,
-                    formatCurrency(day.total_sales),
+                    formatCurrency(day.gross_sales),
                     formatCurrency(day.total_discounts),
-                    formatCurrency(netSales)
+                    formatCurrency(day.net_sales),
+                    formatCurrency(day.net_vat),
+                    formatCurrency(day.net_vatable_base),
+                    formatCurrency(day.net_non_vatable),
+                    formatCurrency(day.avg_order_value)
                 ];
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });

@@ -79,6 +79,10 @@ export default function Config() {
   const [priceDelayDays, setPriceDelayDays] = useState('3');
   const [priceDelayLoading, setPriceDelayLoading] = useState(false);
   const [priceDelayMessage, setPriceDelayMessage] = useState(null);
+  const [vatEnabled, setVatEnabled] = useState(false);
+  const [vatRatePercent, setVatRatePercent] = useState('12');
+  const [vatRateLoading, setVatRateLoading] = useState(false);
+  const [vatRateMessage, setVatRateMessage] = useState(null);
   const [pendingSchedules, setPendingSchedules] = useState([]);
   const [pendingSchedulesLoading, setPendingSchedulesLoading] = useState(false);
   const [pendingSchedulesMessage, setPendingSchedulesMessage] = useState(null);
@@ -154,6 +158,16 @@ export default function Config() {
         const delay = settingsRes?.data?.settings?.delay_days;
         if (delay != null) {
           setPriceDelayDays(String(delay));
+        }
+
+        const vat = settingsRes?.data?.settings?.vat_rate_percent;
+        if (vat != null && vat !== '' && !Number.isNaN(Number(vat))) {
+          setVatRatePercent(String(vat));
+        }
+
+        const vatOn = settingsRes?.data?.settings?.vat_enabled;
+        if (vatOn !== undefined && vatOn !== null) {
+          setVatEnabled(Boolean(vatOn));
         }
 
         setPendingSchedules(Array.isArray(pendingRes?.data?.schedules) ? pendingRes.data.schedules : []);
@@ -267,6 +281,10 @@ export default function Config() {
         change_due: 50.00,
         created_at: new Date().toISOString(),
         cashier_name: 'Test Cashier',
+        vat_amount: 16.07,
+        vatable_sales: 150.0,
+        non_vatable_sales: 0,
+        net_vatable_sales: 133.93,
         items: [
           { name: 'Americano (Hot)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] },
           { name: 'Cafe Latte (Iced)', quantity: 1, unit_price: 75.00, total_price: 75.00, customizations: [] }
@@ -461,6 +479,48 @@ export default function Config() {
       });
     } finally {
       setPriceDelayLoading(false);
+    }
+  };
+
+  const handleSaveTaxSettings = async () => {
+    setVatRateLoading(true);
+    setVatRateMessage(null);
+
+    const trimmed = String(vatRatePercent ?? '').trim();
+    const n = Number(trimmed);
+    if (trimmed === '' || Number.isNaN(n) || n < 0 || n > 100) {
+      setVatRateMessage({
+        success: false,
+        message: 'Enter a VAT rate between 0 and 100 (e.g. 12 for 12%).'
+      });
+      setVatRateLoading(false);
+      return;
+    }
+
+    try {
+      const res = await api.put('/menu/tax-settings', {
+        vat_rate_percent: n,
+        vat_enabled: vatEnabled
+      });
+      const s = res?.data?.settings;
+      if (s?.vat_rate_percent != null) {
+        setVatRatePercent(String(s.vat_rate_percent));
+      }
+      if (s?.vat_enabled !== undefined) {
+        setVatEnabled(Boolean(s.vat_enabled));
+      }
+      setVatRateMessage({
+        success: true,
+        message: `Tax settings saved — VAT ${s?.vat_enabled ? 'on' : 'off'}, rate ${s?.vat_rate_percent ?? n}%`
+      });
+      window.dispatchEvent(new CustomEvent('tax-settings-updated'));
+    } catch (err) {
+      setVatRateMessage({
+        success: false,
+        message: err.response?.data?.error || 'Failed to save tax settings'
+      });
+    } finally {
+      setVatRateLoading(false);
     }
   };
 
@@ -729,6 +789,79 @@ export default function Config() {
               <div className={`settings-status ${cupsMessage.success ? 'success' : 'error'}`}>
                 <span className="icon">{cupsMessage.success ? '✅' : '❌'}</span>
                 {cupsMessage.message}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isAdminUser && (
+        <div className="settings-card settings-card-tax">
+          <div className="settings-card-header">
+            <span className="icon">🧾</span>
+            <h2>Tax / VAT</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-toggle-row">
+              <div>
+                <div className="settings-toggle-title">Enable VAT</div>
+                <p className="settings-toggle-hint">
+                  When on, POS and receipts can show VAT breakdown using the rate below. When off, prices stay final with
+                  no tax split (same as today).
+                </p>
+              </div>
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  aria-checked={vatEnabled}
+                  checked={vatEnabled}
+                  onChange={(e) => setVatEnabled(e.target.checked)}
+                />
+                <span className="settings-switch-slider" />
+              </label>
+            </div>
+
+            <div className="settings-info-box">
+              <h4>ℹ️ VAT rate (percent)</h4>
+              <p>
+                Standard output VAT in the Philippines is often <strong>12%</strong>. Menu prices are treated as{' '}
+                <strong>VAT-inclusive</strong> when VAT is on. Edit the rate and click save — used when VAT is enabled.
+              </p>
+            </div>
+
+            <div className="settings-form-group">
+              <label>VAT rate (%)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={vatRatePercent}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d{0,3}(\.\d{0,2})?$/.test(v)) {
+                    setVatRatePercent(v);
+                  }
+                }}
+                placeholder="e.g. 12"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="settings-btn settings-btn-primary"
+                onClick={handleSaveTaxSettings}
+                disabled={vatRateLoading}
+              >
+                {vatRateLoading ? '⏳ Saving...' : '💾 Save tax settings'}
+              </button>
+            </div>
+
+            {vatRateMessage && (
+              <div className={`settings-status ${vatRateMessage.success ? 'success' : 'error'}`}>
+                <span className="icon">{vatRateMessage.success ? '✅' : '❌'}</span>
+                {vatRateMessage.message}
               </div>
             )}
           </div>

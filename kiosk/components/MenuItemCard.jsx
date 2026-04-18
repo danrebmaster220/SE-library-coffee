@@ -5,7 +5,7 @@ import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDim
 import CustomizationModal from "./CustomizationModal";
 import { useResponsive } from "../hooks/useResponsive";
 
-const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp, fillWebCellWidth = false }) => {
+const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp, fillWebCellWidth = false, taxDisplay = null }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { width } = useWindowDimensions();
   const { isPhone: isPhoneHook } = useResponsive();
@@ -86,6 +86,13 @@ const MenuItemCard = memo(({ item, onAddToOrder, isPhone: isPhoneProp, fillWebCe
         <Text style={[styles.price, isPhone && styles.pricePhone]}>
           {priceLine}
         </Text>
+        {taxDisplay?.vat_enabled && kind !== "unavailable" ? (
+          <Text style={[styles.vatHint, isPhone && styles.vatHintPhone]} numberOfLines={1}>
+            {Number(taxDisplay.vat_rate_percent) > 0
+              ? `incl. ${Number(taxDisplay.vat_rate_percent)}% VAT`
+              : "incl. VAT"}
+          </Text>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.button, isPhone && styles.buttonPhone, kind === "unavailable" && styles.buttonDisabled]}
@@ -177,11 +184,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#8B5E34",
-    marginBottom: 12,
+    marginBottom: 4,
   },
   pricePhone: {
     fontSize: 14,
+    marginBottom: 2,
+  },
+  vatHint: {
+    fontSize: 10,
+    color: "#6d5d54",
     marginBottom: 8,
+    textAlign: "center",
+  },
+  vatHintPhone: {
+    fontSize: 9,
+    marginBottom: 6,
   },
   button: {
     backgroundColor: "#6B4423",

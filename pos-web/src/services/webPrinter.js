@@ -119,6 +119,19 @@ const SEP = '--------------------------------';
 // Receipt Builders (return HTML strings)
 // ============================================
 
+function taxBreakdownRowsHtml(data, title = 'TAX BREAKDOWN') {
+  const net =
+    data.net_vatable_sales != null && data.net_vatable_sales !== undefined
+      ? parseFloat(data.net_vatable_sales)
+      : Math.max(0, parseFloat(data.vatable_sales || 0) - parseFloat(data.vat_amount || 0));
+  return `
+      <div class="section-title">${title}</div>
+      <div class="row"><span>VATable (V):</span><span>${formatCurrency(net)}</span></div>
+      <div class="row"><span>Non-VATable:</span><span>${formatCurrency(data.non_vatable_sales || 0)}</span></div>
+      <div class="row"><span>VAT:</span><span>${formatCurrency(data.vat_amount || 0)}</span></div>
+  `;
+}
+
 function buildCustomerReceiptHTML(data, copyLabel = 'CUSTOMER RECEIPT') {
   const transactionNum = 'ORD-' + String(data.transaction_id).padStart(6, '0');
   const cashierFirstName = getFirstName(data.cashier_name);
@@ -192,6 +205,7 @@ function buildCustomerReceiptHTML(data, copyLabel = 'CUSTOMER RECEIPT') {
       <div class="totals">
         <div class="row"><span>Subtotal:</span><span>${formatCurrency(data.subtotal)}</span></div>
         ${data.discount_amount > 0 ? `<div class="row"><span>Discount${data.discount_name ? ` (${escapeHtml(data.discount_name)})` : ''}:</span><span>-${formatCurrency(data.discount_amount)}</span></div>` : ''}
+        ${taxBreakdownRowsHtml(data)}
         <div class="row total-final"><span>TOTAL:</span><span>${formatCurrency(data.total_amount)}</span></div>
         ${data.cash_tendered ? `<div class="row"><span>Cash:</span><span>${formatCurrency(data.cash_tendered)}</span></div>` : ''}
         ${data.cash_tendered ? `<div class="row"><span>Change:</span><span>${formatCurrency(data.change_due)}</span></div>` : ''}
@@ -322,6 +336,7 @@ function buildLibraryCheckinReceiptHTML(session) {
       <div class="info-row"><span>Duration:</span><span>${durationStr}</span></div>
       <div class="separator">${SEP}</div>
       <div class="totals">
+        ${session.vat_amount !== undefined ? taxBreakdownRowsHtml(session) : ''}
         <div class="row total-final"><span>AMOUNT PAID:</span><span>${formatCurrency(session.amount_paid || 100)}</span></div>
         ${session.cash_tendered ? `<div class="row"><span>Cash:</span><span>${formatCurrency(session.cash_tendered)}</span></div>` : ''}
         ${session.cash_tendered ? `<div class="row"><span>Change:</span><span>${formatCurrency(session.change_due || 0)}</span></div>` : ''}
@@ -365,6 +380,7 @@ function buildLibraryExtensionReceiptHTML(session) {
       <div class="info-row"><span>Remaining:</span><span>${session.remaining_minutes} minutes</span></div>
       <div class="separator">${SEP}</div>
       <div class="totals">
+        ${session.vat_amount !== undefined ? taxBreakdownRowsHtml(session) : ''}
         <div class="row total-final"><span>PAID:</span><span>${formatCurrency(session.extension_fee)}</span></div>
         ${session.cash_tendered ? `<div class="row"><span>Cash:</span><span>${formatCurrency(session.cash_tendered)}</span></div>` : ''}
         ${session.cash_tendered ? `<div class="row"><span>Change:</span><span>${formatCurrency(session.change_due || 0)}</span></div>` : ''}
@@ -406,6 +422,7 @@ function buildLibraryCheckoutReceiptHTML(session) {
       <div class="info-row"><span>Paid Time:</span><span>${session.paid_minutes || 0} mins</span></div>
       <div class="separator">${SEP}</div>
       <div class="totals">
+        ${session.vat_amount !== undefined ? taxBreakdownRowsHtml(session) : ''}
         <div class="row total-final"><span>TOTAL PAID:</span><span>${formatCurrency(session.amount_paid || 0)}</span></div>
       </div>
       <div class="separator">${SEP}</div>
@@ -682,6 +699,14 @@ function buildPlainTextCustomerReceipt(data, copyLabel = 'CUSTOMER RECEIPT') {
     const dl = data.discount_name ? `Disc (${data.discount_name}):` : 'Discount:';
     lines.push(txtLR(dl, '-' + txtMoney(data.discount_amount)));
   }
+  lines.push('TAX BREAKDOWN');
+  const netV =
+    data.net_vatable_sales != null && data.net_vatable_sales !== undefined
+      ? parseFloat(data.net_vatable_sales)
+      : Math.max(0, parseFloat(data.vatable_sales || 0) - parseFloat(data.vat_amount || 0));
+  lines.push(txtLR('VATable (V):', txtMoney(netV)));
+  lines.push(txtLR('Non-VATable:', txtMoney(data.non_vatable_sales || 0)));
+  lines.push(txtLR('VAT:', txtMoney(data.vat_amount || 0)));
   lines.push(TXT_DBL_SEP);
   lines.push(txtLR('TOTAL:', txtMoney(data.total_amount)));
   if (data.cash_tendered) {
@@ -785,6 +810,17 @@ function buildPlainTextLibraryCheckin(session) {
   lines.push('SESSION DETAILS:');
   lines.push(txtLR('Start Time:', formatDateTime()));
   lines.push(txtLR('Duration:', durationStr));
+  if (session.vat_amount !== undefined) {
+    lines.push(TXT_SEP);
+    lines.push('TAX BREAKDOWN');
+    const netLV =
+      session.net_vatable_sales != null && session.net_vatable_sales !== undefined
+        ? parseFloat(session.net_vatable_sales)
+        : Math.max(0, parseFloat(session.vatable_sales || 0) - parseFloat(session.vat_amount || 0));
+    lines.push(txtLR('VATable (V):', txtMoney(netLV)));
+    lines.push(txtLR('Non-VATable:', txtMoney(session.non_vatable_sales || 0)));
+    lines.push(txtLR('VAT:', txtMoney(session.vat_amount || 0)));
+  }
   lines.push(TXT_DBL_SEP);
   lines.push(txtLR('AMOUNT PAID:', txtMoney(session.amount_paid || 100)));
   if (session.cash_tendered) {
@@ -823,6 +859,17 @@ function buildPlainTextLibraryExtension(session) {
   lines.push('UPDATED SESSION:');
   lines.push(txtLR('Total Time:', `${session.new_total_minutes} minutes`));
   lines.push(txtLR('Remaining:', `${session.remaining_minutes} minutes`));
+  if (session.vat_amount !== undefined) {
+    lines.push(TXT_SEP);
+    lines.push('TAX BREAKDOWN');
+    const netLE =
+      session.net_vatable_sales != null && session.net_vatable_sales !== undefined
+        ? parseFloat(session.net_vatable_sales)
+        : Math.max(0, parseFloat(session.vatable_sales || 0) - parseFloat(session.vat_amount || 0));
+    lines.push(txtLR('VATable (V):', txtMoney(netLE)));
+    lines.push(txtLR('Non-VATable:', txtMoney(session.non_vatable_sales || 0)));
+    lines.push(txtLR('VAT:', txtMoney(session.vat_amount || 0)));
+  }
   lines.push(TXT_DBL_SEP);
   lines.push(txtLR('PAID:', txtMoney(session.extension_fee)));
   if (session.cash_tendered) {
@@ -856,6 +903,17 @@ function buildPlainTextLibraryCheckout(session) {
   lines.push(txtLR('End:', session.end_time ? formatDateTime(session.end_time) : formatDateTime()));
   lines.push(txtLR('Used Time:', `${session.total_minutes || 0} mins`));
   lines.push(txtLR('Paid Time:', `${session.paid_minutes || 0} mins`));
+  if (session.vat_amount !== undefined) {
+    lines.push(TXT_SEP);
+    lines.push('TAX BREAKDOWN');
+    const netLC =
+      session.net_vatable_sales != null && session.net_vatable_sales !== undefined
+        ? parseFloat(session.net_vatable_sales)
+        : Math.max(0, parseFloat(session.vatable_sales || 0) - parseFloat(session.vat_amount || 0));
+    lines.push(txtLR('VATable (V):', txtMoney(netLC)));
+    lines.push(txtLR('Non-VATable:', txtMoney(session.non_vatable_sales || 0)));
+    lines.push(txtLR('VAT:', txtMoney(session.vat_amount || 0)));
+  }
   lines.push(TXT_DBL_SEP);
   lines.push(txtLR('TOTAL PAID:', txtMoney(session.amount_paid || 0)));
   lines.push(TXT_SEP);
@@ -870,6 +928,41 @@ function buildPlainTextLibraryCheckout(session) {
 // ============================================
 // Refund Receipt Builders
 // ============================================
+
+function buildVoidConfirmationHTML(data) {
+  const transactionNum = `ORD-${String(data.transaction_id).padStart(6, '0')}`;
+  const orderTypeLabel = data.order_type
+    ? String(data.order_type).replace(/_/g, ' ')
+    : '-';
+
+  return `
+    <div class="receipt">
+      <div class="receipt-header">
+        <div class="store-name">THE LIBRARY</div>
+        <div class="store-sub">Coffee + Study</div>
+        <div class="store-sub">Pavilion, Nunez St.</div>
+        <div class="store-sub">Zamboanga City</div>
+      </div>
+      <div class="separator">${SEP}</div>
+      <div style="text-align:center;font-size:14px;font-weight:bold;margin:6px 0;color:#b71c1c;">*** VOID CONFIRMATION ***</div>
+      <div class="separator">${SEP}</div>
+      <div class="info-row"><span>Voided at:</span><span>${formatDateTime(data.voided_at || new Date())}</span></div>
+      <div class="info-row"><span>Order:</span><span>${transactionNum}</span></div>
+      <div class="info-row"><span>Order type:</span><span>${escapeHtml(orderTypeLabel)}</span></div>
+      <div class="info-row"><span>Beeper #:</span><span>${escapeHtml(String(data.beeper_number ?? '-'))}</span></div>
+      <div class="info-row"><span>Original total:</span><span>₱${formatCurrency(data.total_amount)}</span></div>
+      <div class="separator">${SEP}</div>
+      <div style="font-size:11px;"><strong>Reason:</strong> ${escapeHtml(data.reason || '-')}</div>
+      <div class="separator">${SEP}</div>
+      <div class="footer">
+        <p>Void confirmation — retain for audit.</p>
+        <p class="separator">${SEP}</p>
+        <p>Powered by Spavion</p>
+        <p style="margin-top:4px;">NOT A SALES INVOICE</p>
+      </div>
+    </div>
+  `;
+}
 
 function buildRefundReceiptHTML(data) {
   const transactionNum = 'ORD-' + String(data.transaction_id).padStart(6, '0');
@@ -909,6 +1002,7 @@ function buildRefundReceiptHTML(data) {
       <div class="totals">
         <div class="row"><span>Subtotal:</span><span>${formatCurrency(data.subtotal || data.total_amount)}</span></div>
         ${data.discount_amount > 0 ? `<div class="row"><span>Discount${data.discount_name ? ` (${data.discount_name})` : ''}:</span><span>-${formatCurrency(data.discount_amount)}</span></div>` : ''}
+        ${taxBreakdownRowsHtml(data, 'TAX BREAKDOWN (refund portion)')}
         <div class="row total-final"><span>REFUND TOTAL:</span><span>${formatCurrency(data.total_amount)}</span></div>
       </div>
       <div class="separator">${SEP}</div>
@@ -955,6 +1049,14 @@ function buildPlainTextRefundReceipt(data) {
   if (data.discount_amount > 0) {
     lines.push(txtLR('Discount:', '-' + txtMoney(data.discount_amount)));
   }
+  lines.push('TAX BREAKDOWN (refund portion)');
+  const rNet =
+    data.net_vatable_sales != null && data.net_vatable_sales !== undefined
+      ? parseFloat(data.net_vatable_sales)
+      : Math.max(0, parseFloat(data.vatable_sales || 0) - parseFloat(data.vat_amount || 0));
+  lines.push(txtLR('VATable (V):', txtMoney(rNet)));
+  lines.push(txtLR('Non-VATable:', txtMoney(data.non_vatable_sales || 0)));
+  lines.push(txtLR('VAT:', txtMoney(data.vat_amount || 0)));
   lines.push(txtLR('REFUND TOTAL:', txtMoney(data.total_amount)));
   lines.push(TXT_SEP);
   
@@ -1111,11 +1213,20 @@ export async function printRefundReceipt(refundData) {
   return showReceiptModal(html, 'Refund Receipt', refundData, '/refund');
 }
 
+/**
+ * After a successful full void — thermal-style confirmation for records.
+ */
+export async function printVoidConfirmation(voidData) {
+  const html = buildVoidConfirmationHTML(voidData);
+  return showReceiptModal(html, 'Void confirmation', voidData, '/void', { autoPrint: true });
+}
+
 export default {
   printOrderReceipt,
   printCustomerReceipt,
   printLibraryCheckinReceipt,
   printLibraryExtensionReceipt,
   printLibraryCheckoutReceipt,
-  printRefundReceipt
+  printRefundReceipt,
+  printVoidConfirmation
 };

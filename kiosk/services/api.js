@@ -177,6 +177,20 @@ export const getTakeoutCupsStatus = async () => {
   }
 };
 
+/** Public VAT label for kiosk UI (matches POS inclusive pricing). */
+export const getTaxDisplay = async () => {
+  try {
+    const data = await fetchAPI('/menu/tax-display');
+    return {
+      vat_enabled: Boolean(data?.vat_enabled),
+      vat_rate_percent: Number(data?.vat_rate_percent) || 0,
+    };
+  } catch (error) {
+    console.error('Error fetching tax display:', error);
+    return { vat_enabled: false, vat_rate_percent: 0 };
+  }
+};
+
 export default {
   getCategories,
   getMenuItems,
@@ -185,5 +199,6 @@ export default {
   submitOrder,
   getAvailableBeepers,
   getTakeoutCupsStatus,
+  getTaxDisplay,
   API_BASE_URL,
 };

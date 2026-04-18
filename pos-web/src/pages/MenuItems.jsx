@@ -1296,20 +1296,28 @@ export default function MenuItems() {
 
       {noticeModal.open && (
         <div className="modal-overlay" onClick={closeNoticeModal}>
-          <div className="modal-content modal-small" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
+          <div
+            className="modal-content modal-small notice-summary-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="notice-modal-title"
+            aria-describedby="notice-modal-desc"
+          >
             <div className="modal-header">
-              <h3 className="modal-title" style={{ color: '#333' }}>{noticeModal.title}</h3>
-              <button className="modal-close" onClick={closeNoticeModal} style={{ color: '#666' }}>×</button>
+              <h3 className="modal-title" id="notice-modal-title">{noticeModal.title}</h3>
+              <button type="button" className="modal-close" onClick={closeNoticeModal} aria-label="Close">
+                ×
+              </button>
             </div>
-            <div className="delete-modal-body" style={{ textAlign: 'left' }}>
+            <div className="notice-summary-modal__body" id="notice-modal-desc">
               {(noticeModal.messages || []).map((message, index) => (
-                <p key={index} className="delete-message" style={{ marginBottom: index === noticeModal.messages.length - 1 ? 0 : 10 }}>
+                <div key={index} className="notice-summary-modal__message">
                   {message}
-                </p>
+                </div>
               ))}
             </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-confirm" onClick={closeNoticeModal}>
+            <div className="notice-summary-modal__footer">
+              <button type="button" className="notice-summary-modal__ok" onClick={closeNoticeModal}>
                 OK
               </button>
             </div>

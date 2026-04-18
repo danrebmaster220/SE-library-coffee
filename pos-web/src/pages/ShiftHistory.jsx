@@ -195,6 +195,7 @@ export default function ShiftHistory() {
                   <th>Duration</th>
                   <th>Starting Cash</th>
                   <th>Total Sales</th>
+                  <th>Net VAT</th>
                   <th>Expected</th>
                   <th>Actual</th>
                   <th>Difference</th>
@@ -219,6 +220,7 @@ export default function ShiftHistory() {
                     <td>{formatShiftDuration(shift.start_time, shift.end_time)}</td>
                     <td>{formatMoney(shift.starting_cash)}</td>
                     <td className="sales-amount">{formatMoney(shift.total_sales)}</td>
+                    <td style={{ fontSize: '13px' }}>{formatMoney(shift.net_vat_amount ?? 0)}</td>
                     <td>{formatMoney(shift.expected_cash)}</td>
                     <td>
                       {shift.actual_cash != null 
@@ -313,6 +315,18 @@ export default function ShiftHistory() {
                 <div className="detail-row">
                   <span className="detail-label">Refunds</span>
                   <span className="detail-value" style={{ color: '#c62828' }}>{formatMoney(selectedShift.total_refunds)}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Net VAT</span>
+                  <span className="detail-value">{formatMoney(selectedShift.net_vat_amount ?? 0)}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">VATable (V) net</span>
+                  <span className="detail-value">{formatMoney(selectedShift.net_vatable_base ?? 0)}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Non-VAT net</span>
+                  <span className="detail-value">{formatMoney(selectedShift.net_non_vatable ?? 0)}</span>
                 </div>
                 <hr />
                 <div className="detail-row">

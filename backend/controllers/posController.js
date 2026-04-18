@@ -1,6 +1,27 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
+const { computeTransactionTaxSnapshot } = require('../services/taxService');
+const { getPriceUpdateSettings } = require('../services/priceScheduleService');
+
+const roundMoney = (n) => Math.round(Number(n) * 100) / 100;
+
+/** Loads VAT settings and returns 5 DB column values for a final inclusive total. */
+async function buildTaxColumnValues(queryRunner, totalAmount) {
+    const settings = await getPriceUpdateSettings(queryRunner);
+    const snap = computeTransactionTaxSnapshot({
+        totalIncl: totalAmount,
+        vatEnabled: Boolean(settings.vat_enabled),
+        vatRatePercent: Number(settings.vat_rate_percent)
+    });
+    return {
+        vat_enabled_snapshot: snap.vat_enabled_snapshot,
+        vat_rate_snapshot: snap.vat_rate_snapshot,
+        vat_amount: snap.vat_amount,
+        vatable_sales: snap.vatable_sales,
+        non_vatable_sales: snap.non_vatable_sales
+    };
+}
 
 const TAKEOUT_CUPS_SETTING_KEY = 'takeout_cups_stock';
 const DEFAULT_TAKEOUT_CUP_STOCK = 200;
@@ -255,6 +276,20 @@ const authorizeSensitiveActionByPin = async ({ queryRunner, adminPin }) => {
 };
 
 
+// VAT display for POS (current system settings; not per-transaction snapshot)
+
+exports.getTaxDisplay = async (req, res) => {
+    try {
+        const settings = await getPriceUpdateSettings(db);
+        res.json({
+            vat_enabled: Boolean(settings.vat_enabled),
+            vat_rate_percent: Number(settings.vat_rate_percent) || 0
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // QUICK CASH AMOUNTS
 
 exports.getQuickCashAmounts = async (req, res) => {
@@ -426,12 +461,16 @@ exports.createTransaction = async (req, res) => {
         // Get user ID from token (if authenticated) or null for kiosk
         const userId = req.user?.user_id || null;
 
+        const taxCols = await buildTaxColumnValues(connection, parseFloat(total_amount));
+
         // Create transaction
         const [result] = await connection.query(`
             INSERT INTO transactions (
                 beeper_number, order_type, subtotal, discount_id, discount_amount,
-                total_amount, cash_tendered, change_due, status, paid_at, processed_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+                total_amount,
+                vat_enabled_snapshot, vat_rate_snapshot, vat_amount, vatable_sales, non_vatable_sales,
+                cash_tendered, change_due, status, paid_at, processed_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
         `, [
             beeperNumber,
             normalizedOrderType,
@@ -439,6 +478,11 @@ exports.createTransaction = async (req, res) => {
             discount_id || null,
             discount_amount || 0,
             total_amount,
+            taxCols.vat_enabled_snapshot,
+            taxCols.vat_rate_snapshot,
+            taxCols.vat_amount,
+            taxCols.vatable_sales,
+            taxCols.non_vatable_sales,
             cash_tendered,
             change_due,
             status || 'preparing',
@@ -575,14 +619,29 @@ exports.createKioskOrder = async (req, res) => {
             }
         }
 
+        const pendingTax = await buildTaxColumnValues(connection, parseFloat(total_amount));
+
         // Create transaction with pending status
         // Include library_booking JSON if present
         const [result] = await connection.query(`
             INSERT INTO transactions (
-                beeper_number, order_type, subtotal, total_amount, status, library_booking
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        `, [beeperNumber, normalizedOrderType, subtotal, total_amount, 'pending', 
-            library_booking ? JSON.stringify(library_booking) : null]);
+                beeper_number, order_type, subtotal, total_amount,
+                vat_enabled_snapshot, vat_rate_snapshot, vat_amount, vatable_sales, non_vatable_sales,
+                status, library_booking
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            beeperNumber,
+            normalizedOrderType,
+            subtotal,
+            total_amount,
+            pendingTax.vat_enabled_snapshot,
+            pendingTax.vat_rate_snapshot,
+            pendingTax.vat_amount,
+            pendingTax.vatable_sales,
+            pendingTax.non_vatable_sales,
+            'pending',
+            library_booking ? JSON.stringify(library_booking) : null
+        ]);
 
         const transactionId = result.insertId;
 
@@ -695,6 +754,7 @@ exports.processPayment = async (req, res) => {
         const originalTotal = parseFloat(transaction.total_amount);
         const discountAmt = parseFloat(discount_amount) || 0;
         const finalTotal = Math.max(0, originalTotal - discountAmt);
+        const payTax = await buildTaxColumnValues(connection, finalTotal);
         const takeoutCupsNeeded = await calculateTakeoutCupsFromTransaction(connection, id);
         const cupReservation = await ensureTakeoutCupCapacity({
             queryRunner: connection,
@@ -763,13 +823,31 @@ exports.processPayment = async (req, res) => {
                 discount_id = ?,
                 discount_amount = ?,
                 total_amount = ?,
+                vat_enabled_snapshot = ?,
+                vat_rate_snapshot = ?,
+                vat_amount = ?,
+                vatable_sales = ?,
+                non_vatable_sales = ?,
                 cash_tendered = ?,
                 change_due = ?,
                 status = 'preparing',
                 paid_at = NOW(),
                 processed_by = COALESCE(processed_by, ?)
             WHERE transaction_id = ?
-        `, [discount_id || null, discountAmt, finalTotal, cash_tendered, change_due, userId, id]);
+        `, [
+            discount_id || null,
+            discountAmt,
+            finalTotal,
+            payTax.vat_enabled_snapshot,
+            payTax.vat_rate_snapshot,
+            payTax.vat_amount,
+            payTax.vatable_sales,
+            payTax.non_vatable_sales,
+            cash_tendered,
+            change_due,
+            userId,
+            id
+        ]);
 
         await connection.commit();
 
@@ -1110,9 +1188,27 @@ exports.removeItemsFromPending = async (req, res) => {
             } catch(e) { /* ignore */ }
         }
 
+        const partialTax = await buildTaxColumnValues(connection, newSubtotal);
         await connection.query(
-            'UPDATE transactions SET subtotal = ?, total_amount = ? WHERE transaction_id = ?',
-            [newSubtotal, newSubtotal, id]
+            `UPDATE transactions SET
+                subtotal = ?,
+                total_amount = ?,
+                vat_enabled_snapshot = ?,
+                vat_rate_snapshot = ?,
+                vat_amount = ?,
+                vatable_sales = ?,
+                non_vatable_sales = ?
+            WHERE transaction_id = ?`,
+            [
+                newSubtotal,
+                newSubtotal,
+                partialTax.vat_enabled_snapshot,
+                partialTax.vat_rate_snapshot,
+                partialTax.vat_amount,
+                partialTax.vatable_sales,
+                partialTax.non_vatable_sales,
+                id
+            ]
         );
 
         await connection.commit();
@@ -1840,12 +1936,36 @@ exports.refundTransaction = async (req, res) => {
         }
 
         await connection.commit();
+
+        const origTotalAmt = parseFloat(transaction.total_amount || 0);
+        const origVat = parseFloat(transaction.vat_amount || 0);
+        const origVatable = parseFloat(transaction.vatable_sales || 0);
+        const origNonVat = parseFloat(transaction.non_vatable_sales || 0);
+        let tax_breakdown = {
+            vat_amount: 0,
+            vatable_sales: 0,
+            non_vatable_sales: 0,
+            net_vatable_sales: 0,
+            vat_rate_snapshot: transaction.vat_rate_snapshot != null ? parseFloat(transaction.vat_rate_snapshot) : null
+        };
+        if (origTotalAmt > 0 && refundAmount > 0) {
+            const ratio = refundAmount / origTotalAmt;
+            tax_breakdown = {
+                vat_amount: roundMoney(origVat * ratio),
+                vatable_sales: roundMoney(origVatable * ratio),
+                non_vatable_sales: roundMoney(origNonVat * ratio),
+                net_vatable_sales: roundMoney((origVatable - origVat) * ratio),
+                vat_rate_snapshot: transaction.vat_rate_snapshot != null ? parseFloat(transaction.vat_rate_snapshot) : null
+            };
+        }
+
         res.json({
             success: true,
             message: `Transaction refunded successfully (${normalizedRefundMethod === 'item' ? 'item replacement' : 'cash return'})`,
             transaction_id: transaction.transaction_id,
             refund_method: normalizedRefundMethod,
-            refund_amount: cashRefundAmount
+            refund_amount: cashRefundAmount,
+            tax_breakdown
         });
     } catch (error) {
         await connection.rollback();
