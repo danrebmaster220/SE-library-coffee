@@ -706,11 +706,11 @@ export default function Config() {
             <div className="settings-form-group">
               <label>Current takeout cups stock</label>
               <input
-                type="number"
-                min="0"
-                step="1"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={cupsStock}
-                onChange={(e) => setCupsStock(e.target.value)}
+                onChange={(e) => setCupsStock(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="Enter current stock"
               />
             </div>
