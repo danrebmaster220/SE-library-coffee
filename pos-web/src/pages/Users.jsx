@@ -11,8 +11,7 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState(null);
   const [filterSearch, setFilterSearch] = useState("");
   const [filterRole, setFilterRole] = useState("");
-  /** Default: active only — use "All Status" to review inactive accounts */
-  const [filterStatus, setFilterStatus] = useState("active");
+  const [filterStatus, setFilterStatus] = useState("");
   const [userPage, setUserPage] = useState(1);
   const rowsPerPage = 10;
   const [loading, setLoading] = useState(true);
