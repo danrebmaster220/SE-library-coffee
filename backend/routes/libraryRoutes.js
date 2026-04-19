@@ -6,6 +6,9 @@ const { verifyToken, isAdminOrCashier, isAdmin, requireActiveShiftForNonAdmin } 
 
 // PUBLIC ROUTES (For Kiosk - No Auth Required)
 
+// Study Hall rate card (single source of truth with server validation on orders)
+router.get('/pricing', libraryController.getLibraryPricingPublic);
+
 // Get available seats for kiosk display
 router.get('/seats/available', libraryController.getAvailableSeatsPublic);
 

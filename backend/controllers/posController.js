@@ -3,6 +3,10 @@ const bcrypt = require('bcrypt');
 const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adminPin');
 const { computeTransactionTaxSnapshot } = require('../services/taxService');
 const { getPriceUpdateSettings } = require('../services/priceScheduleService');
+const {
+    calculateAmountFromDurationMinutes,
+    MAX_KIOSK_BOOKING_DURATION_MINUTES
+} = require('../services/libraryPricingService');
 
 const roundMoney = (n) => Math.round(Number(n) * 100) / 100;
 
@@ -616,6 +620,34 @@ exports.createKioskOrder = async (req, res) => {
             if (existingPending.length > 0) {
                 await connection.rollback();
                 return res.status(400).json({ error: 'This seat was just reserved by another pending customer order. Please select a different seat.' });
+            }
+
+            const dm = parseInt(library_booking.duration_minutes, 10);
+            if (!Number.isInteger(dm) || dm < 1 || dm > MAX_KIOSK_BOOKING_DURATION_MINUTES) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Invalid study session duration.' });
+            }
+            const expectedLib = calculateAmountFromDurationMinutes(dm);
+            if (expectedLib == null) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Invalid study session duration.' });
+            }
+            const clientLibAmount = roundMoney(parseFloat(library_booking.amount));
+            if (!Number.isFinite(clientLibAmount) || Math.abs(clientLibAmount - expectedLib) > 0.02) {
+                await connection.rollback();
+                return res.status(400).json({
+                    error: 'Study area fee does not match the selected duration. Please refresh the app and try again.'
+                });
+            }
+
+            const subNum = roundMoney(parseFloat(subtotal));
+            const totalNum = roundMoney(parseFloat(total_amount));
+            const expectedTotal = roundMoney(subNum + expectedLib);
+            if (!Number.isFinite(subNum) || !Number.isFinite(totalNum) || Math.abs(totalNum - expectedTotal) > 0.02) {
+                await connection.rollback();
+                return res.status(400).json({
+                    error: 'Order total does not match items and study booking.'
+                });
             }
         }
 

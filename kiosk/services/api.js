@@ -37,6 +37,31 @@ const fetchAPI = async (endpoint, options = {}) => {
 // CATEGORIES API
 // ==========================================
 
+/** Study Hall rate card from server (must match checkout validation). */
+export const getLibraryPricing = async () => {
+  try {
+    const data = await fetchAPI('/library/pricing');
+    const out = {
+      base_rate: Number(data?.base_rate),
+      base_minutes: Number(data?.base_minutes),
+      extend_rate: Number(data?.extend_rate),
+      extend_minutes: Number(data?.extend_minutes),
+    };
+    if (
+      !Number.isFinite(out.base_rate) ||
+      !Number.isFinite(out.base_minutes) ||
+      !Number.isFinite(out.extend_rate) ||
+      !Number.isFinite(out.extend_minutes)
+    ) {
+      return null;
+    }
+    return out;
+  } catch (error) {
+    console.error('Error fetching library pricing:', error);
+    return null;
+  }
+};
+
 export const getCategories = async () => {
   try {
     const data = await fetchAPI('/menu/categories');
@@ -209,5 +234,6 @@ export default {
   getTakeoutCupsStatus,
   getTaxDisplay,
   getTaxEstimate,
+  getLibraryPricing,
   API_BASE_URL,
 };

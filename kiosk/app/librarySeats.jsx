@@ -16,16 +16,16 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { User, Clock, Plus, Minus, ArrowLeft } from "lucide-react-native";
-import { API_BASE_URL } from "../services/api";
+import { API_BASE_URL, getLibraryPricing } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import { io } from "socket.io-client";
 
-// Pricing configuration
-const PRICING = {
-  BASE_RATE: 100,      // ₱100 for first 2 hours
-  BASE_MINUTES: 120,   // 2 hours
-  EXTEND_RATE: 50,     // ₱50 per 30 minutes extension
-  EXTEND_MINUTES: 30,  // Extension block size
+/** Fallback if /library/pricing fails (must match server libraryPricingService). */
+const FALLBACK_LIBRARY_PRICING = {
+  base_rate: 100,
+  base_minutes: 120,
+  extend_rate: 50,
+  extend_minutes: 30,
 };
 
 export default function LibrarySeats() {
@@ -36,6 +36,7 @@ export default function LibrarySeats() {
   const insets = useSafeAreaInsets();
 
   const [seats, setSeats] = useState([]);
+  const [pricing, setPricing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSeat, setSelectedSeat] = useState(null);
   const selectedSeatRef = useRef(null);
@@ -69,7 +70,7 @@ export default function LibrarySeats() {
   };
 
   useEffect(() => {
-    fetchSeats();
+    loadInitialData();
     // Animation value from useRef is stable
     const animation = fadeAnim;
     Animated.timing(animation, {
@@ -121,19 +122,47 @@ export default function LibrarySeats() {
     };
   }, [fadeAnim]);
 
-  const fetchSeats = async () => {
+  const normalizePricing = (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const base_rate = Number(raw.base_rate);
+    const base_minutes = Number(raw.base_minutes);
+    const extend_rate = Number(raw.extend_rate);
+    const extend_minutes = Number(raw.extend_minutes);
+    if (
+      !Number.isFinite(base_rate) ||
+      !Number.isFinite(base_minutes) ||
+      !Number.isFinite(extend_rate) ||
+      !Number.isFinite(extend_minutes)
+    ) {
+      return null;
+    }
+    return { base_rate, base_minutes, extend_rate, extend_minutes };
+  };
+
+  const loadInitialData = async () => {
     try {
       setLoading(true);
-      // Use public endpoint that doesn't require auth
-      const response = await fetch(`${API_BASE_URL}/library/seats/available`);
-      const data = await response.json();
-      console.log("Seats data:", data); // Debug log
-      // Ensure we always set an array
+      const [seatsRes, pricingFromApi] = await Promise.all([
+        fetch(`${API_BASE_URL}/library/seats/available`),
+        getLibraryPricing(),
+      ]);
+      if (!seatsRes.ok) {
+        throw new Error("Seats request failed");
+      }
+      const data = await seatsRes.json();
+      console.log("Seats data:", data);
       setSeats(Array.isArray(data) ? data : []);
+
+      const p = normalizePricing(pricingFromApi) || FALLBACK_LIBRARY_PRICING;
+      if (!normalizePricing(pricingFromApi)) {
+        console.warn("Library pricing: using fallback constants (API unavailable or invalid)");
+      }
+      setPricing(p);
     } catch (error) {
-      console.error("Error fetching seats:", error);
-      Alert.alert("Error", "Failed to load seats. Please try again.");
+      console.error("Error loading library screen:", error);
+      Alert.alert("Error", "Failed to load seats or pricing. Please try again.");
       setSeats([]);
+      setPricing(FALLBACK_LIBRARY_PRICING);
     } finally {
       setLoading(false);
     }
@@ -152,12 +181,14 @@ export default function LibrarySeats() {
     acc[table].seats.push(seat);
     return acc;
   }, {});
+  const rateCard = pricing || FALLBACK_LIBRARY_PRICING;
+
   const calculateTotal = () => {
-    return PRICING.BASE_RATE + (extensions * PRICING.EXTEND_RATE);
+    return rateCard.base_rate + extensions * rateCard.extend_rate;
   };
 
   const calculateDuration = () => {
-    return PRICING.BASE_MINUTES + (extensions * PRICING.EXTEND_MINUTES);
+    return rateCard.base_minutes + extensions * rateCard.extend_minutes;
   };
 
   const formatDuration = (minutes) => {
@@ -358,8 +389,8 @@ export default function LibrarySeats() {
           <View style={styles.pricingInfo}>
             <Text style={styles.pricingTitle}>Study Area Rates</Text>
             <Text style={[styles.pricingText, isPhone && styles.pricingTextPhone]}>
-              Base: ₱{PRICING.BASE_RATE} for {formatDuration(PRICING.BASE_MINUTES)} • 
-              Extension: +₱{PRICING.EXTEND_RATE} per {PRICING.EXTEND_MINUTES} mins
+              Base: ₱{rateCard.base_rate} for {formatDuration(rateCard.base_minutes)} • Extension: +₱
+              {rateCard.extend_rate} per {rateCard.extend_minutes} mins
             </Text>
           </View>
         </Animated.View>
@@ -414,13 +445,15 @@ export default function LibrarySeats() {
                     <View style={styles.durationBase}>
                       <Clock color="#4C2B18" size={20} />
                       <Text style={styles.durationText}>
-                        Base: {formatDuration(PRICING.BASE_MINUTES)} = ₱{PRICING.BASE_RATE}
+                        Base: {formatDuration(rateCard.base_minutes)} = ₱{rateCard.base_rate}
                       </Text>
                     </View>
                     
                     {/* Extension Controls */}
                     <View style={styles.extensionRow}>
-                      <Text style={styles.extensionLabel}>Extensions (+30 mins each)</Text>
+                      <Text style={styles.extensionLabel}>
+                        Extensions (+{rateCard.extend_minutes} mins each)
+                      </Text>
                       <View style={styles.extensionControls}>
                         <TouchableOpacity
                           style={[styles.extButton, extensions === 0 && styles.extButtonDisabled]}
@@ -441,7 +474,7 @@ export default function LibrarySeats() {
 
                     {extensions > 0 && (
                       <Text style={styles.extensionCost}>
-                        Extension: +₱{extensions * PRICING.EXTEND_RATE}
+                        Extension: +₱{extensions * rateCard.extend_rate}
                       </Text>
                     )}
                   </View>

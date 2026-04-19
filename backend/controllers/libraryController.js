@@ -5,14 +5,11 @@ const { normalizeAdminPin, verifyAdminPinAgainstAdmins } = require('../utils/adm
 const { getPriceUpdateSettings } = require('../services/priceScheduleService');
 const { computeTransactionTaxSnapshot } = require('../services/taxService');
 const { printLibraryCheckinReceipt, printLibraryExtensionReceipt, printLibraryCheckoutReceipt } = require('../services/printerService');
-
-// Pricing configuration
-const LIBRARY_PRICING = {
-    BASE_RATE: 100,      // ₱100 for first 2 hours
-    BASE_MINUTES: 120,   // 2 hours = 120 minutes
-    EXTEND_RATE: 50,     // ₱50 per 30 minutes extension
-    EXTEND_MINUTES: 30   // Extension block size
-};
+const {
+    LIBRARY_PRICING,
+    calculateAmountFromDurationMinutes,
+    getLibraryPricingPublic
+} = require('../services/libraryPricingService');
 
 /** VAT-inclusive breakdown for library payments (same rules as POS transactions). */
 async function taxReceiptFieldsForAmount(amount) {
@@ -32,6 +29,15 @@ async function taxReceiptFieldsForAmount(amount) {
     };
 }
 
+/** Public Study Hall rate card (kiosk must match server-calculated fees). */
+exports.getLibraryPricingPublic = async (req, res) => {
+    try {
+        res.set('Cache-Control', 'public, max-age=120');
+        res.json(getLibraryPricingPublic());
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 // GET AVAILABLE SEATS FOR KIOSK (Public - no auth required)
 // Excludes seats that are: maintenance, occupied (active session), or reserved by pending kiosk orders
@@ -196,7 +202,10 @@ exports.checkin = async (req, res) => {
         }
 
         // Validate payment
-        const calculatedAmount = calculateAmount(duration_minutes);
+        const calculatedAmount = calculateAmountFromDurationMinutes(duration_minutes);
+        if (calculatedAmount == null) {
+            return res.status(400).json({ error: 'Invalid duration for study session' });
+        }
         if (amount_paid < calculatedAmount) {
             return res.status(400).json({ error: 'Insufficient payment' });
         }
@@ -288,18 +297,6 @@ exports.checkin = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
-// Helper function to calculate amount based on duration
-function calculateAmount(minutes) {
-    if (minutes <= LIBRARY_PRICING.BASE_MINUTES) {
-        return LIBRARY_PRICING.BASE_RATE;
-    }
-    
-    const extraMinutes = minutes - LIBRARY_PRICING.BASE_MINUTES;
-    const extraBlocks = Math.ceil(extraMinutes / LIBRARY_PRICING.EXTEND_MINUTES);
-    return LIBRARY_PRICING.BASE_RATE + (extraBlocks * LIBRARY_PRICING.EXTEND_RATE);
-}
-
 
 // EXTEND SESSION (Pay more, add time)
 
