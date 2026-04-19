@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../config/db');
+const { logAuditEvent } = require('../services/auditLogService');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
@@ -114,6 +115,99 @@ const stringifyAuditDetails = (details) => {
 
     return text || '-';
 };
+
+function sumOrdersTableTotals(orders) {
+    return orders.reduce(
+        (acc, o) => {
+            acc.subtotal += parseFloat(o.subtotal) || 0;
+            acc.discount += parseFloat(o.discount_amount) || 0;
+            acc.total += parseFloat(o.total_amount) || 0;
+            acc.vat += parseFloat(o.vat_amount) || 0;
+            return acc;
+        },
+        { subtotal: 0, discount: 0, total: 0, vat: 0 }
+    );
+}
+
+function sumSessionsTableTotals(sessions) {
+    return sessions.reduce(
+        (acc, s) => {
+            acc.amount += parseFloat(s.amount_paid || s.amount_due) || 0;
+            acc.vat += parseFloat(s.vat_amount) || 0;
+            acc.vatable += parseFloat(s.vatable_sales) || 0;
+            acc.nonVat += parseFloat(s.non_vatable_sales) || 0;
+            return acc;
+        },
+        { amount: 0, vat: 0, vatable: 0, nonVat: 0 }
+    );
+}
+
+/** Same net VAT figures as getSalesSummary / remittance — server-side source of truth. */
+async function fetchSalesVatTotalsForPeriod({ startDate, endDate, cashierUserId }) {
+    let whereConditions = ["t.status != 'voided'"];
+    const params = [];
+
+    if (startDate && endDate) {
+        whereConditions.push('DATE(t.created_at) BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+    } else {
+        whereConditions.push('DATE(t.created_at) = CURDATE()');
+    }
+
+    if (cashierUserId) {
+        whereConditions.push('t.processed_by = ?');
+        params.push(cashierUserId);
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    const [summary] = await db.query(`
+            SELECT 
+                COUNT(t.transaction_id) as total_orders,
+                COALESCE(SUM(t.subtotal), 0) as gross_sales,
+                COALESCE(SUM(t.discount_amount), 0) as total_discounts,
+                COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as total_refunds,
+                COALESCE(SUM(t.total_amount), 0) - COALESCE(SUM(COALESCE(vl.refund_amount, 0)), 0) as total_sales,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.vat_amount * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vat,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN (t.vatable_sales - t.vat_amount) * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_vatable_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN t.total_amount > 0 THEN t.non_vatable_sales * (1 - LEAST(1, COALESCE(vl.refund_amount, 0) / t.total_amount))
+                        ELSE 0
+                    END
+                ), 0) as net_non_vatable
+            FROM transactions t
+            LEFT JOIN (
+                SELECT transaction_id, SUM(COALESCE(refund_amount, 0)) as refund_amount
+                FROM void_log
+                WHERE action_type = 'refund'
+                GROUP BY transaction_id
+            ) vl ON vl.transaction_id = t.transaction_id
+            WHERE ${whereClause}
+        `, params);
+
+    const row = summary[0] || {};
+    return {
+        total_orders: row.total_orders ?? 0,
+        gross_sales: parseFloat(row.gross_sales) || 0,
+        total_discounts: parseFloat(row.total_discounts) || 0,
+        total_refunds: parseFloat(row.total_refunds) || 0,
+        total_sales: parseFloat(row.total_sales) || 0,
+        net_vat: parseFloat(row.net_vat) || 0,
+        net_vatable_base: parseFloat(row.net_vatable_base) || 0,
+        net_non_vatable: parseFloat(row.net_non_vatable) || 0
+    };
+}
 
 
 // SALES SUMMARY (by date range) - Uses transactions table
@@ -827,6 +921,20 @@ exports.exportCSV = async (req, res) => {
                     order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : '-'
                 ]);
             });
+            const ot = sumOrdersTableTotals(orders);
+            rows.push([]);
+            rows.push([
+                'TOTALS (sum of detail rows)',
+                '',
+                '',
+                '',
+                '',
+                formatCurrency(ot.subtotal),
+                formatCurrency(ot.discount),
+                formatCurrency(ot.total),
+                formatCurrency(ot.vat),
+                ''
+            ]);
         } else if (type === 'sales') {
             filename = `Sales_Report_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
 
@@ -922,6 +1030,18 @@ exports.exportCSV = async (req, res) => {
                     formatCurrency(day.avg_order_value)
                 ]);
             });
+            rows.push([]);
+            rows.push([
+                'TOTALS',
+                totalTransactions,
+                formatCurrency(totalGrossSales),
+                formatCurrency(totalDiscounts),
+                formatCurrency(totalNetSales),
+                formatCurrency(totalNetVat),
+                formatCurrency(totalNetVatable),
+                formatCurrency(totalNetNonVat),
+                formatCurrency(avgOrderValue)
+            ]);
         } else if (type === 'library') {
             filename = `Library_Report_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
 
@@ -1019,6 +1139,23 @@ exports.exportCSV = async (req, res) => {
                     session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
                 ]);
             });
+            const st = sumSessionsTableTotals(sessions);
+            rows.push([]);
+            rows.push([
+                'TOTALS (sum of detail rows)',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                formatCurrency(st.amount),
+                formatCurrency(st.vat),
+                formatCurrency(st.vatable),
+                formatCurrency(st.nonVat),
+                ''
+            ]);
         } else if (type === 'audit') {
             filename = `Audit_Trail_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
 
@@ -1343,6 +1480,23 @@ exports.exportExcel = async (req, res) => {
                 
                 row.height = 20;
             });
+
+            const otX = sumOrdersTableTotals(orders);
+            const ordTotalsRowNum = dataStartRow + 1 + orders.length;
+            const orow = worksheet.getRow(ordTotalsRowNum);
+            orow.getCell(1).value = 'TOTALS';
+            orow.getCell(6).value = `₱${formatCurrency(otX.subtotal)}`;
+            orow.getCell(7).value = `₱${formatCurrency(otX.discount)}`;
+            orow.getCell(8).value = `₱${formatCurrency(otX.total)}`;
+            orow.getCell(9).value = `₱${formatCurrency(otX.vat)}`;
+            for (let col = 1; col <= 10; col++) {
+                const cell = orow.getCell(col);
+                cell.font = { bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F0E8' } };
+                cell.border = cellBorder;
+                cell.alignment = { horizontal: col <= 2 || col === 4 || col === 10 ? 'left' : 'center', vertical: 'middle' };
+            }
+            orow.height = 22;
 
             // Set column widths
             worksheet.columns = [
@@ -1715,6 +1869,23 @@ exports.exportExcel = async (req, res) => {
                 row.height = 20;
             });
 
+            const stX = sumSessionsTableTotals(sessions);
+            const libTotalsRowNum = dataStartRow + 1 + sessions.length;
+            const lrow = worksheet.getRow(libTotalsRowNum);
+            lrow.getCell(1).value = 'TOTALS';
+            lrow.getCell(9).value = `₱${formatCurrency(stX.amount)}`;
+            lrow.getCell(10).value = `₱${formatCurrency(stX.vat)}`;
+            lrow.getCell(11).value = `₱${formatCurrency(stX.vatable)}`;
+            lrow.getCell(12).value = `₱${formatCurrency(stX.nonVat)}`;
+            for (let col = 1; col <= 13; col++) {
+                const cell = lrow.getCell(col);
+                cell.font = { bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F0E8' } };
+                cell.border = cellBorder;
+                cell.alignment = { horizontal: col === 5 ? 'left' : 'center', vertical: 'middle' };
+            }
+            lrow.height = 22;
+
             // Set column widths
             worksheet.columns = [
                 { width: 14 }, // Session #
@@ -1936,6 +2107,19 @@ exports.exportPDF = async (req, res) => {
             });
         };
 
+        /** Shorter one-line timestamps for wide tables (library PDF). */
+        const formatDateTimeShort = (dateString) => {
+            if (!dateString) return '-';
+            return new Date(dateString).toLocaleString('en-PH', {
+                month: 'numeric',
+                day: 'numeric',
+                year: '2-digit',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        };
+
         // Draw table header
         const drawTableHeader = (headers, y, columnWidths) => {
             doc.font(pdfFontBold).fontSize(9);
@@ -1954,23 +2138,45 @@ exports.exportPDF = async (req, res) => {
             return y + 20;
         };
 
-        // Draw table row
-        const drawTableRow = (data, y, columnWidths, isAlternate = false) => {
+        // Draw table row (rowHeight 18 default; use 22+ for library grid so wrapped text does not collide)
+        const drawTableRow = (data, y, columnWidths, isAlternate = false, rowHeight = 18) => {
             doc.font(pdfFontBody).fontSize(8);
             let x = 40;
             
-            // Alternate row background
             if (isAlternate) {
-                doc.fillColor('#f5f5f5').rect(40, y - 3, 760, 18).fill();
+                doc.fillColor('#f5f5f5').rect(40, y - 3, 760, rowHeight).fill();
                 doc.fillColor('black');
             }
             
             data.forEach((cell, i) => {
-                doc.text(String(cell || '-'), x + 5, y, { width: columnWidths[i] - 10, align: 'left' });
+                doc.text(String(cell || '-'), x + 5, y, {
+                    width: columnWidths[i] - 10,
+                    align: 'left',
+                    lineGap: 0.5
+                });
                 x += columnWidths[i];
             });
             
-            return y + 18;
+            return y + rowHeight;
+        };
+
+        /** Bold shaded footer row — column widths must match the table above. */
+        const drawTotalsRow = (cells, y, columnWidths, rowHeight = 20) => {
+            doc.font(pdfFontBold).fontSize(8);
+            doc.fillColor('#efebe9').rect(40, y - 2, 760, rowHeight).fill();
+            doc.fillColor('#1a1a1a');
+            let x = 40;
+            cells.forEach((cell, i) => {
+                doc.text(String(cell ?? ''), x + 5, y + 4, {
+                    width: columnWidths[i] - 10,
+                    align: 'left',
+                    lineGap: 0
+                });
+                x += columnWidths[i];
+            });
+            doc.fillColor('black');
+            doc.font(pdfFontBody);
+            return y + rowHeight;
         };
 
         // Add page header
@@ -2092,6 +2298,26 @@ exports.exportPDF = async (req, res) => {
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });
 
+            y = checkNewPage(y);
+            const otSum = sumOrdersTableTotals(orders);
+            y = drawTotalsRow(
+                [
+                    'TOTALS',
+                    '',
+                    '',
+                    '',
+                    '',
+                    formatCurrency(otSum.subtotal),
+                    formatCurrency(otSum.discount),
+                    formatCurrency(otSum.total),
+                    formatCurrency(otSum.vat),
+                    ''
+                ],
+                y,
+                columnWidths,
+                20
+            );
+
         } else if (type === 'sales') {
             // SALES REPORT PDF (aligned with getSalesDetails / Excel)
             filename = `Sales_Report_${startDate}_to_${endDate}.pdf`;
@@ -2198,6 +2424,24 @@ exports.exportPDF = async (req, res) => {
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
             });
 
+            y = checkNewPage(y);
+            y = drawTotalsRow(
+                [
+                    'TOTALS',
+                    totalOrders,
+                    formatCurrency(totalGross),
+                    formatCurrency(totalDiscounts),
+                    formatCurrency(totalNetSales),
+                    formatCurrency(totalNetVat),
+                    formatCurrency(totalVatableBase),
+                    formatCurrency(totalNonVatable),
+                    formatCurrency(avgOrder)
+                ],
+                y,
+                columnWidths,
+                20
+            );
+
         } else if (type === 'library') {
             // LIBRARY REPORT PDF
             filename = `Library_Report_${startDate}_to_${endDate}.pdf`;
@@ -2285,14 +2529,15 @@ exports.exportPDF = async (req, res) => {
             );
             y += 28;
 
-            // Table (760pt total width; abbreviated headers)
+            // Table (760pt total); wide Status + Dur so "Completed" and long durations stay readable
             const headers = ['Session', 'Customer', 'T/S', 'Start', 'End', 'Dur', 'Amount', 'VAT', 'V net', 'Non-V', 'Status'];
-            const columnWidths = [56, 144, 52, 90, 90, 40, 62, 58, 58, 58, 52];
-            
+            const columnWidths = [52, 112, 46, 84, 84, 58, 58, 54, 54, 54, 104];
+            const libraryRowH = 22;
+
             y = drawTableHeader(headers, y, columnWidths);
 
             sessions.forEach((session, index) => {
-                if (y > 520) {
+                if (y > 498) {
                     doc.addPage();
                     y = addPageHeader('Library Report (cont.)', `Date Range: ${startDate} to ${endDate}`);
                     y = drawTableHeader(headers, y, columnWidths);
@@ -2306,8 +2551,8 @@ exports.exportPDF = async (req, res) => {
                     `LIB-${String(session.session_id).padStart(6, '0')}`,
                     session.customer_name || '-',
                     session.table_number ? `T${session.table_number}/S${session.seat_number}` : '-',
-                    formatDateTime(session.start_time),
-                    session.end_time ? formatDateTime(session.end_time) : '-',
+                    formatDateTimeShort(session.start_time),
+                    session.end_time ? formatDateTimeShort(session.end_time) : '-',
                     durationStr,
                     formatCurrency(session.amount_paid || session.amount_due),
                     formatCurrency(session.vat_amount || 0),
@@ -2315,8 +2560,29 @@ exports.exportPDF = async (req, res) => {
                     formatCurrency(session.non_vatable_sales || 0),
                     session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
                 ];
-                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
+                y = drawTableRow(rowData, y, columnWidths, index % 2 === 1, libraryRowH);
             });
+
+            y = checkNewPage(y);
+            const stSum = sumSessionsTableTotals(sessions);
+            y = drawTotalsRow(
+                [
+                    'TOTALS',
+                    '',
+                    '',
+                    '',
+                    '',
+                    '',
+                    formatCurrency(stSum.amount),
+                    formatCurrency(stSum.vat),
+                    formatCurrency(stSum.vatable),
+                    formatCurrency(stSum.nonVat),
+                    ''
+                ],
+                y,
+                columnWidths,
+                libraryRowH
+            );
         } else if (type === 'audit') {
             // AUDIT TRAIL REPORT PDF
             filename = `Audit_Trail_${startDate || 'all'}_to_${endDate || 'all'}.pdf`;
@@ -2429,6 +2695,97 @@ exports.exportPDF = async (req, res) => {
 
     } catch (error) {
         console.error('PDF export error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Record a VAT remittance snapshot for the selected sales period (POS sales report basis). */
+exports.recordVatRemittance = async (req, res) => {
+    try {
+        const { startDate, endDate, notes } = req.body || {};
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD).' });
+        }
+
+        const cashierUserId = req.body?.cashierUserId ? String(req.body.cashierUserId) : undefined;
+
+        const totals = await fetchSalesVatTotalsForPeriod({
+            startDate,
+            endDate,
+            cashierUserId
+        });
+
+        const userId = req.user?.user_id || req.user?.id || null;
+
+        const [ins] = await db.query(
+            `INSERT INTO vat_remittance_records
+                (period_start, period_end, net_vat_amount, net_vatable_base, net_non_vatable, notes, recorded_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                startDate,
+                endDate,
+                totals.net_vat,
+                totals.net_vatable_base,
+                totals.net_non_vatable,
+                notes ? String(notes).slice(0, 500) : null,
+                userId
+            ]
+        );
+
+        const insertId = ins.insertId;
+
+        try {
+            await logAuditEvent({
+                action: 'vat_remittance_recorded',
+                actorUserId: userId,
+                targetType: 'vat_remittance',
+                targetId: insertId,
+                details: {
+                    period_start: startDate,
+                    period_end: endDate,
+                    net_vat_amount: totals.net_vat,
+                    net_vatable_base: totals.net_vatable_base,
+                    net_non_vatable: totals.net_non_vatable,
+                    notes: notes || ''
+                },
+                ipAddress: req.ip
+            });
+        } catch (auditErr) {
+            console.warn('vat remittance audit log:', auditErr.message);
+        }
+
+        res.json({
+            ok: true,
+            id: insertId,
+            period_start: startDate,
+            period_end: endDate,
+            net_vat: totals.net_vat,
+            net_vatable_base: totals.net_vatable_base,
+            net_non_vatable: totals.net_non_vatable,
+            total_sales: totals.total_sales,
+            total_orders: totals.total_orders
+        });
+    } catch (error) {
+        console.error('recordVatRemittance:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Recent VAT remittance records (newest first). */
+exports.listVatRemittances = async (req, res) => {
+    try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+        const [rows] = await db.query(
+            `SELECT r.*, u.full_name AS recorded_by_name, u.username AS recorded_by_username
+             FROM vat_remittance_records r
+             LEFT JOIN users u ON r.recorded_by = u.user_id
+             ORDER BY r.created_at DESC
+             LIMIT ?`,
+            [limit]
+        );
+        res.json({ records: rows });
+    } catch (error) {
+        console.error('listVatRemittances:', error);
         res.status(500).json({ error: error.message });
     }
 };

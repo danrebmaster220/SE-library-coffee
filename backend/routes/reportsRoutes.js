@@ -39,4 +39,8 @@ router.get('/export', verifyToken, isAdmin, reportsController.exportReport);
 // Export to PDF
 router.get('/export-pdf', verifyToken, isAdmin, reportsController.exportPDF);
 
+// VAT remittance bookkeeping (POS sales basis — same filters as sales summary)
+router.post('/vat-remittance', verifyToken, isAdmin, reportsController.recordVatRemittance);
+router.get('/vat-remittance', verifyToken, isAdmin, reportsController.listVatRemittances);
+
 module.exports = router;

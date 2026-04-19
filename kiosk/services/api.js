@@ -191,6 +191,14 @@ export const getTaxDisplay = async () => {
   }
 };
 
+/** VAT-inclusive breakdown for cart total (same rules as POS receipts). */
+export const getTaxEstimate = async (totalInclusive) => {
+  const params = new URLSearchParams({
+    total_incl: Number(totalInclusive || 0).toFixed(2),
+  });
+  return fetchAPI(`/menu/tax-estimate?${params.toString()}`);
+};
+
 export default {
   getCategories,
   getMenuItems,
@@ -200,5 +208,6 @@ export default {
   getAvailableBeepers,
   getTakeoutCupsStatus,
   getTaxDisplay,
+  getTaxEstimate,
   API_BASE_URL,
 };

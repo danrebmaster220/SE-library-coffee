@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { computeTransactionTaxSnapshot, roundMoney } = require('../services/taxService');
 const {
     ALLOWED_DELAY_DAYS,
     getPriceUpdateSettings,
@@ -218,6 +219,40 @@ exports.getTaxDisplayPublic = async (_req, res) => {
         res.json({
             vat_enabled: Boolean(settings.vat_enabled),
             vat_rate_percent: Number(settings.vat_rate_percent) || 0
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Public VAT breakdown for a VAT-inclusive total (kiosk cart / checkout).
+ * Matches POS `computeTransactionTaxSnapshot` for the same settings.
+ */
+exports.getTaxEstimatePublic = async (req, res) => {
+    try {
+        const raw = req.query.total_incl ?? req.query.amount;
+        const totalIncl = parseFloat(raw);
+        if (!Number.isFinite(totalIncl) || totalIncl < 0) {
+            return res.status(400).json({ error: 'Query total_incl must be a non-negative number.' });
+        }
+
+        const settings = await getPriceUpdateSettings(db);
+        const snap = computeTransactionTaxSnapshot({
+            totalIncl,
+            vatEnabled: Boolean(settings.vat_enabled),
+            vatRatePercent: Number(settings.vat_rate_percent)
+        });
+
+        res.set('Cache-Control', 'private, no-store');
+        res.json({
+            total_inclusive: roundMoney(totalIncl),
+            vat_amount: snap.vat_amount,
+            vatable_sales: snap.vatable_sales,
+            non_vatable_sales: snap.non_vatable_sales,
+            net_vatable_sales: snap.net_vatable_sales,
+            vat_rate_percent: snap.vat_rate_snapshot,
+            vat_enabled: Boolean(snap.vat_enabled_snapshot)
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

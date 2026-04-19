@@ -86,6 +86,9 @@ async function runMigrations() {
         // Migration 25: VAT snapshot columns on library_sessions (cumulative per session)
         await ensureLibrarySessionTaxColumns();
 
+        // Migration 26: VAT remittance records (admin bookkeeping for BIR / internal tracking)
+        await ensureVatRemittanceTable();
+
         console.log('✅ All database migrations completed successfully.');
     } catch (error) {
         console.error('⚠️ Migration error (non-fatal):', error.message);
@@ -1391,6 +1394,36 @@ async function ensureLibrarySessionTaxColumns() {
         await add('non_vatable_sales', 'non_vatable_sales DECIMAL(10,2) NOT NULL DEFAULT 0.00');
     } catch (error) {
         console.error('   ⚠️ ensureLibrarySessionTaxColumns:', error.message);
+    }
+}
+
+async function ensureVatRemittanceTable() {
+    try {
+        const [tables] = await db.query(`
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vat_remittance_records'
+        `);
+        if (tables.length > 0) {
+            return;
+        }
+        await db.query(`
+            CREATE TABLE vat_remittance_records (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                period_start DATE NOT NULL,
+                period_end DATE NOT NULL,
+                net_vat_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                net_vatable_base DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                net_non_vatable DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                notes VARCHAR(500) NULL,
+                recorded_by INT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_vat_remittance_period (period_start, period_end),
+                CONSTRAINT fk_vat_remittance_user FOREIGN KEY (recorded_by) REFERENCES users(user_id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+        console.log('   ✅ Created vat_remittance_records');
+    } catch (error) {
+        console.error('   ⚠️ ensureVatRemittanceTable:', error.message);
     }
 }
 

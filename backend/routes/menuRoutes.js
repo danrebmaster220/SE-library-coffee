@@ -8,6 +8,7 @@ const { verifyToken, isAdmin, isAdminOrCashier } = require('../middleware/auth')
 
 router.get('/categories', menuController.getCategories);
 router.get('/tax-display', menuController.getTaxDisplayPublic);
+router.get('/tax-estimate', menuController.getTaxEstimatePublic);
 router.get('/price-update-settings', verifyToken, isAdmin, menuController.getPriceUpdateSettings);
 router.put('/price-update-settings', verifyToken, isAdmin, menuController.updatePriceUpdateSettings);
 router.put('/tax-settings', verifyToken, isAdmin, menuController.updateTaxSettings);

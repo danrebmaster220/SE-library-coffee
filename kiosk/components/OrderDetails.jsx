@@ -1,6 +1,6 @@
 // components/OrderDetails.jsx
 import { useRouter } from "expo-router";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Alert,
   FlatList,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { BookOpen, Clock } from "lucide-react-native";
 
-import { submitOrder } from "../services/api";
+import { submitOrder, getTaxDisplay, getTaxEstimate } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 
 const OrderDetails = ({
@@ -30,6 +30,8 @@ const OrderDetails = ({
 }) => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taxDisplay, setTaxDisplay] = useState(null);
+  const [taxEstimate, setTaxEstimate] = useState(null);
   const router = useRouter();
   const { isPhone: isPhoneHook } = useResponsive();
 
@@ -59,6 +61,41 @@ const OrderDetails = ({
   // Keep old function names for compatibility
   const getTotal = useCallback(() => total.toFixed(2), [total]);
   const getGrandTotal = useCallback(() => grandTotal.toFixed(2), [grandTotal]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await getTaxDisplay();
+        if (!cancelled) setTaxDisplay(d);
+      } catch {
+        if (!cancelled) setTaxDisplay(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tid = setTimeout(async () => {
+      if (grandTotal <= 0) {
+        if (!cancelled) setTaxEstimate(null);
+        return;
+      }
+      try {
+        const e = await getTaxEstimate(grandTotal);
+        if (!cancelled) setTaxEstimate(e);
+      } catch {
+        if (!cancelled) setTaxEstimate(null);
+      }
+    }, 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(tid);
+    };
+  }, [grandTotal]);
 
   const formatDuration = useCallback((minutes) => {
     const hours = Math.floor(minutes / 60);
@@ -254,6 +291,14 @@ const OrderDetails = ({
               <Text style={styles.subtotalLine}>Study Area: ₱{libraryBooking.amount.toFixed(2)}</Text>
             </View>
           )}
+          {taxDisplay?.vat_enabled &&
+            taxEstimate?.vat_enabled &&
+            grandTotal > 0 && (
+              <Text style={styles.taxDetailLine}>
+                Incl. {taxDisplay.vat_rate_percent}% VAT · VAT portion ₱
+                {Number(taxEstimate.vat_amount || 0).toFixed(2)}
+              </Text>
+            )}
           <Text style={styles.totalText}>Total: ₱{getGrandTotal()}</Text>
           <TouchableOpacity
             style={styles.checkoutButton}
@@ -327,6 +372,14 @@ const OrderDetails = ({
               </View>
             )}
 
+            {taxDisplay?.vat_enabled &&
+              taxEstimate?.vat_enabled &&
+              parseFloat(getGrandTotal()) > 0 && (
+                <Text style={styles.modalTaxLine}>
+                  VAT portion (included in total): ₱
+                  {Number(taxEstimate.vat_amount || 0).toFixed(2)}
+                </Text>
+              )}
             <Text style={styles.modalTotal}>Total: ₱{getGrandTotal()}</Text>
 
             <View style={styles.modalButtons}>
@@ -403,6 +456,12 @@ const styles = StyleSheet.create({
   qtyNumber: { fontSize: 16, fontWeight: "600", marginHorizontal: 6 },
   removeText: { color: "#B22222", fontWeight: "bold", fontSize: 18 },
   footer: { marginTop: 10, borderTopWidth: 1, borderColor: "#ddd", paddingTop: 10 },
+  taxDetailLine: {
+    fontSize: 12,
+    color: "#5d4e41",
+    marginBottom: 6,
+    fontWeight: "600",
+  },
   totalText: { fontSize: 18, fontWeight: "700", color: "#3d2417", marginBottom: 10 },
   checkoutButton: {
     backgroundColor: "#3d2417",
@@ -557,6 +616,12 @@ const styles = StyleSheet.create({
   modalSubtotalLine: {
     fontSize: 13,
     color: "#666",
+  },
+  modalTaxLine: {
+    fontSize: 13,
+    color: "#5d4e41",
+    fontWeight: "600",
+    marginTop: 6,
   },
   modalTotal: {
     fontSize: 18,

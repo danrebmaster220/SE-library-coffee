@@ -1345,6 +1345,8 @@ export default function Reports() {
         )}
       </div>
 
+      {/* VAT remittance UI removed: admins use Total VAT in the Orders (and Sales) report summary. Backend POST/GET /reports/vat-remittance still exists if we re-enable later. */}
+
       {/* Data Table */}
       <div className="table-card">
         {loading ? (
