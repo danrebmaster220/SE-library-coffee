@@ -49,6 +49,25 @@
   margin: 0;
 }
 
+.users-page-hint {
+  font-size: 13px;
+  color: #5d4e41;
+  line-height: 1.45;
+  margin: 10px 0 0;
+  max-width: 52rem;
+}
+
+.users-status-hint {
+  font-size: 12px;
+  color: #6d5d4e;
+  line-height: 1.4;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #faf7f3;
+  border-radius: 8px;
+  border: 1px solid #ebe6e0;
+}
+
 /* Toolbar Section */
 .toolbar-section {
   display: flex;

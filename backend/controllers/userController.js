@@ -189,23 +189,14 @@ exports.updateUser = async (req, res) => {
 };
 
 
-// DELETE USER
+// DELETE USER — disabled: staff rows are referenced by transactions, shifts, and audit logs.
+// Use status = inactive in PUT /users/:id instead.
 
 exports.deleteUser = async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        // Prevent deleting yourself (optional)
-        if (req.user && req.user.user_id == id) {
-            return res.status(400).json({ error: 'Cannot delete your own account' });
-        }
-
-        await db.query('DELETE FROM users WHERE user_id = ?', [id]);
-        res.json({ message: 'User deleted successfully' });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    return res.status(403).json({
+        error:
+            'User accounts cannot be deleted. Set status to Inactive to revoke sign-in while keeping history for transactions and reports.'
+    });
 };
 
 
