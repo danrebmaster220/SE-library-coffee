@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { API_BASE_URL } from "../services/api";
+import { getItemCustomizations } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 
 const isSizeGroupName = (name) => String(name || "").toLowerCase().includes("size");
@@ -118,9 +118,8 @@ const CustomizationModal = ({ visible, onClose, item, onAdd, menuBranch = null }
 
     try {
       setLoading(true);
-      const response = await fetch(API_BASE_URL + "/customizations/item/" + item.item_id);
-      const data = await response.json();
-      
+      const data = await getItemCustomizations(item.item_id);
+
       if (data.is_customizable && data.groups && data.groups.length > 0) {
         setIsCustomizable(true);
         setCustomizationGroups(data.groups);

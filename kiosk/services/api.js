@@ -37,6 +37,17 @@ const fetchAPI = async (endpoint, options = {}) => {
 // CATEGORIES API
 // ==========================================
 
+/** Public seat list for Study Hall kiosk (array JSON). Returns null on request failure (distinct from empty list). */
+export const getAvailableSeats = async () => {
+  try {
+    const data = await fetchAPI('/library/seats/available');
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Error fetching available seats:', error);
+    return null;
+  }
+};
+
 /** Study Hall rate card from server (must match checkout validation). */
 export const getLibraryPricing = async () => {
   try {
@@ -172,20 +183,6 @@ export const submitOrder = async (orderData) => {
   }
 };
 
-// ==========================================
-// BEEPERS API
-// ==========================================
-
-export const getAvailableBeepers = async () => {
-  try {
-    const data = await fetchAPI('/pos/beepers/available');
-    return data.beepers || data || [];
-  } catch (error) {
-    console.error('Error fetching beepers:', error);
-    return [];
-  }
-};
-
 export const getTakeoutCupsStatus = async () => {
   try {
     const data = await fetchAPI('/pos/cups/status');
@@ -230,7 +227,7 @@ export default {
   getItemsByCategory,
   getItemCustomizations,
   submitOrder,
-  getAvailableBeepers,
+  getAvailableSeats,
   getTakeoutCupsStatus,
   getTaxDisplay,
   getTaxEstimate,

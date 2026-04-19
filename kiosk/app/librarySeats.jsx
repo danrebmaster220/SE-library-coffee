@@ -16,7 +16,11 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { User, Clock, Plus, Minus, ArrowLeft } from "lucide-react-native";
-import { API_BASE_URL, getLibraryPricing } from "../services/api";
+import { API_BASE_URL, getAvailableSeats, getLibraryPricing } from "../services/api";
+import {
+  readLibrarySeatScreenCache,
+  writeLibrarySeatScreenCache,
+} from "../services/librarySeatsCache";
 import { useResponsive } from "../hooks/useResponsive";
 import { io } from "socket.io-client";
 
@@ -37,7 +41,11 @@ export default function LibrarySeats() {
 
   const [seats, setSeats] = useState([]);
   const [pricing, setPricing] = useState(null);
-  const [loading, setLoading] = useState(true);
+  /** True once we can show the main UI (network done or stale cache applied). */
+  const [bootstrapped, setBootstrapped] = useState(false);
+  /** True while refreshing after showing stale cache. */
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pricingRef = useRef(null);
   const [selectedSeat, setSelectedSeat] = useState(null);
   const selectedSeatRef = useRef(null);
   const [showModal, setShowModal] = useState(false);
@@ -52,25 +60,81 @@ export default function LibrarySeats() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    pricingRef.current = pricing;
+  }, [pricing]);
+
   // Silent refresh (no loading spinner, no error alerts) for polling
   const fetchSeatsSilent = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/library/seats/available`);
-      if (!response.ok) return; // Silently ignore failed responses
-      const text = await response.text();
-      try {
-        const data = JSON.parse(text);
-        setSeats(Array.isArray(data) ? data : []);
-      } catch (_parseErr) {
-        // Response was not valid JSON, ignore silently
+      const list = await getAvailableSeats();
+      if (list === null) return;
+      setSeats(list);
+      const p = pricingRef.current;
+      if (p) {
+        await writeLibrarySeatScreenCache(list, p);
       }
     } catch (_error) {
-      // Network error, ignore silently
+      // ignore
     }
   };
 
   useEffect(() => {
-    loadInitialData();
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      const cached = await readLibrarySeatScreenCache();
+      if (cancelled) return;
+
+      let hasStale = false;
+      if (cached?.pricing) {
+        const p = normalizePricing(cached.pricing) || FALLBACK_LIBRARY_PRICING;
+        setSeats(Array.isArray(cached.seats) ? cached.seats : []);
+        setPricing(p);
+        setBootstrapped(true);
+        hasStale = true;
+        setIsRefreshing(true);
+      }
+
+      try {
+        const [seatsList, pricingFromApi] = await Promise.all([
+          getAvailableSeats(),
+          getLibraryPricing(),
+        ]);
+        if (cancelled) return;
+
+        if (seatsList === null) {
+          if (!hasStale) {
+            Alert.alert("Error", "Failed to load seats. Please try again.");
+            setSeats([]);
+            setPricing(FALLBACK_LIBRARY_PRICING);
+          }
+        } else {
+          setSeats(seatsList);
+          const p = normalizePricing(pricingFromApi) || FALLBACK_LIBRARY_PRICING;
+          if (!normalizePricing(pricingFromApi)) {
+            console.warn("Library pricing: using fallback constants (API unavailable or invalid)");
+          }
+          setPricing(p);
+          await writeLibrarySeatScreenCache(seatsList, p);
+        }
+      } catch (error) {
+        console.error("Error loading library screen:", error);
+        if (!hasStale) {
+          Alert.alert("Error", "Failed to load seats or pricing. Please try again.");
+          setSeats([]);
+          setPricing(FALLBACK_LIBRARY_PRICING);
+        }
+      } finally {
+        if (!cancelled) {
+          setBootstrapped(true);
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    bootstrap();
+
     // Animation value from useRef is stable
     const animation = fadeAnim;
     Animated.timing(animation, {
@@ -113,6 +177,7 @@ export default function LibrarySeats() {
     }, 10000);
 
     return () => {
+      cancelled = true;
       clearInterval(pollInterval);
       if (selectedSeatRef.current && socket) {
         // Auto-release any seats locked by this client if they unmount
@@ -137,35 +202,6 @@ export default function LibrarySeats() {
       return null;
     }
     return { base_rate, base_minutes, extend_rate, extend_minutes };
-  };
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      const [seatsRes, pricingFromApi] = await Promise.all([
-        fetch(`${API_BASE_URL}/library/seats/available`),
-        getLibraryPricing(),
-      ]);
-      if (!seatsRes.ok) {
-        throw new Error("Seats request failed");
-      }
-      const data = await seatsRes.json();
-      console.log("Seats data:", data);
-      setSeats(Array.isArray(data) ? data : []);
-
-      const p = normalizePricing(pricingFromApi) || FALLBACK_LIBRARY_PRICING;
-      if (!normalizePricing(pricingFromApi)) {
-        console.warn("Library pricing: using fallback constants (API unavailable or invalid)");
-      }
-      setPricing(p);
-    } catch (error) {
-      console.error("Error loading library screen:", error);
-      Alert.alert("Error", "Failed to load seats or pricing. Please try again.");
-      setSeats([]);
-      setPricing(FALLBACK_LIBRARY_PRICING);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Group seats by table - ensure seats is an array
@@ -288,12 +324,39 @@ export default function LibrarySeats() {
     router.back();
   };
 
-  if (loading) {
+  if (!bootstrapped) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4C2B18" />
-          <Text style={styles.loadingText}>Loading seats...</Text>
+        <View style={styles.skeletonRoot}>
+          <View style={styles.skeletonHeaderRow}>
+            <View style={styles.skeletonCircle} />
+            <View style={styles.skeletonHeaderText}>
+              <View style={styles.skeletonLineLg} />
+              <View style={styles.skeletonLineSm} />
+            </View>
+            <View style={styles.skeletonSkip} />
+          </View>
+          <View style={styles.skeletonLegend}>
+            <View style={styles.skeletonPill} />
+            <View style={styles.skeletonPill} />
+            <View style={styles.skeletonPill} />
+          </View>
+          <ScrollView contentContainerStyle={styles.skeletonScroll}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.skeletonTableCard}>
+                <View style={styles.skeletonTableTitle} />
+                <View style={styles.skeletonSeatRow}>
+                  {[0, 1, 2, 3].map((j) => (
+                    <View key={j} style={styles.skeletonSeat} />
+                  ))}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <View style={styles.skeletonFooter}>
+            <View style={styles.skeletonLineMd} />
+            <ActivityIndicator size="small" color="#4C2B18" style={{ marginTop: 8 }} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -321,6 +384,12 @@ export default function LibrarySeats() {
               <Text style={styles.skipText}>Skip</Text>
             </TouchableOpacity>
           </View>
+
+          {isRefreshing ? (
+            <View style={styles.refreshingBanner}>
+              <Text style={styles.refreshingText}>Updating seats…</Text>
+            </View>
+          ) : null}
 
           {/* Legend */}
           <View style={[styles.legend, isPhone && styles.legendPhone]}>
@@ -530,15 +599,111 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  loadingContainer: {
+  skeletonRoot: {
     flex: 1,
-    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: "#F5E6D3",
+  },
+  skeletonHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  skeletonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E8DCCD",
+  },
+  skeletonHeaderText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  skeletonLineLg: {
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: "#E8DCCD",
+    width: "70%",
+  },
+  skeletonLineSm: {
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: "#E0D6C8",
+    width: "45%",
+    marginTop: 6,
+  },
+  skeletonLineMd: {
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: "#E0D6C8",
+    width: "55%",
+    alignSelf: "center",
+  },
+  skeletonSkip: {
+    width: 52,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#E8DCCD",
+  },
+  skeletonLegend: {
+    flexDirection: "row",
+    marginBottom: 12,
+    justifyContent: "space-between",
+  },
+  skeletonPill: {
+    height: 28,
+    flex: 1,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: "#E8DCCD",
+  },
+  skeletonScroll: {
+    paddingBottom: 24,
+  },
+  skeletonTableCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  skeletonTableTitle: {
+    height: 18,
+    width: "40%",
+    borderRadius: 4,
+    backgroundColor: "#E8DCCD",
+    marginBottom: 14,
+  },
+  skeletonSeatRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -5,
+  },
+  skeletonSeat: {
+    width: 56,
+    height: 56,
+    margin: 5,
+    borderRadius: 12,
+    backgroundColor: "#EDE4D9",
+  },
+  skeletonFooter: {
+    paddingVertical: 12,
     alignItems: "center",
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#4C2B18",
+  refreshingBanner: {
+    backgroundColor: "rgba(76, 43, 24, 0.08)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  refreshingText: {
+    fontSize: 13,
+    color: "#5d4e41",
+    textAlign: "center",
+    fontWeight: "600",
   },
   header: {
     flexDirection: "row",

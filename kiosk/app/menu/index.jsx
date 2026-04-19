@@ -25,7 +25,7 @@ import OrderDetails from "../../components/OrderDetails";
 import Sidebar from "../../components/Sidebar";
 import { useResponsive } from "../../hooks/useResponsive";
 
-import { getCategories, getMenuItems, API_BASE_URL } from "../../services/api";
+import { getCategories, getMenuItems, getTaxDisplay, API_BASE_URL } from "../../services/api";
 
 // AsyncStorage keys for cart persistence
 const CART_STORAGE_KEY = '@kiosk_cart_items';
@@ -128,18 +128,12 @@ export default function MenuPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/menu/tax-display`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !data) return;
-        setTaxDisplay({
-          vat_enabled: Boolean(data.vat_enabled),
-          vat_rate_percent: Number(data.vat_rate_percent) || 0
-        });
-      } catch {
-        /* non-fatal */
-      }
+      const data = await getTaxDisplay();
+      if (cancelled || !data) return;
+      setTaxDisplay({
+        vat_enabled: Boolean(data.vat_enabled),
+        vat_rate_percent: Number(data.vat_rate_percent) || 0
+      });
     })();
     return () => {
       cancelled = true;

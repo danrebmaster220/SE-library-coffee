@@ -72,8 +72,7 @@ const OrderSuccess = () => {
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(countdownRef.current);
-          router.replace("/");
+          if (countdownRef.current) clearInterval(countdownRef.current);
           return 0;
         }
         return prev - 1;
@@ -83,7 +82,13 @@ const OrderSuccess = () => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [router]);
+  }, []);
+
+  // Navigate after countdown hits 0 — must not run inside setState (breaks NavigationContainer).
+  useEffect(() => {
+    if (countdown !== 0) return;
+    router.replace("/");
+  }, [countdown, router]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>

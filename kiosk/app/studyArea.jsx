@@ -2,6 +2,7 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { BookOpen, X, ArrowLeft } from "lucide-react-native";
 import { useEffect, useRef } from "react";
+import { prefetchLibrarySeatScreenData } from "../services/librarySeatsCache";
 import {
   Animated,
   StyleSheet,
@@ -23,6 +24,10 @@ export default function StudyAreaChoice() {
   const headerSlide = useRef(new Animated.Value(-30)).current;
   const cardsFade = useRef(new Animated.Value(0)).current;
   const cardsSlide = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    prefetchLibrarySeatScreenData();
+  }, []);
 
   useEffect(() => {
     // Animation values from useRef are stable and don't need to be in deps
