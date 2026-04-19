@@ -25,10 +25,10 @@ const ENV = {
 
     // Current setting (update when you deploy):
     // SE Backend
-    API_URL: 'https://library-coffee-se.onrender.com/api',
+    // API_URL: 'https://library-coffee-se.onrender.com/api',
 
     // Client Backend
-    //API_URL: 'https://library-coffee-api.onrender.com/api',
+    API_URL: 'https://library-coffee-api.onrender.com/api',
 
     ENV_NAME: 'production',
   },
