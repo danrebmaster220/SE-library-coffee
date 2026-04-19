@@ -1,6 +1,12 @@
+const fs = require('fs');
+const path = require('path');
 const db = require('../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
+
+/** DejaVu Sans (bundled) so PDFKit can render ₱ (U+20B1); core Helvetica maps it incorrectly. */
+const DEJAVU_SANS = path.join(__dirname, '..', 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans.ttf');
+const DEJAVU_SANS_BOLD = path.join(__dirname, '..', 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans-Bold.ttf');
 
 const buildAuditLogsWhereClause = ({ startDate, endDate, action, actorUserId, staffUserId, targetType, search }) => {
     const whereConditions = ['1=1'];
@@ -519,12 +525,22 @@ exports.getLibraryReport = async (req, res) => {
             SELECT 
                 COUNT(ls.session_id) as total_sessions,
                 COALESCE(SUM(ls.amount_paid), 0) as total_revenue,
-                COALESCE(SUM(ls.total_minutes), 0) as total_minutes
+                COALESCE(SUM(ls.total_minutes), 0) as total_minutes,
+                COALESCE(SUM(CASE WHEN ls.status = 'completed' THEN COALESCE(ls.vat_amount, 0) ELSE 0 END), 0) as net_vat,
+                COALESCE(SUM(CASE WHEN ls.status = 'completed' THEN COALESCE(ls.vatable_sales, 0) ELSE 0 END), 0) as net_vatable_base,
+                COALESCE(SUM(CASE WHEN ls.status = 'completed' THEN COALESCE(ls.non_vatable_sales, 0) ELSE 0 END), 0) as net_non_vatable
             FROM library_sessions ls
             WHERE ${whereClause}
         `, params);
 
-        const summary = summaryResult[0] || { total_sessions: 0, total_revenue: 0, total_minutes: 0 };
+        const summary = summaryResult[0] || {
+            total_sessions: 0,
+            total_revenue: 0,
+            total_minutes: 0,
+            net_vat: 0,
+            net_vatable_base: 0,
+            net_non_vatable: 0
+        };
         console.log('Library report summary:', summary);
         
         // Convert minutes to hours
@@ -544,7 +560,12 @@ exports.getLibraryReport = async (req, res) => {
                 ls.total_minutes,
                 ls.amount_paid,
                 ls.amount_due,
-                ls.status
+                ls.status,
+                COALESCE(ls.vat_amount, 0) as vat_amount,
+                COALESCE(ls.vatable_sales, 0) as vatable_sales,
+                COALESCE(ls.non_vatable_sales, 0) as non_vatable_sales,
+                ls.vat_rate_snapshot,
+                ls.vat_enabled_snapshot
             FROM library_sessions ls
             LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
             WHERE ${whereClause}
@@ -556,7 +577,10 @@ exports.getLibraryReport = async (req, res) => {
             summary: {
                 total_sessions: summary.total_sessions || 0,
                 total_revenue: parseFloat(summary.total_revenue) || 0,
-                total_hours: totalHours || 0
+                total_hours: totalHours || 0,
+                net_vat: parseFloat(summary.net_vat) || 0,
+                net_vatable_base: parseFloat(summary.net_vatable_base) || 0,
+                net_non_vatable: parseFloat(summary.net_non_vatable) || 0
             },
             sessions 
         });
@@ -770,6 +794,9 @@ exports.exportCSV = async (req, res) => {
                 .filter((o) => o.status === 'completed')
                 .reduce((sum, o) => sum + parseFloat(o.discount_amount || 0), 0);
             const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
+            const totalVat = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.vat_amount || 0), 0);
 
             rows.push(['ORDERS REPORT']);
             rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
@@ -781,6 +808,7 @@ exports.exportCSV = async (req, res) => {
             rows.push(['Pending/Other', pendingOrders]);
             rows.push(['Total Revenue', formatCurrency(totalRevenue)]);
             rows.push(['Total Discounts', formatCurrency(totalDiscounts)]);
+            rows.push(['Total VAT', formatCurrency(totalVat)]);
             rows.push(['Average Order Value', formatCurrency(avgOrderValue)]);
             rows.push([]);
             rows.push(['Order #', 'Date/Time', 'Beeper', 'Order Type', 'Items', 'Subtotal', 'Discount', 'Total', 'VAT', 'Status']);
@@ -926,7 +954,10 @@ exports.exportCSV = async (req, res) => {
                     ls.total_minutes,
                     ls.amount_paid,
                     ls.amount_due,
-                    ls.status
+                    ls.status,
+                    COALESCE(ls.vat_amount, 0) as vat_amount,
+                    COALESCE(ls.vatable_sales, 0) as vatable_sales,
+                    COALESCE(ls.non_vatable_sales, 0) as non_vatable_sales
                 FROM library_sessions ls
                 LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
                 WHERE ${whereConditions.join(' AND ')}
@@ -941,6 +972,15 @@ exports.exportCSV = async (req, res) => {
             const totalRevenue = sessions
                 .filter((s) => s.status === 'completed')
                 .reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
+            const netVat = sessions
+                .filter((s) => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vat_amount || 0), 0);
+            const netVatableBase = sessions
+                .filter((s) => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vatable_sales || 0), 0);
+            const netNonVatable = sessions
+                .filter((s) => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.non_vatable_sales || 0), 0);
 
             rows.push(['LIBRARY REPORT']);
             rows.push([`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
@@ -951,8 +991,11 @@ exports.exportCSV = async (req, res) => {
             rows.push(['Active Sessions', activeSessions]);
             rows.push(['Total Hours', `${totalHours} hrs`]);
             rows.push(['Total Revenue', formatCurrency(totalRevenue)]);
+            rows.push(['Net VAT (completed)', formatCurrency(netVat)]);
+            rows.push(['V net base (completed)', formatCurrency(netVatableBase)]);
+            rows.push(['Non-VAT (completed)', formatCurrency(netNonVatable)]);
             rows.push([]);
-            rows.push(['Session #', 'Date', 'Table', 'Seat', 'Customer Name', 'Start Time', 'End Time', 'Duration', 'Amount', 'Status']);
+            rows.push(['Session #', 'Date', 'Table', 'Seat', 'Customer Name', 'Start Time', 'End Time', 'Duration', 'Amount', 'Net VAT', 'V net', 'Non-VAT', 'Status']);
 
             sessions.forEach((session) => {
                 const durationMins = Number(session.total_minutes || 0);
@@ -970,6 +1013,9 @@ exports.exportCSV = async (req, res) => {
                     session.end_time ? formatDateTime(session.end_time) : '-',
                     durationStr,
                     formatCurrency(session.amount_paid || session.amount_due),
+                    formatCurrency(session.vat_amount || 0),
+                    formatCurrency(session.vatable_sales || 0),
+                    formatCurrency(session.non_vatable_sales || 0),
                     session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
                 ]);
             });
@@ -1195,6 +1241,9 @@ exports.exportExcel = async (req, res) => {
                 .filter(o => o.status === 'completed')
                 .reduce((sum, o) => sum + parseFloat(o.discount_amount || 0), 0);
             const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
+            const totalVat = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.vat_amount || 0), 0);
 
             // Title
             worksheet.mergeCells('A1:J1');
@@ -1224,6 +1273,7 @@ exports.exportExcel = async (req, res) => {
                 ['Pending/Other:', pendingOrders],
                 ['Total Revenue:', `₱${formatCurrency(totalRevenue)}`],
                 ['Total Discounts:', `₱${formatCurrency(totalDiscounts)}`],
+                ['Total VAT:', `₱${formatCurrency(totalVat)}`],
                 ['Average Order Value:', `₱${formatCurrency(avgOrderValue)}`]
             ];
 
@@ -1539,7 +1589,10 @@ exports.exportExcel = async (req, res) => {
                     ls.total_minutes,
                     ls.amount_paid,
                     ls.amount_due,
-                    ls.status
+                    ls.status,
+                    COALESCE(ls.vat_amount, 0) as vat_amount,
+                    COALESCE(ls.vatable_sales, 0) as vatable_sales,
+                    COALESCE(ls.non_vatable_sales, 0) as non_vatable_sales
                 FROM library_sessions ls
                 LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
                 WHERE ${whereConditions.join(' AND ')}
@@ -1555,9 +1608,18 @@ exports.exportExcel = async (req, res) => {
             const totalRevenue = sessions
                 .filter(s => s.status === 'completed')
                 .reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
+            const netVat = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vat_amount || 0), 0);
+            const netVatableBase = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vatable_sales || 0), 0);
+            const netNonVatable = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.non_vatable_sales || 0), 0);
 
             // Title
-            worksheet.mergeCells('A1:I1');
+            worksheet.mergeCells('A1:M1');
             const titleCell = worksheet.getCell('A1');
             titleCell.value = 'LIBRARY REPORT';
             titleCell.font = { bold: true, size: 16, color: { argb: 'FF6B4423' } };
@@ -1565,7 +1627,7 @@ exports.exportExcel = async (req, res) => {
             worksheet.getRow(1).height = 28;
 
             // Date Range
-            worksheet.mergeCells('A2:I2');
+            worksheet.mergeCells('A2:M2');
             const dateRangeCell = worksheet.getCell('A2');
             dateRangeCell.value = `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`;
             dateRangeCell.font = { size: 11, color: { argb: 'FF666666' } };
@@ -1581,7 +1643,10 @@ exports.exportExcel = async (req, res) => {
                 ['Completed Sessions:', completedSessions],
                 ['Active Sessions:', activeSessions],
                 ['Total Hours:', `${totalHours} hrs`],
-                ['Total Revenue:', `₱${formatCurrency(totalRevenue)}`]
+                ['Total Revenue:', `₱${formatCurrency(totalRevenue)}`],
+                ['Net VAT (completed):', `₱${formatCurrency(netVat)}`],
+                ['V net base (completed):', `₱${formatCurrency(netVatableBase)}`],
+                ['Non-VAT (completed):', `₱${formatCurrency(netNonVatable)}`]
             ];
 
             let summaryRow = 5;
@@ -1597,7 +1662,7 @@ exports.exportExcel = async (req, res) => {
             const dataStartRow = summaryRow + 1;
 
             // Headers
-            const headers = ['Session #', 'Date', 'Table', 'Seat', 'Customer Name', 'Start Time', 'End Time', 'Duration', 'Amount', 'Status'];
+            const headers = ['Session #', 'Date', 'Table', 'Seat', 'Customer Name', 'Start Time', 'End Time', 'Duration', 'Amount', 'Net VAT', 'V net', 'Non-VAT', 'Status'];
             headers.forEach((header, index) => {
                 const cell = worksheet.getCell(dataStartRow, index + 1);
                 cell.value = header;
@@ -1625,15 +1690,18 @@ exports.exportExcel = async (req, res) => {
                 row.getCell(7).value = session.end_time ? formatDateTime(session.end_time) : '-';
                 row.getCell(8).value = durationStr;
                 row.getCell(9).value = `₱${formatCurrency(session.amount_paid || session.amount_due)}`;
-                row.getCell(10).value = session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-';
+                row.getCell(10).value = `₱${formatCurrency(session.vat_amount || 0)}`;
+                row.getCell(11).value = `₱${formatCurrency(session.vatable_sales || 0)}`;
+                row.getCell(12).value = `₱${formatCurrency(session.non_vatable_sales || 0)}`;
+                row.getCell(13).value = session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-';
 
-                for (let col = 1; col <= 10; col++) {
+                for (let col = 1; col <= 13; col++) {
                     const cell = row.getCell(col);
                     cell.border = cellBorder;
                     cell.alignment = { horizontal: col === 5 ? 'left' : 'center', vertical: 'middle' };
                     
                     // Style status cell
-                    if (col === 10) {
+                    if (col === 13) {
                         if (session.status === 'completed') {
                             cell.font = { color: { argb: 'FF4CAF50' }, bold: true };
                         } else if (session.status === 'active') {
@@ -1658,6 +1726,9 @@ exports.exportExcel = async (req, res) => {
                 { width: 20 }, // End Time
                 { width: 12 }, // Duration
                 { width: 12 }, // Amount
+                { width: 12 }, // Net VAT
+                { width: 12 }, // V net
+                { width: 12 }, // Non-VAT
                 { width: 12 }  // Status
             ];
         } else if (type === 'audit') {
@@ -1820,6 +1891,19 @@ exports.exportPDF = async (req, res) => {
             layout: 'landscape'
         });
 
+        let pdfFontBody = 'Helvetica';
+        let pdfFontBold = 'Helvetica-Bold';
+        try {
+            if (fs.existsSync(DEJAVU_SANS) && fs.existsSync(DEJAVU_SANS_BOLD)) {
+                doc.registerFont('ReportSans', DEJAVU_SANS);
+                doc.registerFont('ReportSansBold', DEJAVU_SANS_BOLD);
+                pdfFontBody = 'ReportSans';
+                pdfFontBold = 'ReportSansBold';
+            }
+        } catch (err) {
+            console.warn('PDF report fonts (peso may not render):', err.message);
+        }
+
         let filename = '';
 
         // Helper function to format currency
@@ -1854,7 +1938,7 @@ exports.exportPDF = async (req, res) => {
 
         // Draw table header
         const drawTableHeader = (headers, y, columnWidths) => {
-            doc.font('Helvetica-Bold').fontSize(9);
+            doc.font(pdfFontBold).fontSize(9);
             let x = 40;
             
             // Header background
@@ -1872,7 +1956,7 @@ exports.exportPDF = async (req, res) => {
 
         // Draw table row
         const drawTableRow = (data, y, columnWidths, isAlternate = false) => {
-            doc.font('Helvetica').fontSize(8);
+            doc.font(pdfFontBody).fontSize(8);
             let x = 40;
             
             // Alternate row background
@@ -1891,9 +1975,9 @@ exports.exportPDF = async (req, res) => {
 
         // Add page header
         const addPageHeader = (title, subtitle) => {
-            doc.font('Helvetica-Bold').fontSize(18).fillColor('#3e2723');
+            doc.font(pdfFontBold).fontSize(18).fillColor('#3e2723');
             doc.text('LIBRARY COFFEE + STUDY', 40, 40);
-            doc.font('Helvetica').fontSize(12).fillColor('#666');
+            doc.font(pdfFontBody).fontSize(12).fillColor('#666');
             doc.text(title, 40, 62);
             doc.fontSize(10).fillColor('#888');
             doc.text(subtitle, 40, 78);
@@ -1956,21 +2040,34 @@ exports.exportPDF = async (req, res) => {
                 ORDER BY t.created_at DESC
             `, params);
 
-            // Calculate summary
+            // Calculate summary (align with CSV: revenue & VAT from completed orders only)
             const totalOrders = orders.length;
-            const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
-            const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+            const completedOrders = orders.filter((o) => o.status === 'completed').length;
+            const totalRevenue = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+            const totalVat = orders
+                .filter((o) => o.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.vat_amount || 0), 0);
+            const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
             // Page header
             let y = addPageHeader('Orders Report', `Date Range: ${startDate} to ${endDate}`);
 
             // Summary section
-            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.font(pdfFontBold).fontSize(11).fillColor('#3e2723');
             doc.text('Summary', 40, y);
             y += 18;
-            doc.font('Helvetica').fontSize(10).fillColor('black');
-            doc.text(`Total Orders: ${totalOrders}    |    Total Revenue: ${formatCurrency(totalRevenue)}    |    Average Order Value: ${formatCurrency(avgOrderValue)}`, 40, y);
-            y += 30;
+            doc.font(pdfFontBody).fontSize(10).fillColor('black');
+            doc.text(
+                `Total Orders: ${totalOrders}    |    Total Revenue: ${formatCurrency(totalRevenue)}    |    Average Order Value: ${formatCurrency(avgOrderValue)}`,
+                40,
+                y,
+                { width: 760 }
+            );
+            y += 16;
+            doc.text(`Total VAT (completed): ${formatCurrency(totalVat)}`, 40, y, { width: 760 });
+            y += 28;
 
             // Table
             const headers = ['Order #', 'Date/Time', 'Beeper', 'Type', 'Items', 'Subtotal', 'Discount', 'Total', 'VAT', 'Status'];
@@ -2061,10 +2158,10 @@ exports.exportPDF = async (req, res) => {
 
             let y = addPageHeader('Sales Report', `Date Range: ${startDate} to ${endDate}`);
 
-            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.font(pdfFontBold).fontSize(11).fillColor('#3e2723');
             doc.text('Summary', 40, y);
             y += 18;
-            doc.font('Helvetica').fontSize(9).fillColor('black');
+            doc.font(pdfFontBody).fontSize(9).fillColor('black');
             doc.text(
                 `Transactions: ${totalOrders}  |  Gross: ${formatCurrency(totalGross)}  |  Discounts: ${formatCurrency(totalDiscounts)}  |  Refunds: ${formatCurrency(totalRefunds)}  |  Net sales: ${formatCurrency(totalNetSales)}`,
                 40,
@@ -2136,7 +2233,10 @@ exports.exportPDF = async (req, res) => {
                     ls.total_minutes,
                     ls.amount_paid,
                     ls.amount_due,
-                    ls.status
+                    ls.status,
+                    COALESCE(ls.vat_amount, 0) as vat_amount,
+                    COALESCE(ls.vatable_sales, 0) as vatable_sales,
+                    COALESCE(ls.non_vatable_sales, 0) as non_vatable_sales
                 FROM library_sessions ls
                 LEFT JOIN library_seats s ON ls.seat_id = s.seat_id
                 WHERE ${whereConditions.join(' AND ')}
@@ -2152,26 +2252,51 @@ exports.exportPDF = async (req, res) => {
             const totalRevenue = sessions
                 .filter(s => s.status === 'completed')
                 .reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
+            const netVat = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vat_amount || 0), 0);
+            const netVatableBase = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.vatable_sales || 0), 0);
+            const netNonVatable = sessions
+                .filter(s => s.status === 'completed')
+                .reduce((sum, s) => sum + parseFloat(s.non_vatable_sales || 0), 0);
 
             // Page header
             let y = addPageHeader('Library Report', `Date Range: ${startDate} to ${endDate}`);
 
             // Summary section
-            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.font(pdfFontBold).fontSize(11).fillColor('#3e2723');
             doc.text('Summary', 40, y);
             y += 18;
-            doc.font('Helvetica').fontSize(10).fillColor('black');
-            doc.text(`Total Sessions: ${totalSessions}    |    Completed: ${completedSessions}    |    Active: ${activeSessions}    |    Total Hours: ${totalHours}    |    Revenue: ${formatCurrency(totalRevenue)}`, 40, y);
-            y += 30;
+            doc.font(pdfFontBody).fontSize(10).fillColor('black');
+            doc.text(
+                `Total Sessions: ${totalSessions}    |    Completed: ${completedSessions}    |    Active: ${activeSessions}    |    Total Hours: ${totalHours}    |    Revenue: ${formatCurrency(totalRevenue)}`,
+                40,
+                y,
+                { width: 760 }
+            );
+            y += 16;
+            doc.text(
+                `Net VAT (completed): ${formatCurrency(netVat)}    |    VATable base: ${formatCurrency(netVatableBase)}    |    Non-VAT: ${formatCurrency(netNonVatable)}`,
+                40,
+                y,
+                { width: 760 }
+            );
+            y += 28;
 
-            // Table
-            const headers = ['Session #', 'Customer', 'Table/Seat', 'Start Time', 'End Time', 'Duration', 'Amount', 'Status'];
-            const columnWidths = [80, 120, 80, 110, 110, 70, 80, 70];
+            // Table (760pt total width; abbreviated headers)
+            const headers = ['Session', 'Customer', 'T/S', 'Start', 'End', 'Dur', 'Amount', 'VAT', 'V net', 'Non-V', 'Status'];
+            const columnWidths = [56, 144, 52, 90, 90, 40, 62, 58, 58, 58, 52];
             
             y = drawTableHeader(headers, y, columnWidths);
 
             sessions.forEach((session, index) => {
-                y = checkNewPage(y);
+                if (y > 520) {
+                    doc.addPage();
+                    y = addPageHeader('Library Report (cont.)', `Date Range: ${startDate} to ${endDate}`);
+                    y = drawTableHeader(headers, y, columnWidths);
+                }
                 const durationMins = session.total_minutes || 0;
                 const hours = Math.floor(durationMins / 60);
                 const mins = durationMins % 60;
@@ -2180,11 +2305,14 @@ exports.exportPDF = async (req, res) => {
                 const rowData = [
                     `LIB-${String(session.session_id).padStart(6, '0')}`,
                     session.customer_name || '-',
-                    session.table_number ? `T${session.table_number} / S${session.seat_number}` : '-',
+                    session.table_number ? `T${session.table_number}/S${session.seat_number}` : '-',
                     formatDateTime(session.start_time),
                     session.end_time ? formatDateTime(session.end_time) : '-',
                     durationStr,
                     formatCurrency(session.amount_paid || session.amount_due),
+                    formatCurrency(session.vat_amount || 0),
+                    formatCurrency(session.vatable_sales || 0),
+                    formatCurrency(session.non_vatable_sales || 0),
                     session.status ? session.status.charAt(0).toUpperCase() + session.status.slice(1) : '-'
                 ];
                 y = drawTableRow(rowData, y, columnWidths, index % 2 === 1);
@@ -2232,10 +2360,10 @@ exports.exportPDF = async (req, res) => {
 
             let y = addPageHeader('Audit Trail Report', `Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`);
 
-            doc.font('Helvetica-Bold').fontSize(11).fillColor('#3e2723');
+            doc.font(pdfFontBold).fontSize(11).fillColor('#3e2723');
             doc.text('Summary', 40, y);
             y += 18;
-            doc.font('Helvetica').fontSize(10).fillColor('black');
+            doc.font(pdfFontBody).fontSize(10).fillColor('black');
             doc.text(
                 `Total Events: ${totalEvents}    |    Unique Actors: ${uniqueActors}    |    Force Closures: ${forceClosures}`,
                 40,
@@ -2283,7 +2411,7 @@ exports.exportPDF = async (req, res) => {
         const pages = doc.bufferedPageRange();
         for (let i = 0; i < pages.count; i++) {
             doc.switchToPage(i);
-            doc.font('Helvetica').fontSize(8).fillColor('#888');
+            doc.font(pdfFontBody).fontSize(8).fillColor('#888');
             doc.text(
                 `Generated on ${new Date().toLocaleString('en-PH')} | Page ${i + 1} of ${pages.count}`,
                 40, 545,

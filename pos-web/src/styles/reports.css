@@ -258,7 +258,7 @@
   background: #f5f0e8;
 }
 
-.export-dropdown-item:first-child {
+.export-dropdown-item:not(:last-child) {
   border-bottom: 1px solid #eee;
 }
 
@@ -268,30 +268,43 @@
   color: #6b4423;
 }
 
-.export-dropdown-item:first-child svg {
-  color: #217346; /* Excel green */
+.export-dropdown-item:nth-child(1) svg {
+  color: #217346; /* CSV */
 }
 
-.export-dropdown-item:last-child svg {
-  color: #d32f2f; /* PDF red */
+.export-dropdown-item:nth-child(2) svg {
+  color: #217346; /* Excel workbook */
 }
 
-/* Summary Cards */
+.export-dropdown-item:nth-child(3) svg {
+  color: #d32f2f; /* PDF */
+}
+
+/* Summary Cards — auto-fit wraps to extra rows instead of forcing one cramped row */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
   margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .summary-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   background: white;
-  padding: 20px;
+  padding: 16px 18px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.summary-info {
+  min-width: 0;
+  flex: 1;
 }
 
 .summary-icon {
@@ -343,10 +356,11 @@
 }
 
 .summary-value {
-  font-size: 24px;
+  font-size: clamp(1.125rem, 2.1vw, 1.5rem);
   font-weight: 700;
   color: #333;
   margin: 0;
+  line-height: 1.2;
 }
 
 /* Table Card */
@@ -1055,33 +1069,35 @@
   }
 }
 
-/* Summary Cards - Single column on mobile */
-.summary-cards {
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
+/* Summary Cards — compact single column on very small screens only */
+@media (max-width: 413px) {
+  .summary-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 
-.summary-card {
-  padding: 16px;
-  gap: 12px;
-}
+  .summary-card {
+    padding: 16px;
+    gap: 12px;
+  }
 
-.summary-icon {
-  width: 40px;
-  height: 40px;
-}
+  .summary-icon {
+    width: 40px;
+    height: 40px;
+  }
 
-.summary-icon svg {
-  width: 20px;
-  height: 20px;
-}
+  .summary-icon svg {
+    width: 20px;
+    height: 20px;
+  }
 
-.summary-info h4 {
-  font-size: 11px;
-}
+  .summary-info h4 {
+    font-size: 11px;
+  }
 
-.summary-value {
-  font-size: 20px;
+  .summary-value {
+    font-size: 1.25rem;
+  }
 }
 
 /* Table Card - Enable horizontal scroll */
@@ -1266,21 +1282,17 @@
   }
   
   .summary-cards {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 16px;
   }
   
   .summary-card {
-    padding: 20px;
+    padding: 18px;
   }
   
   .summary-icon {
     width: 48px;
     height: 48px;
-  }
-  
-  .summary-value {
-    font-size: 24px;
   }
   
   .data-table th,
@@ -1349,8 +1361,8 @@
   }
 
   .summary-cards {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 18px;
   }
   
   .charts-section {
@@ -1399,7 +1411,8 @@
   }
 
   .summary-cards {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
   }
   
   .bar-chart {
@@ -1410,11 +1423,11 @@
 /* === 1440px+: Large Desktop === */
 @media (min-width: 1440px) {
   .summary-card {
-    padding: 24px;
+    padding: 20px 22px;
   }
   
   .summary-value {
-    font-size: 28px;
+    font-size: clamp(1.25rem, 1.65vw, 1.75rem);
   }
 }
 

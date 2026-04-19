@@ -180,6 +180,41 @@ export default function Config() {
     loadPriceDelaySettings();
   }, []);
 
+  // Keep VAT toggle in sync when returning to this tab or after focus (avoids stale UI vs DB).
+  useEffect(() => {
+    if (!isAdminUser) return undefined;
+
+    const syncTaxFromServer = async () => {
+      try {
+        const settingsRes = await api.get('/menu/price-update-settings');
+        const s = settingsRes?.data?.settings;
+        if (s?.vat_rate_percent != null && s.vat_rate_percent !== '' && !Number.isNaN(Number(s.vat_rate_percent))) {
+          setVatRatePercent(String(s.vat_rate_percent));
+        }
+        if (s?.vat_enabled !== undefined && s?.vat_enabled !== null) {
+          setVatEnabled(Boolean(s.vat_enabled));
+        }
+      } catch (err) {
+        console.error('Tax settings sync:', err);
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncTaxFromServer();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    const onTaxUpdated = () => syncTaxFromServer();
+    window.addEventListener('tax-settings-updated', onTaxUpdated);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('tax-settings-updated', onTaxUpdated);
+    };
+  }, [isAdminUser]);
+
   useEffect(() => {
     const readStoredUser = () => {
       try {
@@ -482,25 +517,29 @@ export default function Config() {
     }
   };
 
-  const handleSaveTaxSettings = async () => {
-    setVatRateLoading(true);
-    setVatRateMessage(null);
-
+  /** Persists VAT rate + enabled flag. Used by Save button and the Enable VAT switch (immediate save). */
+  const persistVatSettings = async (enabledFlag, { showSuccessBanner = true } = {}) => {
     const trimmed = String(vatRatePercent ?? '').trim();
     const n = Number(trimmed);
     if (trimmed === '' || Number.isNaN(n) || n < 0 || n > 100) {
-      setVatRateMessage({
-        success: false,
-        message: 'Enter a VAT rate between 0 and 100 (e.g. 12 for 12%).'
-      });
-      setVatRateLoading(false);
-      return;
+      if (showSuccessBanner) {
+        setVatRateMessage({
+          success: false,
+          message: 'Enter a VAT rate between 0 and 100 (e.g. 12 for 12%).'
+        });
+      }
+      return false;
+    }
+
+    setVatRateLoading(true);
+    if (showSuccessBanner) {
+      setVatRateMessage(null);
     }
 
     try {
       const res = await api.put('/menu/tax-settings', {
         vat_rate_percent: n,
-        vat_enabled: vatEnabled
+        vat_enabled: enabledFlag
       });
       const s = res?.data?.settings;
       if (s?.vat_rate_percent != null) {
@@ -509,19 +548,27 @@ export default function Config() {
       if (s?.vat_enabled !== undefined) {
         setVatEnabled(Boolean(s.vat_enabled));
       }
-      setVatRateMessage({
-        success: true,
-        message: `Tax settings saved — VAT ${s?.vat_enabled ? 'on' : 'off'}, rate ${s?.vat_rate_percent ?? n}%`
-      });
+      if (showSuccessBanner) {
+        setVatRateMessage({
+          success: true,
+          message: `Tax settings saved — VAT ${s?.vat_enabled ? 'on' : 'off'}, rate ${s?.vat_rate_percent ?? n}%`
+        });
+      }
       window.dispatchEvent(new CustomEvent('tax-settings-updated'));
+      return true;
     } catch (err) {
       setVatRateMessage({
         success: false,
         message: err.response?.data?.error || 'Failed to save tax settings'
       });
+      return false;
     } finally {
       setVatRateLoading(false);
     }
+  };
+
+  const handleSaveTaxSettings = async () => {
+    await persistVatSettings(vatEnabled, { showSuccessBanner: true });
   };
 
   const handleSaveCupsStock = async () => {
@@ -816,7 +863,16 @@ export default function Config() {
                   role="switch"
                   aria-checked={vatEnabled}
                   checked={vatEnabled}
-                  onChange={(e) => setVatEnabled(e.target.checked)}
+                  disabled={vatRateLoading}
+                  onChange={async (e) => {
+                    const next = e.target.checked;
+                    const prev = vatEnabled;
+                    setVatEnabled(next);
+                    const ok = await persistVatSettings(next, { showSuccessBanner: true });
+                    if (!ok) {
+                      setVatEnabled(prev);
+                    }
+                  }}
                 />
                 <span className="settings-switch-slider" />
               </label>

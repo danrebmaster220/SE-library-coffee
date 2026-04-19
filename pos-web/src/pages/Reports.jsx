@@ -34,7 +34,14 @@ export default function Reports() {
   
   // Library report state
   const [libraryData, setLibraryData] = useState([]);
-  const [librarySummary, setLibrarySummary] = useState({ total_sessions: 0, total_revenue: 0, total_hours: 0 });
+  const [librarySummary, setLibrarySummary] = useState({
+    total_sessions: 0,
+    total_revenue: 0,
+    total_hours: 0,
+    net_vat: 0,
+    net_vatable_base: 0,
+    net_non_vatable: 0
+  });
   const [sessionStatusFilter, setSessionStatusFilter] = useState('');
 
   // Audit report state
@@ -177,11 +184,27 @@ export default function Reports() {
       });
       console.log('Library report response:', response.data);
       setLibraryData(response.data.sessions || []);
-      setLibrarySummary(response.data.summary || { total_sessions: 0, total_revenue: 0, total_hours: 0 });
+      setLibrarySummary(
+        response.data.summary || {
+          total_sessions: 0,
+          total_revenue: 0,
+          total_hours: 0,
+          net_vat: 0,
+          net_vatable_base: 0,
+          net_non_vatable: 0
+        }
+      );
     } catch (error) {
       console.error('Error fetching library report:', error.response?.data || error.message);
       setLibraryData([]);
-      setLibrarySummary({ total_sessions: 0, total_revenue: 0, total_hours: 0 });
+      setLibrarySummary({
+        total_sessions: 0,
+        total_revenue: 0,
+        total_hours: 0,
+        net_vat: 0,
+        net_vatable_base: 0,
+        net_non_vatable: 0
+      });
     }
   };
 
@@ -233,36 +256,39 @@ export default function Reports() {
     }
   };
 
+  const buildReportExportParams = (format) => {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+      type: activeTab,
+      format
+    });
+    if (activeTab === 'orders') {
+      if (orderTypeFilter) params.append('orderType', orderTypeFilter);
+      if (orderStatusFilter) params.append('status', orderStatusFilter);
+      if (cashierFilter) params.append('cashierUserId', cashierFilter);
+    } else if (activeTab === 'sales') {
+      if (cashierFilter) params.append('cashierUserId', cashierFilter);
+    } else if (activeTab === 'library') {
+      if (sessionStatusFilter) params.append('status', sessionStatusFilter);
+      if (cashierFilter) params.append('cashierUserId', cashierFilter);
+    } else if (activeTab === 'audit') {
+      if (auditActionFilter) params.append('action', auditActionFilter);
+      if (cashierFilter) params.append('staffUserId', cashierFilter);
+      if (searchTerm) params.append('search', searchTerm);
+    }
+    return params;
+  };
+
   const handleExportCSV = async () => {
     try {
       const token = localStorage.getItem('token');
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-        type: activeTab,
-        format: 'csv'
-      });
-      
-      if (activeTab === 'orders') {
-        if (orderTypeFilter) params.append('orderType', orderTypeFilter);
-        if (orderStatusFilter) params.append('status', orderStatusFilter);
-        if (cashierFilter) params.append('cashierUserId', cashierFilter);
-      } else if (activeTab === 'sales') {
-        if (cashierFilter) params.append('cashierUserId', cashierFilter);
-      } else if (activeTab === 'library') {
-        if (sessionStatusFilter) params.append('status', sessionStatusFilter);
-        if (cashierFilter) params.append('cashierUserId', cashierFilter);
-      } else if (activeTab === 'audit') {
-        if (auditActionFilter) params.append('action', auditActionFilter);
-        if (cashierFilter) params.append('staffUserId', cashierFilter);
-        if (searchTerm) params.append('search', searchTerm);
-      }
+      const params = buildReportExportParams('csv');
 
-      // Use fetch with auth header to download the file
       const response = await fetch(`${api.defaults.baseURL}/reports/export?${params.toString()}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       });
 
@@ -270,7 +296,6 @@ export default function Reports() {
         throw new Error('Export failed');
       }
 
-      // Get the filename from the response headers
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = `report_${activeTab}_${startDate}_to_${endDate}.csv`;
       if (contentDisposition) {
@@ -280,7 +305,6 @@ export default function Reports() {
         }
       }
 
-      // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -294,6 +318,47 @@ export default function Reports() {
     } catch (error) {
       console.error('CSV export error:', error);
       showToast('Failed to export CSV. Please try again.', 'error');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = buildReportExportParams('excel');
+
+      const response = await fetch(`${api.defaults.baseURL}/reports/export?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `report_${activeTab}_${startDate}_to_${endDate}.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setShowExportDropdown(false);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      showToast('Failed to export Excel. Please try again.', 'error');
     }
   };
 
@@ -880,7 +945,16 @@ export default function Reports() {
                   <line x1="16" y1="13" x2="8" y2="13"></line>
                   <line x1="16" y1="17" x2="8" y2="17"></line>
                 </svg>
-                <span>Excel (.csv)</span>
+                <span>CSV (.csv)</span>
+              </button>
+              <button className="export-dropdown-item" onClick={handleExportExcel}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <path d="M12 18v-6"></path>
+                  <path d="M9 15h6"></path>
+                </svg>
+                <span>Excel (.xlsx)</span>
               </button>
               <button className="export-dropdown-item" onClick={handleExportPDF}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1080,7 +1154,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Net Sales</h4>
+                <h4>Net sales</h4>
                 <p className="summary-value">{formatCurrency(salesData?.total_sales || 0)}</p>
               </div>
             </div>
@@ -1092,7 +1166,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Total Discounts</h4>
+                <h4>Discounts</h4>
                 <p className="summary-value">{formatCurrency(salesData?.total_discounts || 0)}</p>
               </div>
             </div>
@@ -1104,7 +1178,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Total Transactions</h4>
+                <h4>Orders</h4>
                 <p className="summary-value">{salesData?.total_orders || 0}</p>
               </div>
             </div>
@@ -1113,7 +1187,7 @@ export default function Reports() {
                 <span style={{ fontSize: '11px', fontWeight: 700 }}>VAT</span>
               </div>
               <div className="summary-info">
-                <h4>Net VAT</h4>
+                <h4>VAT</h4>
                 <p className="summary-value">{formatCurrency(salesData?.net_vat ?? 0)}</p>
               </div>
             </div>
@@ -1127,7 +1201,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>VATable (V) net</h4>
+                <h4>V net</h4>
                 <p className="summary-value">{formatCurrency(salesData?.net_vatable_base ?? 0)}</p>
               </div>
             </div>
@@ -1139,7 +1213,7 @@ export default function Reports() {
                 </svg>
               </div>
               <div className="summary-info">
-                <h4>Non-VAT (net)</h4>
+                <h4>Non-VAT</h4>
                 <p className="summary-value">{formatCurrency(salesData?.net_non_vatable ?? 0)}</p>
               </div>
             </div>
@@ -1182,6 +1256,40 @@ export default function Reports() {
               <div className="summary-info">
                 <h4>Total Hours</h4>
                 <p className="summary-value">{librarySummary.total_hours} hrs</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon sales-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>VAT</h4>
+                <p className="summary-value">{formatCurrency(librarySummary.net_vat ?? 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon discount-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <path d="M9 9h6v6H9z"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>V net</h4>
+                <p className="summary-value">{formatCurrency(librarySummary.net_vatable_base ?? 0)}</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon avg-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+              </div>
+              <div className="summary-info">
+                <h4>Non-VAT</h4>
+                <p className="summary-value">{formatCurrency(librarySummary.net_non_vatable ?? 0)}</p>
               </div>
             </div>
           </>
@@ -1388,6 +1496,9 @@ export default function Reports() {
                         <th>End Time</th>
                         <th>Duration</th>
                         <th>Amount Paid</th>
+                        <th>Net VAT</th>
+                        <th>V net</th>
+                        <th>Non-VAT</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -1402,6 +1513,9 @@ export default function Reports() {
                           <td>{session.end_time ? new Date(session.end_time).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                           <td>{session.total_minutes ? `${Math.floor(session.total_minutes / 60)}h ${session.total_minutes % 60}m` : '-'}</td>
                           <td className="total-cell">{formatCurrency(session.amount_paid)}</td>
+                          <td>{formatCurrency(session.vat_amount ?? 0)}</td>
+                          <td>{formatCurrency(session.vatable_sales ?? 0)}</td>
+                          <td>{formatCurrency(session.non_vatable_sales ?? 0)}</td>
                           <td>
                             <span className={`status-badge ${session.status}`}>
                               {session.status}

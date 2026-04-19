@@ -179,7 +179,9 @@ function buildCustomerReceipt(order, copyLabel = 'CUSTOMER RECEIPT') {
     receipt += separator() + '\n';
     
     // Items with customizations
+    receipt += COMMANDS.ALIGN_CENTER;
     receipt += 'ITEMS:\n';
+    receipt += COMMANDS.ALIGN_LEFT;
     if (order.items && order.items.length > 0) {
         order.items.forEach(item => {
             const itemName = item.name || item.item_name;
@@ -229,13 +231,14 @@ function buildCustomerReceipt(order, copyLabel = 'CUSTOMER RECEIPT') {
     
     // Totals
     receipt += COMMANDS.ALIGN_RIGHT;
-    receipt += `Subtotal: ${formatCurrency(order.total_amount || order.subtotal)}\n`;
+    receipt += `Subtotal: ${formatCurrency(order.subtotal ?? order.total_amount)}\n`;
     
     if (order.discount_amount && parseFloat(order.discount_amount) > 0) {
-        receipt += `Discount: -${formatCurrency(order.discount_amount)}\n`;
+        const dLabel = order.discount_name ? `Discount (${order.discount_name})` : 'Discount';
+        receipt += `${dLabel}: -${formatCurrency(order.discount_amount)}\n`;
     }
 
-    receipt += COMMANDS.ALIGN_LEFT;
+    receipt += COMMANDS.ALIGN_CENTER;
     receipt += 'TAX BREAKDOWN\n';
     receipt += COMMANDS.ALIGN_RIGHT;
     const netVatable =
@@ -885,7 +888,9 @@ async function printWithESCPOS(order) {
                     .style('normal')
                     .text(cashierFirstName ? `Cashier: ${cashierFirstName}` : '')
                     .text('--------------------------------')
-                    .text('ITEMS:');
+                    .align('ct')
+                    .text('ITEMS:')
+                    .align('lt');
 
                 if (order.items && order.items.length > 0) {
                     order.items.forEach(item => {
@@ -899,18 +904,41 @@ async function printWithESCPOS(order) {
                     });
                 }
 
+                const subtotalVal = parseFloat(order.subtotal ?? order.total_amount ?? 0);
+                const netV =
+                    order.net_vatable_sales != null && order.net_vatable_sales !== undefined
+                        ? parseFloat(order.net_vatable_sales)
+                        : Math.max(
+                              0,
+                              parseFloat(order.vatable_sales || 0) - parseFloat(order.vat_amount || 0)
+                          );
+                const vatAmt = parseFloat(order.vat_amount || 0);
+                const nonVat = parseFloat(order.non_vatable_sales || 0);
+                const finalTot = parseFloat(order.final_amount ?? order.total_amount ?? 0);
+
                 printer
                     .text('--------------------------------')
                     .align('rt')
-                    .text(`Subtotal: ${parseFloat(order.total_amount).toFixed(2)}`);
+                    .text(`Subtotal: ${subtotalVal.toFixed(2)}`);
 
-                if (order.discount_amount && order.discount_amount > 0) {
-                    printer.text(`Discount: -${parseFloat(order.discount_amount).toFixed(2)}`);
+                if (order.discount_amount && parseFloat(order.discount_amount) > 0) {
+                    const dLabel = order.discount_name ? `Discount (${order.discount_name})` : 'Discount';
+                    printer.text(`${dLabel}: -${parseFloat(order.discount_amount).toFixed(2)}`);
                 }
 
                 printer
+                    .align('ct')
                     .style('b')
-                    .text(`TOTAL: ${parseFloat(order.final_amount || order.total_amount).toFixed(2)}`)
+                    .text('TAX BREAKDOWN')
+                    .style('normal')
+                    .align('rt')
+                    .text(`VATable (V): ${netV.toFixed(2)}`)
+                    .text(`Non-VATable: ${nonVat.toFixed(2)}`)
+                    .text(`VAT: ${vatAmt.toFixed(2)}`);
+
+                printer
+                    .style('b')
+                    .text(`TOTAL: ${finalTot.toFixed(2)}`)
                     .style('normal');
 
                 if (order.cash_tendered) {

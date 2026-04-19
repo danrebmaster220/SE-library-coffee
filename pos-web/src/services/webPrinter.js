@@ -27,6 +27,14 @@ const RECEIPT_STYLES = `
   .info-label { font-weight: normal; }
   .info-value { text-align: right; }
   .section-title { font-weight: bold; font-size: 12px; margin-top: 4px; }
+  .section-title-center {
+    text-align: center !important;
+    width: 100% !important;
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .receipt .totals .section-title-center { text-align: center !important; }
   .item-row { margin: 5px 0; }
   .item-name { font-size: 12px; font-weight: bold; }
   .item-detail { font-size: 10px; padding-left: 12px; color: #444; }
@@ -125,7 +133,7 @@ function taxBreakdownRowsHtml(data, title = 'TAX BREAKDOWN') {
       ? parseFloat(data.net_vatable_sales)
       : Math.max(0, parseFloat(data.vatable_sales || 0) - parseFloat(data.vat_amount || 0));
   return `
-      <div class="section-title">${title}</div>
+      <div class="section-title section-title-center" style="text-align:center;width:100%;display:block;">${title}</div>
       <div class="row"><span>VATable (V):</span><span>${formatCurrency(net)}</span></div>
       <div class="row"><span>Non-VATable:</span><span>${formatCurrency(data.non_vatable_sales || 0)}</span></div>
       <div class="row"><span>VAT:</span><span>${formatCurrency(data.vat_amount || 0)}</span></div>
@@ -198,7 +206,7 @@ function buildCustomerReceiptHTML(data, copyLabel = 'CUSTOMER RECEIPT') {
       <div class="info-row"><span>Beeper #:</span><span>${data.beeper_number}</span></div>
       ${cashierFirstName ? `<div class="info-row"><span>Cashier:</span><span>${escapeHtml(cashierFirstName)}</span></div>` : ''}
       <div class="separator">${SEP}</div>
-      <div class="section-title">ITEMS:</div>
+      <div class="section-title section-title-center" style="text-align:center;width:100%;display:block;">ITEMS:</div>
       ${itemsHTML}
       <div class="separator">${SEP}</div>
       ${bookingHTML}
@@ -519,7 +527,8 @@ function showReceiptModal(htmlContent, title = 'Receipt Preview', receiptData = 
     const style = document.createElement('style');
     style.textContent = RECEIPT_STYLES;
     paper.appendChild(style);
-    paper.innerHTML += htmlContent;
+    // Use insertAdjacentHTML so we do not replace the <style> node (innerHTML += can drop styles).
+    paper.insertAdjacentHTML('beforeend', htmlContent);
 
     content.appendChild(paper);
 
@@ -663,7 +672,7 @@ function buildPlainTextCustomerReceipt(data, copyLabel = 'CUSTOMER RECEIPT') {
   if (cashierFirstName) lines.push(txtLR('Cashier:', cashierFirstName));
   lines.push(TXT_SEP);
 
-  lines.push('ITEMS:');
+  lines.push(txtCenter('ITEMS:'));
   (data.items || []).forEach(item => {
     const customs = parseCustomizations(item.customizations);
     let nameStr = `${item.quantity}x ${item.name}`;
@@ -699,7 +708,7 @@ function buildPlainTextCustomerReceipt(data, copyLabel = 'CUSTOMER RECEIPT') {
     const dl = data.discount_name ? `Disc (${data.discount_name}):` : 'Discount:';
     lines.push(txtLR(dl, '-' + txtMoney(data.discount_amount)));
   }
-  lines.push('TAX BREAKDOWN');
+  lines.push(txtCenter('TAX BREAKDOWN'));
   const netV =
     data.net_vatable_sales != null && data.net_vatable_sales !== undefined
       ? parseFloat(data.net_vatable_sales)
@@ -1107,12 +1116,6 @@ function openThermalPrint(receiptData, printEndpoint) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  const printWindow = window.open('', '_blank', 'width=360,height=600');
-  if (!printWindow || printWindow.closed) {
-    alert('Popup blocked! Please allow popups for this site, then try again.');
-    return;
-  }
-
   const printDoc = `<!DOCTYPE html>
 <html><head><title>Receipt</title>
 <style>
@@ -1131,25 +1134,96 @@ function openThermalPrint(receiptData, printEndpoint) {
 </style></head>
 <body>${escaped}</body></html>`;
 
-  printWindow.document.write(printDoc);
-  printWindow.document.close();
+  /**
+   * Hidden iframe print avoids popup blockers. window.open() after async work (e.g. failed
+   * localhost:9100 fetch + auto-print timer) is not a "user gesture", so the browser blocks it.
+   */
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('title', 'Thermal print');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText =
+    'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;right:0;bottom:0;';
+  document.body.appendChild(iframe);
 
-  const triggerPrint = () => {
-    printWindow.focus();
-    try { printWindow.print(); } catch (err) { console.error('Print failed:', err); }
+  const idoc = iframe.contentDocument || iframe.contentWindow.document;
+  const iwin = iframe.contentWindow;
+
+  const cleanup = () => {
     try {
-      printWindow.onafterprint = () => {
-        setTimeout(() => { try { printWindow.close(); } catch { /* ignore */ } }, 500);
-      };
-    } catch { /* ignore */ }
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    } catch {
+      /* ignore */
+    }
   };
 
-  if (printWindow.document.readyState === 'complete') {
-    setTimeout(triggerPrint, 500);
-  } else {
-    printWindow.onload = () => setTimeout(triggerPrint, 300);
-    setTimeout(triggerPrint, 2000);
+  try {
+    idoc.open();
+    idoc.write(printDoc);
+    idoc.close();
+  } catch (err) {
+    console.error('Print iframe write failed:', err);
+    cleanup();
+    const printWindow = window.open('', '_blank', 'width=360,height=600');
+    if (!printWindow || printWindow.closed) {
+      alert('Popup blocked! Please allow popups for this site, then try again.');
+      return;
+    }
+    printWindow.document.write(printDoc);
+    printWindow.document.close();
+    const triggerPrint = () => {
+      printWindow.focus();
+      try {
+        printWindow.print();
+      } catch (e) {
+        console.error('Print failed:', e);
+      }
+    };
+    if (printWindow.document.readyState === 'complete') {
+      setTimeout(triggerPrint, 300);
+    } else {
+      printWindow.onload = () => setTimeout(triggerPrint, 300);
+    }
+    printWindow.onafterprint = () => setTimeout(() => { try { printWindow.close(); } catch { /* ignore */ } }, 300);
+    return;
   }
+
+  const triggerPrint = () => {
+    try {
+      iwin.focus();
+      iwin.print();
+    } catch (err) {
+      console.error('Print failed:', err);
+    }
+  };
+
+  const afterPrint = () => {
+    cleanup();
+    try {
+      iwin.removeEventListener('afterprint', afterPrint);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  try {
+    iwin.addEventListener('afterprint', afterPrint);
+  } catch {
+    /* ignore */
+  }
+
+  if (idoc.readyState === 'complete') {
+    setTimeout(triggerPrint, 150);
+  } else {
+    iframe.onload = () => setTimeout(triggerPrint, 150);
+  }
+
+  setTimeout(() => {
+    try {
+      if (iframe.parentNode) cleanup();
+    } catch {
+      /* ignore */
+    }
+  }, 120000);
 }
 
 // ============================================
