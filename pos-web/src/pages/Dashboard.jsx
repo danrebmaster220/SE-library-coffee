@@ -197,7 +197,7 @@ export default function Dashboard() {
   const totalCategorySales = categorySales.reduce((sum, cat) => sum + cat.sales, 0);
 
   // APK download URL from latest EAS build
-  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/gPoFjSWEHhLufU4Xnh6UZ6.apk';
+  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/jBNiBB8Ug4k8RCCVH4uqoa.apk';
 
   if (loading) {
     return (
